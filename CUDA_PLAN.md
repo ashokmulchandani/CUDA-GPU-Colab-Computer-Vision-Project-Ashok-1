@@ -178,6 +178,84 @@
 | 6F.7 | Load testing — measure max throughput before latency degrades |
 | 6F.8 | CI/CD for GPU models — build TensorRT engine in pipeline, deploy to Triton |
 
+## Phase 7: Computer Vision & 3D Perception (LIDAR, Point Clouds, Sensor Fusion)
+
+> Target role: Computer Vision / ML Engineer — end-to-end from raw sensor data to deployed solutions.
+> Skills: LIDAR, cameras, multi-sensor inputs, point clouds, image processing, sensor fusion, spatial understanding.
+
+### 7A: Point Cloud Processing on GPU
+
+| Step | Task |
+|------|------|
+| 7A.1 | Understand point clouds — XYZ + intensity, unstructured 3D data |
+| 7A.2 | Load LIDAR data (`.pcd`, `.ply`, `.las` formats) into GPU memory |
+| 7A.3 | CUDA kernel: voxel grid downsampling — reduce millions of points to manageable size |
+| 7A.4 | CUDA kernel: radius/KNN search — find nearest neighbors in 3D space |
+| 7A.5 | CUDA kernel: ground plane segmentation — RANSAC on GPU |
+| 7A.6 | CUDA kernel: clustering (DBSCAN on GPU) — group points into objects |
+| 7A.7 | CUDA kernel: bounding box fitting — oriented 3D boxes around clusters |
+| 7A.8 | Benchmark vs Open3D / PCL (CPU) — measure GPU speedup |
+
+### 7B: 3D Object Detection (PointNet / PointPillars)
+
+| Step | Task |
+|------|------|
+| 7B.1 | Understand PointNet architecture — per-point MLP + global max pooling |
+| 7B.2 | Implement PointNet forward pass in CUDA — shared MLP kernels |
+| 7B.3 | Understand PointPillars — convert point cloud to 2D pseudo-image |
+| 7B.4 | CUDA kernel: pillar creation — scatter points into vertical columns |
+| 7B.5 | CUDA kernel: pillar feature encoding — per-pillar PointNet |
+| 7B.6 | 2D backbone (SSD-style) on encoded pillars — detect objects in BEV |
+| 7B.7 | 3D NMS kernel — filter overlapping 3D bounding boxes |
+| 7B.8 | TensorRT deployment of PointPillars — real-time 3D detection |
+
+### 7C: Sensor Fusion (Camera + LIDAR)
+
+| Step | Task |
+|------|------|
+| 7C.1 | Camera calibration — intrinsic/extrinsic matrices, distortion correction |
+| 7C.2 | LIDAR-to-camera projection kernel — project 3D points onto 2D image plane |
+| 7C.3 | Camera-to-LIDAR back-projection — lift 2D detections into 3D space |
+| 7C.4 | Early fusion — concatenate image features + point cloud features on GPU |
+| 7C.5 | Late fusion — run 2D detector (YOLO) + 3D detector (PointPillars), merge results |
+| 7C.6 | Temporal fusion — track objects across frames using Kalman filter on GPU |
+| 7C.7 | BEV (Bird's Eye View) fusion — project both sensors to common BEV grid |
+| 7C.8 | End-to-end pipeline: LIDAR + Camera → fused detections → tracked objects |
+
+### 7D: Depth Estimation & Stereo Vision
+
+| Step | Task |
+|------|------|
+| 7D.1 | Stereo matching kernel — compute disparity map from left/right cameras |
+| 7D.2 | Semi-Global Matching (SGM) on GPU — cost aggregation along multiple paths |
+| 7D.3 | Monocular depth estimation — deploy MiDaS/DPT with TensorRT |
+| 7D.4 | Depth to point cloud kernel — convert depth map to 3D points |
+| 7D.5 | Occupancy grid kernel — build 2D/3D occupancy from depth data |
+| 7D.6 | Benchmark: stereo vs LIDAR vs monocular depth accuracy |
+
+### 7E: Image Processing Kernels for Perception
+
+| Step | Task |
+|------|------|
+| 7E.1 | CUDA kernel: image undistortion — correct lens distortion in real-time |
+| 7E.2 | CUDA kernel: color space conversion — RGB↔YUV↔HSV on GPU |
+| 7E.3 | CUDA kernel: image warping — perspective transform, bird's eye view |
+| 7E.4 | CUDA kernel: feature extraction — FAST/ORB keypoints on GPU |
+| 7E.5 | CUDA kernel: optical flow — Lucas-Kanade or Farneback on GPU |
+| 7E.6 | CUDA kernel: image stitching — multi-camera panorama in real-time |
+| 7E.7 | Integration with GStreamer/DeepStream — GPU-accelerated video pipeline |
+
+### 7F: Spatial Understanding & Mapping
+
+| Step | Task |
+|------|------|
+| 7F.1 | Visual SLAM basics — feature matching + pose estimation on GPU |
+| 7F.2 | ICP (Iterative Closest Point) kernel — align point clouds across frames |
+| 7F.3 | Voxel-based mapping — build 3D map from accumulated LIDAR scans |
+| 7F.4 | Semantic segmentation on point clouds — per-point classification |
+| 7F.5 | Free-space detection — identify drivable/walkable areas |
+| 7F.6 | Deploy full perception stack: sensors → preprocessing → detection → tracking → mapping |
+
 ---
 
 ## Execution Order (Recommended)
@@ -202,6 +280,12 @@
 | Session 16 | Phase 6D: Multi-stream + CUDA Graphs (steps 6D.1–6D.8) | 3-4 hrs |
 | Session 17 | Phase 6E: Custom production kernels (steps 6E.1–6E.7) | 3-4 hrs |
 | Session 18 | Phase 6F: Deployment + infrastructure (steps 6F.1–6F.8) | 3-4 hrs |
+| Session 19 | Phase 7A: Point cloud processing on GPU (steps 7A.1–7A.8) | 4-5 hrs |
+| Session 20 | Phase 7B: 3D object detection - PointPillars (steps 7B.1–7B.8) | 4-5 hrs |
+| Session 21 | Phase 7C: Sensor fusion - Camera + LIDAR (steps 7C.1–7C.8) | 4-5 hrs |
+| Session 22 | Phase 7D: Depth estimation + stereo (steps 7D.1–7D.6) | 3-4 hrs |
+| Session 23 | Phase 7E: Image processing kernels (steps 7E.1–7E.7) | 3-4 hrs |
+| Session 24 | Phase 7F: Spatial understanding + mapping (steps 7F.1–7F.6) | 4-5 hrs |
 
 ---
 
@@ -217,8 +301,11 @@
 | Data | MNIST, Chicken Disease dataset |
 | MLOps | DVC, GitHub Actions |
 | Deployment | Docker (CUDA runtime), FastAPI, AWS EC2 GPU |
-| Models | MLP, CNN, VGG16, YOLOv5/v8 |
+| Models | MLP, CNN, VGG16, YOLOv5/v8, PointNet, PointPillars |
 | Production Inference | TensorRT, ONNX Runtime, NVIDIA Triton |
+| 3D / Perception | Open3D, PCL, LIDAR processing, stereo vision |
+| Sensor Fusion | Camera calibration, LIDAR-camera projection, BEV fusion |
+| Video Pipeline | GStreamer, NVIDIA DeepStream, NVDEC |
 | Streaming | CUDA Streams, CUDA Graphs, async execution |
 | Video | NVDEC (GPU video decode) |
 | Monitoring | Nsight Systems, Nsight Compute, Prometheus, Grafana |
@@ -233,6 +320,7 @@
 | Phase 4 | Colab Pro | V100 16GB | ~$12/month |
 | Phase 5 | AWS g5.xlarge or Colab Pro+ | A10G / A100 | ~$1/hr or ~$50/month |
 | Phase 6 | AWS g5.xlarge or local GPU | A10G / T4 | ~$1/hr |
+| Phase 7 | AWS g5.xlarge or Colab Pro+ | A10G / A100 | ~$1/hr or ~$50/month |
 
 ### Compile CUDA in Colab
 
