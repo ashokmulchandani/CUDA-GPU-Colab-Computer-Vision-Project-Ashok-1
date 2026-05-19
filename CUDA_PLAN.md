@@ -135,6 +135,38 @@
 
 ---
 
+## GPU Environment Setup
+
+| Phase | Environment | GPU | Cost |
+|-------|-------------|-----|------|
+| Phase 1-3.5 | Google Colab (Free) | T4 16GB | Free |
+| Phase 4 | Colab Pro | V100 16GB | ~$12/month |
+| Phase 5 | AWS g5.xlarge or Colab Pro+ | A10G / A100 | ~$1/hr or ~$50/month |
+
+### Compile CUDA in Colab
+
+```python
+# Write CUDA file
+%%writefile vector_add.cu
+#include <stdio.h>
+__global__ void add(int *a, int *b, int *c) { ... }
+
+# Compile and run
+!nvcc vector_add.cu -o vector_add && ./vector_add
+```
+
+### Cloud GPU Options (Phase 5 / Large Training)
+
+| Provider | GPU | Cost |
+|----------|-----|------|
+| AWS p4d.24xlarge | 8x A100 (40GB) | ~$32/hr |
+| Azure ND A100 v4 | 8x A100 | ~$27/hr |
+| Lambda Cloud | A100 | ~$1.10/hr |
+| RunPod | A100 / H100 | ~$1.64/hr |
+| NVIDIA DGX Cloud | H100 pods | Contact sales |
+
+---
+
 ## Prerequisites
 
 | Requirement | How to Check |
