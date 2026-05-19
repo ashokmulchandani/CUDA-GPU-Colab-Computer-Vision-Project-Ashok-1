@@ -1,0 +1,61 @@
+Based on the three images provided, here is the extracted information detailing the hierarchical architecture of a modern GPU (likely NVIDIA Hopper or similar), moving from the entire die down to the individual processing units.
+
+1. GPU Die (The Global Layout)
+The GPU Die is the complete graphics processor layout, managing high-level data movement and communication.
+
+GigaThread Engine (MIG Control): A hardware-managed engine that handles thread blocks with near-zero scheduling cost.
+
+HBM3 Memory Stack: Provides massive bandwidth to ensure data is constantly arriving for processing.
+
+Memory Controller (MC): Merges and reorders memory requests to enable better performance through efficient patterns.
+
+L2 Cache Slice: Prevents repeated global memory access, which reduces power consumption and latency.
+
+NVLink Interface: Facilitates GPU-to-GPU communication, removing bottlenecks typically caused by the CPU.
+
+PCIe 5.0 Interface: The host interface; the diagram notes this is not for fine-grained work, as constant CPU sync can degrade performance.
+
+High Speed Hub: Coordinates memory, compute, and I/O to prevent blocking under heavy workloads.
+
+Graphics Processing Cluster (GPC): Independent execution clusters that scale workloads without coordination overhead.
+
+2. Graphics Processing Cluster (GPC)
+The GPC acts as a coordinating group for multiple processing units.
+
+Texture Processing Cluster (TPC): Balances workloads and resources automatically without requiring programmer input.
+
+Streaming Multiprocessor (SM): Described as a "self-sufficient engine" that reduces global dependencies to allow for better scaling.
+
+3. Streaming Multiprocessor (SM)
+The SM is the "Fundamental Unit of GPU Parallelism." This is where the actual math and instruction execution happen.
+
+Control & Scheduling
+L1 Instruction Cache: Prevents control-heavy kernels from starving the execution pipelines.
+
+L0 Instruction Cache: Localized caches that reduce contention during warp divergence.
+
+Warp Scheduler: Issues instructions from ready warps; capable of instant switching during waits.
+
+Dispatch Unit: Routes instructions dynamically to maximize the utilization of execution units.
+
+Compute Units
+Register File: On-chip state storage. It avoids slow memory access but its size limits the number of concurrent threads.
+
+INT32 Units (16x): Handles precise address calculations and control flow operations.
+
+FP32 Units (32x): The "primary numerical workhorse" optimized for high throughput.
+
+FP64 Units (16x): Used for high-precision math; the diagram notes these cost throughput and should be used intentionally.
+
+Tensor Cores (4th Gen): Trades flexibility for extreme efficiency in dense mathematical operations (AI/Deep Learning).
+
+Specialized Hardware & Memory
+Special Function Units (SFU): Offloads complex math (like trigonometry or square roots) to keep general pipelines free.
+
+Load/Store Units (8x): Manages data movement. Coalesced access is fast, while scattered access is "silently" serialized (slower).
+
+Tensor Memory Accelerator: Handles asynchronous data movement so computation can continue uninterrupted.
+
+L1 Data Cache / Shared Memory: 256 KB of fast memory where cooperation between threads wins, but conflicts can destroy performance.
+
+Texture Units (4x): Hardware accelerators specifically for spatially coherent access patterns, often used in AI.

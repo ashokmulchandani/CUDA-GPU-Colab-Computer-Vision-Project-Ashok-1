@@ -1,0 +1,215 @@
+https://youtu.be/1Goq8Yc3dfo?si=bLy_zX8Eb9dIUUad
+
+in the last video I explained the basics
+of GPU programming using matrix
+multiplication as an example ultimately
+I achieved the 200x improvement over the
+sequential code this was an amazing
+result but the problem size in this
+example was fairly large it would be
+more interesting to see how the
+computations on the gpus scale with more
+modest problem sizes starting with a
+small Matrix size of 64 and going up to
+just over 2,000 execution time on the
+CPU increases drastically GPU execution
+time on the other end remains is almost
+the same but for small matrices the CPU
+is magnitudes faster than the GPU it's
+only around the Matrix size of 500 that
+the CPU execution time exceeds that of
+the GPU from what I've discussed in the
+last video we cannot really answer why
+this is happening and my rule whenever
+something like this happens is to always
+return to the
+fundamentals in this case that would be
+the GPU
+Hardware the GPU is organized into an
+array of Highly threaded streaming
+multiprocessors or SMS each SM has
+several processing units or caor with
+the same control Logic the sm's also
+contain a different onchip memory shared
+amongst the kakos inside the SM GPU also
+has a much larger off chip memory the
+main component of which is global memory
+or vram in the last video I covered how
+CPU and GPU work together however I will
+go over that again the program starts
+with a single CPU thread that
+initializes matutes the same thread
+allocates memory and then copies data to
+the gpu's global memory after that we
+call the kernel function by defining the
+grid and block Dimensions we need to
+understand how the GPU threads are
+mapped to the actual Hardware in this
+example let's say I call an 8 by8 block
+and as the Matrix Dimension is 32x32
+there will be 16 blocks arranged in a
+4x4 grid not that each screen dot here
+is a thread that will run independently
+in parall when the kernel function is
+called the blocks are assigned randomly
+to different SMS there are three things
+that we should remember all threads in a
+block gets assigned to a single SM any
+block can go anywhere and execute in any
+order so our code should not assume
+anything regarding the order of
+execution of the blocks one SM can also
+be assigned to multiple blocks when the
+blocks are assigned to SM the onchip
+memory is divided so that one block may
+only access its share of the onchip
+memory for a moment it might look like
+an odd choice not to let threads in
+different blocks interact with each
+other however this feature allows for
+transparent scalability where the same
+code can run on different Hardware with
+different paraliz capacities for
+instance if this code is run on a GPU
+with few AUD AOS it scales automatically
+without any errors I mean the execution
+will be slower but accurate so far we
+have focused on how a grid of blocks is
+executed by multiple SMS let's now see
+how each block is executed within an
+individual SM conceptually the
+programmer should assume the threads in
+a block can execute in any any order and
+the correctness of the algorithm should
+not depend on the order in which the
+threads are
+executed thread scheduling in Cuda gpus
+is a hardware implementation concept
+that varies depending on the type of
+Hardware used in most implementations
+once a block is assigned to NSM it is
+divided into 32 thread unit called
+WS for a 2d block like this threads are
+linearized using a row major lay out and
+then first 32 threads are bundled into
+zero and the next 32 make one a
+genuine question now is why should we
+care about this we as programmers should
+understand the concept behind WS because
+the knowledge of Ops is useful for
+understanding and optimizing the
+performance of good applications
+consider matrix multiplication example
+we have already seen that there will be
+a few blocks whose threads lie outside
+the Matrix bounds to avoid any data
+corruption we use a simple if statement
+this is where we need to understand how
+wops work around a situation like this
+let's isolate a single thread and look
+at the last W the GPU Hardware can
+accommodate such large threads because a
+small portion of the die is reserved for
+the control unit this means a is
+given a single instruction and the whole
+must follow the same execution path
+this is a problem for a case like this
+where some threads will follow the if
+statement and rest goes to the L side in
+a situation like this where threads
+exhibit what's known as control
+Divergence Hardware will take multiple
+passes through these diverging paths
+that is first through if by disabling
+the first few threads and then through
+else by disabling the ones that were
+previously enabled this adds load to the
+previously enabled this adds load to the execution
+resources now before I move ahead I want
+to mention that this is not a big issue
+for matrix multiplication because the
+percentage of WS that exhibit control
+Divergence is quite small but for some
+algorithms that I will cover in a future
+video this can be a big
+problem for matrix multiplication the
+path that takes the longest is the loop
+performing. product more specifically
+the global memory accesses this kernel
+function performs just two operations
+for 8 bytes access from the global
+memory and mind you these memory
+accesses are extremely
+slow this is exactly why GPU is slower
+than a CPU for smaller matrices as it's
+losing a lot more while moving data than
+it gains from
+parallelism however this does not
+explain why the execution time for GPU
+is almost the same as the problem size
+increases I mean Within increase in the
+data size memory accesses are also
+increasing so technically execution time
+should increase as well this does not
+happen because the GPU Hardware is
+designed for latency tolerance let me
+explain this using a simple example
+consider a single SM with a few kakos a
+smaller problem will generate a few
+threads and at any given time there is a
+chance that a good amount of them will
+be waiting around for the data to be
+copied from Global memory now as the
+problem size increases GPU Hardware
+assigns more threads to to the SM than
+its scores this is possible because GPU
+Hardware has a lot of space designated
+for the registers as well so at the
+start of the execution registers are
+assigned to the threads to hold their
+state and when a bunch of them are
+waiting around for their data the core
+switch to different threads almost
+instantaneously and work on them while
+other threads are retrieving their data
+this process is known as latency
+tolerance where the GPU fills the
+latency time of operations from some
+threads with work from others and the
+ability to hide these long latency
+operations increases with the data set
+size I mean it's obvious that the more
+threads are available the easier it'll
+be for the Coes to switch now you might
+be thinking that this means we should
+allocate as many threads to an smm as
+possible however Cuda limits this kind
+of thing most importantly a block cannot
+have more than 1,24 threads this means
+the max we can do is a 32x 32 block and
+now we can obviously change the extem to
+64 but then we have have to decrease the
+Y Dimension to
+16 a genuine question now is whether
+there is a way to reduce these Global
+memory accesses the answer is yes and
+this is where we need to utilize another
+onchip memory known as shared memory the
+basic idea here is to move a subset of
+data to the shared memory once perform a
+bunch of operations on that and then
+move on to the next subset this goes on
+for the complete data set and using the
+shared memory we can reduce the long
+latency operation from the global
+memory the topics discussed in this
+video were quite theoretical nonetheless
+it's important to know all this and I
+could have covered a lot more but I
+decided against that instead I wrote a
+detailed blog post on my website that
+you can think of as notes for this
+video anyways thanks a lot for watching
+please let me know what you think down
+in the comments and I will see you next
+in the comments and I will see you next time

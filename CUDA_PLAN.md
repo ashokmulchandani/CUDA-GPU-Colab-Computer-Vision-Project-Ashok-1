@@ -98,6 +98,86 @@
 | 5.12 | Deploy to AWS EC2 (GPU instance) or Azure Container Instance |
 | 5.13 | CI/CD — GitHub Actions: test → build → push → deploy |
 
+## Phase 6: Production CUDA (Ship It — Real-World Deployment)
+
+### 6A: TensorRT — Optimize Models for Production Inference
+
+| Step | Task |
+|------|------|
+| 6A.1 | Understand TensorRT — what it does (graph optimization, layer fusion, kernel auto-tuning) |
+| 6A.2 | Export PyTorch model to ONNX format |
+| 6A.3 | Convert ONNX → TensorRT engine (`trtexec` CLI tool) |
+| 6A.4 | FP32 vs FP16 vs INT8 precision — accuracy vs speed tradeoff |
+| 6A.5 | Benchmark: PyTorch vs ONNX Runtime vs TensorRT (latency + throughput) |
+| 6A.6 | Dynamic batching — handle variable batch sizes in production |
+| 6A.7 | TensorRT plugins — write custom layer when TensorRT doesn't support an op |
+| 6A.8 | Serialize engine to file — load pre-built engine for instant startup |
+
+### 6B: NVIDIA Triton Inference Server — Production Model Serving
+
+| Step | Task |
+|------|------|
+| 6B.1 | Understand Triton — model repository, backends, scheduling |
+| 6B.2 | Set up Triton with Docker (`nvcr.io/nvidia/tritonserver`) |
+| 6B.3 | Deploy TensorRT model to Triton — create `config.pbtxt` |
+| 6B.4 | HTTP/gRPC client — send inference requests to Triton |
+| 6B.5 | Dynamic batching in Triton — auto-batch multiple requests for throughput |
+| 6B.6 | Model ensembles — chain preprocessing → model → postprocessing |
+| 6B.7 | Multi-model serving — serve YOLO + VGG16 on same GPU |
+| 6B.8 | Health checks + Prometheus metrics — monitor Triton in production |
+| 6B.9 | A/B testing — serve two model versions, compare performance |
+
+### 6C: Profiling & Optimization — Find and Fix Bottlenecks
+
+| Step | Task |
+|------|------|
+| 6C.1 | Nsight Systems — timeline view of CPU↔GPU interaction |
+| 6C.2 | Identify gaps — where is GPU idle? (data transfer? CPU bottleneck?) |
+| 6C.3 | Nsight Compute — deep-dive into single kernel performance |
+| 6C.4 | Memory throughput analysis — are you hitting bandwidth limits? |
+| 6C.5 | Occupancy analysis — are SMs fully utilized? |
+| 6C.6 | Warp stall reasons — what's blocking your threads? |
+| 6C.7 | Roofline model — is your kernel compute-bound or memory-bound? |
+| 6C.8 | Iterative optimization — profile → fix → profile again → measure improvement |
+
+### 6D: Multi-Stream & Async Execution — Overlap Everything
+
+| Step | Task |
+|------|------|
+| 6D.1 | Understand CUDA streams — independent execution queues |
+| 6D.2 | Default stream vs custom streams — why default serializes everything |
+| 6D.3 | Overlap data transfer + compute — copy batch N+1 while processing batch N |
+| 6D.4 | Multi-stream pipeline — stream 1: upload, stream 2: compute, stream 3: download |
+| 6D.5 | Events + synchronization — `cudaEventRecord`, `cudaStreamWaitEvent` |
+| 6D.6 | Benchmark: single stream vs multi-stream (measure overlap benefit) |
+| 6D.7 | CUDA Graphs — capture entire workflow, replay with minimal launch overhead |
+| 6D.8 | Graph instantiation — reduce kernel launch cost from ~5μs to ~0.5μs |
+
+### 6E: Custom CUDA Kernels in Production Pipelines
+
+| Step | Task |
+|------|------|
+| 6E.1 | Image preprocessing kernel — resize + normalize + HWC→CHW in one kernel |
+| 6E.2 | Video decode on GPU — NVDEC + custom frame processing |
+| 6E.3 | Custom NMS kernel — faster than PyTorch's torchvision NMS |
+| 6E.4 | Batched preprocessing — process 32 images simultaneously |
+| 6E.5 | Integration with TensorRT — custom kernel as pre/post processing |
+| 6E.6 | Python bindings (pybind11) — call your CUDA kernel from Python/FastAPI |
+| 6E.7 | End-to-end pipeline: Video → GPU decode → preprocess → TensorRT → postprocess → output |
+
+### 6F: Deployment & Infrastructure
+
+| Step | Task |
+|------|------|
+| 6F.1 | Docker with CUDA — `nvidia/cuda:12.x-runtime` base image |
+| 6F.2 | Multi-stage Docker build — compile CUDA in build stage, slim runtime image |
+| 6F.3 | AWS ECS/EKS with GPU — deploy Triton on managed Kubernetes |
+| 6F.4 | Auto-scaling — scale GPU instances based on request queue depth |
+| 6F.5 | Cost optimization — spot instances, right-sizing GPU (T4 vs A10G vs A100) |
+| 6F.6 | Monitoring — GPU utilization, memory usage, inference latency (CloudWatch/Grafana) |
+| 6F.7 | Load testing — measure max throughput before latency degrades |
+| 6F.8 | CI/CD for GPU models — build TensorRT engine in pipeline, deploy to Triton |
+
 ---
 
 ## Execution Order (Recommended)
@@ -116,6 +196,12 @@
 | Session 10 | Phase 4: Steps 4.6–4.10 (video inference, TensorRT, benchmarks) | 3-4 hrs |
 | Session 11 | Phase 5: Steps 5.1–5.6 (VGG16 in CUDA, training) | 4-5 hrs |
 | Session 12 | Phase 5: Steps 5.7–5.13 (DVC, deployment, CI/CD) | 3-4 hrs |
+| Session 13 | Phase 6A: TensorRT optimization (steps 6A.1–6A.8) | 3-4 hrs |
+| Session 14 | Phase 6B: Triton Inference Server (steps 6B.1–6B.9) | 3-4 hrs |
+| Session 15 | Phase 6C: Profiling with Nsight (steps 6C.1–6C.8) | 3-4 hrs |
+| Session 16 | Phase 6D: Multi-stream + CUDA Graphs (steps 6D.1–6D.8) | 3-4 hrs |
+| Session 17 | Phase 6E: Custom production kernels (steps 6E.1–6E.7) | 3-4 hrs |
+| Session 18 | Phase 6F: Deployment + infrastructure (steps 6F.1–6F.8) | 3-4 hrs |
 
 ---
 
@@ -132,6 +218,10 @@
 | MLOps | DVC, GitHub Actions |
 | Deployment | Docker (CUDA runtime), FastAPI, AWS EC2 GPU |
 | Models | MLP, CNN, VGG16, YOLOv5/v8 |
+| Production Inference | TensorRT, ONNX Runtime, NVIDIA Triton |
+| Streaming | CUDA Streams, CUDA Graphs, async execution |
+| Video | NVDEC (GPU video decode) |
+| Monitoring | Nsight Systems, Nsight Compute, Prometheus, Grafana |
 
 ---
 
@@ -142,6 +232,7 @@
 | Phase 1-3.5 | Google Colab (Free) | T4 16GB | Free |
 | Phase 4 | Colab Pro | V100 16GB | ~$12/month |
 | Phase 5 | AWS g5.xlarge or Colab Pro+ | A10G / A100 | ~$1/hr or ~$50/month |
+| Phase 6 | AWS g5.xlarge or local GPU | A10G / T4 | ~$1/hr |
 
 ### Compile CUDA in Colab
 
@@ -212,10 +303,27 @@ CUDA_Projects-Ashok/
 │   │   ├── preprocess.cu
 │   │   ├── inference.cu
 │   │   └── nms.cu
-│   └── phase5/                     # Chicken Disease VGG16
-│       ├── vgg16.cu
-│       ├── train.cu
-│       └── inference_api.py
+│   ├── phase5/                     # Chicken Disease VGG16
+│   │   ├── vgg16.cu
+│   │   ├── train.cu
+│   │   └── inference_api.py
+│   └── phase6/                     # Production CUDA
+│       ├── tensorrt/
+│       │   ├── export_onnx.py
+│       │   ├── build_engine.py
+│       │   └── infer_trt.py
+│       ├── triton/
+│       │   ├── model_repository/
+│       │   └── client.py
+│       ├── profiling/
+│       │   └── profile_notes.md
+│       ├── streams/
+│       │   ├── multi_stream.cu
+│       │   └── cuda_graphs.cu
+│       └── custom_kernels/
+│           ├── preprocess.cu
+│           ├── nms_custom.cu
+│           └── python_bindings.cpp
 ├── data/                           # MNIST, chicken disease images
 ├── models/                         # Saved weights
 └── Makefile                        # Build all CUDA files
