@@ -1,0 +1,219 @@
+
+https://youtu.be/3dHJ00mAQAY?si=-sC_bmAqvHzr0nCi
+
+
+NUMBA Usage to speed up 
+
+
+let's talk about the end of Moore's law
+one of the best ways to describe what's
+happening is to follow along with what
+dr. David Paterson is doing at UC
+dr. David Paterson is doing at UC Berkeley
+he's an architect as well for the TPU
+which is a tensor flow processing unit
+and what he says is that the end of
+growth of single program speed really
+occurred you know right around this
+period of the last 40 years right so at
+first in the 1980s there was this 22%
+increase once the RISC processer was
+around we got a 52% increase then things
+started to slow down a little bit and
+you can see here right around let's say
+2003 there's a 23% growth rate because
+multi-core machines come in and they're
+not as efficient at scaling things right
+because you're gonna lose efficiency due
+to arm does lawn here we see on those
+law which effectively says the parallel
+portion of your code has diminishing
+returns finally you get to current which
+is about a 3% increase so there's some
+big problems but it creates
+opportunities so one of the ways that
+people are taking advantage of this dead
+end is to look at a six and these stand
+for application specific integrated
+circuits and a good example of an ASIC
+is something that many people already
+have on their machine is a GPU
+and specifically things like a NVIDIA
+GPU there's been a whole toolkit
+designed around it to do parallel coding
+and that toolkit is called CUDA there's
+other vendors that are starting to jump
+in and get involved and compete with the
+CUDA infrastructure like AMD also
+there's new players like GPUs which are
+actually even going beyond what a GPU
+does and specifically generating
+workloads that work with let's say the
+tensorflow machine learning framework so
+here's an example of a TPU in production
+from for google started in 2015 they use
+it for search for translation for photos
+you can see a whole rack here now what's
+the difference well a cpu is really
+designed to do a lot of different things
+so it's a general-purpose
+processing unit
+now if you look at a GPU though it's
+been specifically designed to do things
+in parallel really and that's the big
+difference between the CPU and a GPU is
+a GPU is designed to be parallel where a
+CPU is really designed to do lots of
+different things and execute different
+things on a computer now if we look at a
+TPU one of the things that's interesting
+as a TPU is even more dense than a GPU
+and you can see that a TPU is actually
+doesn't even care about doing only
+parallelization it's focused on
+parallelization for a specific workload
+so really this is one of the advantages
+of these Asics is that you as maybe a
+software vendor you could control the
+whole stack and you could actually
+design something that works with the
+software you have the cloud you have and
+also the processor you have so let's get
+into some some some facts here and
+actually play around with a real example
+to use a GPU or a just-in-time compiler
+you can use a library called numba so
+let's go ahead and take a look at what
+that is it's a way of programming GPU or
+just-in-time compiler lots of different
+techniques you can use with numba and
+you can see all the different examples
+of this so what we're gonna do is we're
+gonna go into collab notebook I'm gonna
+use collab pro and I'm gonna turn on a
+GPU hardware accelerator and a couple
+things to point out here is that you'll
+want to just double check after you
+install numba that the dot Esso output
+appears here so you could recreate
+exactly what I'm doing without using
+numba but in this example I'm gonna go
+ahead and open up this collab notebook
+and get started okay so I've got this
+checked in I'm gonna go ahead and click
+on this link open in collab and a couple
+things that I'll do here is first step
+I'll check the run time this is really
+important you also see I'm using the pro
+version so I get a fancier GPU let's go
+ahead and select that ok great that's
+run time standard hey why don't we make
+it high ram as well okay now that this
+is set up I can just click connect and
+it'll establish a connection to in video
+GPU that I have access to and you can
+see here I also have something like 25
+gigs of RAM
+so first up I'll install numba and then
+I'll double check here that the this
+Esso driver is is available for me and
+this will be really the the shared
+library that I'll need to do CUDA coding
+later and CUDA coding really is a way of
+doing GPU programming for Nvidia so
+we'll give this a second here it's
+installing numba and then looks like
+number was actually already installed on
+this machine and then I also am
+verifying that I do have two versions of
+CUDA I have version 10 0 and I also have
+version 10.1 so this will take just a
+second here the next thing that I'll do
+is I'll just import some libraries so
+all important numpy I'll use some
+specific imports like the just-in-time
+compiler the CUDA library some data
+types here and once I do that the first
+thing that I'll play around with is a
+Mandelbrot and a Mandelbrot is really a
+visualization that that is very taxing
+to compute and so first what I'm going
+to do is I'm going to just do it on the
+CPU so if I go through here and I say
+some amount of brach code here I then go
+through and I create a fractal let's go
+ahead and run that and then let's go
+ahead and create it now when we run this
+you can see it takes quite a while right
+it's going to take a few seconds in fact
+it takes for 0.33 7 seconds to calculate
+this really fancy image so that's why a
+lot of people use this as a benchmarking
+tool so so next up can we do better than
+well yes let's go ahead and use the
+number version which is a version that
+uses a just-in-time compiler so what
+this does is it takes our Python code
+and it turns it into machine code so
+it's it can potentially run you know
+much much faster because it's going to
+go directly to instruction for a CPU so
+let's go through here and run the
+just-in-time compiler I'll put a at JIT
+there next up
+I'll go through here and I'll run this
+version and you can see here it's it's
+almost instantaneous right it's it's
+basically thirty nine point three nine
+seconds to actually generate this
+version ok can we also try this the GPU
+out yeah let's go ahead and do that
+let's use the CUDA GPU here and what
+I'll do is I'll say CUDA JIT and I tee
+this up here and then what I do is I say
+at CUDA JIT and I put in these different
+data types here and this just allows me
+to use these data types on the GPU and
+now I go ahead and run this version and
+in fact look how much faster this is you
+can see that it's 0.005 seconds where
+the the machine level code even at that
+you know assembly level of the CPU it's
+actually much much faster so really a
+GPU is a great way to to speed up code
+that is highly paralyzed abow so what
+else can we do well you also can just
+directly get into the CUDA library and
+start playing around with code now to do
+this you have to take your your your
+code and move it specifically into the
+GPU vectorize it so turn it into a form
+where it can be highly parallel and then
+run the code so here's an example that's
+kind of contrived but what I do is I
+take a data frame in in pandas here and
+then I convert it to a form that the
+number library can utilize and then I
+return it as an array and then I
+vectorize it right here so this allows
+it to run on the GPU and then what I do
+is I take those arrays and I copy those
+to the GPU that's that's really one of
+the things that you have to specifically
+do when you do GP program is make sure
+you copy from your your your current
+memory to the GPU memory then I go
+through and I do the calculation on the
+GPU so if it's something that would take
+let's say 4 days this is where you would
+really take an advantage but there's a
+cost to to moving that calculation to
+the GPU next up you can see that I wrote
+with wins
+I ran a vectorized function on a GPU so
+tons of different fun things you can do
+with CUDA and with a GPU and fortunately
+with because something like collab pro
+you have a effectively a supercomputer
+right at your fingertips
+

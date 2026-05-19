@@ -1,0 +1,26 @@
+# Compiled CUDA
+*.o
+*.obj
+*.exe
+*.out
+*.cubin
+*.ptx
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.env
+
+# Data files (too large for git)
+data/
+models/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
