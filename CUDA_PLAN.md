@@ -256,6 +256,63 @@
 | 7F.5 | Free-space detection — identify drivable/walkable areas |
 | 7F.6 | Deploy full perception stack: sensors → preprocessing → detection → tracking → mapping |
 
+## Phase 8: Transformer from Scratch in CUDA (Attention Is All You Need)
+
+> The architecture behind GPT, Claude, Gemini, DALL-E, Whisper — the dominant AI architecture.
+
+### 8A: Self-Attention Mechanism
+
+| Step | Task |
+|------|------|
+| 8A.1 | Understand attention — "which parts of the input matter most for each output?" |
+| 8A.2 | Query, Key, Value matrices — Q×K^T gives attention scores, multiply by V |
+| 8A.3 | CUDA kernel: scaled dot-product attention — `softmax(Q×K^T / √d) × V` |
+| 8A.4 | CUDA kernel: multi-head attention — split into 8 heads, attend in parallel |
+| 8A.5 | Causal masking kernel — prevent looking at future tokens (for GPT-style) |
+| 8A.6 | Benchmark attention kernel vs PyTorch `F.scaled_dot_product_attention` |
+
+### 8B: Transformer Building Blocks
+
+| Step | Task |
+|------|------|
+| 8B.1 | CUDA kernel: Layer Normalization — normalize across features (not batch) |
+| 8B.2 | CUDA kernel: GELU activation — smooth ReLU used in transformers |
+| 8B.3 | CUDA kernel: Feed-Forward Network (FFN) — two linear layers with GELU |
+| 8B.4 | Residual connections — add input back to output (skip connections) |
+| 8B.5 | Positional encoding — add position information (sinusoidal or learned) |
+| 8B.6 | Token embedding kernel — convert token IDs to vectors |
+
+### 8C: Full Transformer Encoder (BERT-style)
+
+| Step | Task |
+|------|------|
+| 8C.1 | Stack: Embedding → [Attention → LayerNorm → FFN → LayerNorm] × N layers |
+| 8C.2 | Implement 4-layer transformer encoder in CUDA |
+| 8C.3 | Train on text classification task (sentiment analysis) |
+| 8C.4 | Compare with HuggingFace BERT — accuracy and speed |
+
+### 8D: Full Transformer Decoder (GPT-style)
+
+| Step | Task |
+|------|------|
+| 8D.1 | Causal (autoregressive) attention — each token only sees previous tokens |
+| 8D.2 | Implement GPT-style decoder (4 layers, 4 heads, 128 dim) |
+| 8D.3 | Train on character-level text generation (Shakespeare / tiny dataset) |
+| 8D.4 | Generate text token by token — sampling with temperature |
+| 8D.5 | KV-Cache kernel — cache Key/Value for faster inference |
+| 8D.6 | Benchmark: tokens/second generation speed |
+
+### 8E: Optimization & Production
+
+| Step | Task |
+|------|------|
+| 8E.1 | Flash Attention concept — fuse attention into one kernel, reduce memory |
+| 8E.2 | Implement memory-efficient attention (tiled, no full N×N matrix) |
+| 8E.3 | FP16 mixed precision — use half-precision for 2× speedup |
+| 8E.4 | Quantization (INT8/INT4) — reduce model size for deployment |
+| 8E.5 | TensorRT for transformer inference — optimize and deploy |
+| 8E.6 | Benchmark: our CUDA vs PyTorch vs TensorRT (tokens/second) |
+
 ---
 
 ## Execution Order (Recommended)
@@ -286,6 +343,11 @@
 | Session 22 | Phase 7D: Depth estimation + stereo (steps 7D.1–7D.6) | 3-4 hrs |
 | Session 23 | Phase 7E: Image processing kernels (steps 7E.1–7E.7) | 3-4 hrs |
 | Session 24 | Phase 7F: Spatial understanding + mapping (steps 7F.1–7F.6) | 4-5 hrs |
+| Session 25 | Phase 8A: Self-attention mechanism (steps 8A.1–8A.6) | 3-4 hrs |
+| Session 26 | Phase 8B: Transformer building blocks (steps 8B.1–8B.6) | 3-4 hrs |
+| Session 27 | Phase 8C: Transformer encoder - BERT-style (steps 8C.1–8C.4) | 4-5 hrs |
+| Session 28 | Phase 8D: Transformer decoder - GPT-style (steps 8D.1–8D.6) | 4-5 hrs |
+| Session 29 | Phase 8E: Flash Attention + optimization (steps 8E.1–8E.6) | 3-4 hrs |
 
 ---
 
@@ -301,7 +363,7 @@
 | Data | MNIST, Chicken Disease dataset |
 | MLOps | DVC, GitHub Actions |
 | Deployment | Docker (CUDA runtime), FastAPI, AWS EC2 GPU |
-| Models | MLP, CNN, VGG16, YOLOv5/v8, PointNet, PointPillars |
+| Models | MLP, CNN, VGG16, YOLOv5/v8, PointNet, PointPillars, Transformer/GPT |
 | Production Inference | TensorRT, ONNX Runtime, NVIDIA Triton |
 | 3D / Perception | Open3D, PCL, LIDAR processing, stereo vision |
 | Sensor Fusion | Camera calibration, LIDAR-camera projection, BEV fusion |
