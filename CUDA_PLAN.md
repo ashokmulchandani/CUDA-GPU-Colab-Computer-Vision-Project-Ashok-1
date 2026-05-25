@@ -313,6 +313,70 @@
 | 8E.5 | TensorRT for transformer inference — optimize and deploy |
 | 8E.6 | Benchmark: our CUDA vs PyTorch vs TensorRT (tokens/second) |
 
+## Phase 9: Smart Camera — Intelligent Video Analytics (End-to-End Deployment)
+
+> Build a complete intelligent camera system from scratch — detection, tracking, business logic, alerts.
+
+### 9A: Video Stream Capture
+
+| Step | Task |
+|------|------|
+| 9A.1 | USB webcam capture with OpenCV (`cv2.VideoCapture(0)`) |
+| 9A.2 | IP camera RTSP stream (`cv2.VideoCapture('rtsp://...')`) |
+| 9A.3 | Multi-camera handling — process 2-4 streams simultaneously |
+| 9A.4 | Frame buffering — handle dropped frames, reconnection |
+
+### 9B: Object Tracking (Follow Objects Across Frames)
+
+| Step | Task |
+|------|------|
+| 9B.1 | Understand tracking vs detection — "same person across frames" |
+| 9B.2 | Install + use DeepSORT / ByteTrack — assign persistent IDs |
+| 9B.3 | Track trails — visualize object paths over time |
+| 9B.4 | Re-identification — recognize same person after occlusion |
+| 9B.5 | Count objects crossing a line (entry/exit counting) |
+
+### 9C: Zone-Based Intelligence
+
+| Step | Task |
+|------|------|
+| 9C.1 | Define zones in frame (polygon regions of interest) |
+| 9C.2 | Detect zone entry/exit events |
+| 9C.3 | Loitering detection — person in zone > N seconds |
+| 9C.4 | Wrong-way detection — object moving in forbidden direction |
+| 9C.5 | Crowd density — count people per zone, alert if threshold exceeded |
+
+### 9D: Business Logic & Alerts
+
+| Step | Task |
+|------|------|
+| 9D.1 | Rule engine — IF condition THEN action |
+| 9D.2 | Telegram bot alerts — send photo + message on detection |
+| 9D.3 | Save video clips — record 10s before/after event |
+| 9D.4 | Time-based rules — different rules for day vs night |
+| 9D.5 | Cooldown logic — don't spam alerts (1 alert per 5 minutes) |
+
+### 9E: Dashboard & Monitoring
+
+| Step | Task |
+|------|------|
+| 9E.1 | Web dashboard (Flask/FastAPI) — live camera feed + detections |
+| 9E.2 | Real-time counters — people count, vehicle count |
+| 9E.3 | Heatmap — where do people spend most time? |
+| 9E.4 | Historical analytics — hourly/daily trends |
+| 9E.5 | Multi-camera grid view |
+
+### 9F: Edge Deployment (NVIDIA Jetson)
+
+| Step | Task |
+|------|------|
+| 9F.1 | Set up NVIDIA Jetson Nano/Orin — flash OS, install JetPack |
+| 9F.2 | Export YOLO to TensorRT on Jetson (ARM architecture) |
+| 9F.3 | Optimize for Jetson — FP16, smaller model, lower resolution |
+| 9F.4 | Run 24/7 — systemd service, auto-restart on crash |
+| 9F.5 | Remote monitoring — SSH + Telegram status updates |
+| 9F.6 | Power management — handle power cuts, auto-resume |
+
 ---
 
 ## Execution Order (Recommended)
@@ -348,6 +412,9 @@
 | Session 27 | Phase 8C: Transformer encoder - BERT-style (steps 8C.1–8C.4) | 4-5 hrs |
 | Session 28 | Phase 8D: Transformer decoder - GPT-style (steps 8D.1–8D.6) | 4-5 hrs |
 | Session 29 | Phase 8E: Flash Attention + optimization (steps 8E.1–8E.6) | 3-4 hrs |
+| Session 30 | Phase 9A-9B: Video capture + object tracking (steps 9A.1–9B.5) | 3-4 hrs |
+| Session 31 | Phase 9C-9D: Zone intelligence + alerts (steps 9C.1–9D.5) | 3-4 hrs |
+| Session 32 | Phase 9E-9F: Dashboard + Jetson deployment (steps 9E.1–9F.6) | 4-5 hrs |
 
 ---
 
