@@ -1,0 +1,871 @@
+https://www.youtube.com/watch?v=7SPLEDyCrmw&t=569s
+
+https://github.com/florentPoux/3d-reconstruction-depth-anything.git
+
+https://github.com/florentPoux
+
+hey friends very exciting today what we
+are going to cover is basically Point
+Cloud vectorization so vectorization the
+process to go from some kind of modality
+rer data 3D Point Cloud to a vector
+entity or vector set of entities which
+is the default go-to in a geospatial
+information system and a lot of
+application so there is a missing link
+that you can find on the internet where
+no one is giving you the tools or the
+way to do that and I intend here to
+solve part of the pipeline we will
+create some lighter data from an open
+data portal source and we will extract a
+neighborhood from this little area and
+from there we'll want to detect the
+houses extract the footprint of these
+houses and then create some kind of
+level of detail model for each of the
+individual house and that is a very
+strong point toward more analysis down
+the line so that is what we're going to
+do without further Ado let's dive onto
+what I prepared what is the tutorial
+plan for today as you can see we are
+going to go through five main phases the
+first one being environment preparations
+where we will want want to make sure
+that you are equipped from scratch to be
+able to attack this challenge then we
+will move on to uh data preparation the
+phase two this is also something that is
+uh light so it's will be a light
+progression and at the end of that
+normally you should have the data that
+is ready to go through the first set of
+experiment which is the phase three we
+do not want to scale an automate at this
+stage we just want to take one example
+one building and try experiments to see
+if all the the pipeline works on that so
+that is what we're going to do this is
+where the bulk of the work is and then
+after that we'll basically um
+re-engineer beat the codes to automate
+and scale so that you drag and drop your
+point cloud and you get the CT modeling
+of the area that you are considering
+that's the ID and of course at the end
+we'll go a bit onto visualization and
+Analysis um there is some experiments
+that I do also on on on rization so
+Vector from RoR data but that is u in
+the article that you can find that okay
+so if you're ready we can get started
+right away way so the first thing we
+want to do is actually uh set up a
+virtual environment with python so you
+go onto
+Anaconda org and you download Anaconda
+and you take the one from your
+distribution once that's download you
+install it and you have separate way to
+use that either use the um GUI or use
+the command name so let's start uh with
+the qu once you install that you should
+drive to something like this which has a
+base environment so what you need to do
+is actually create a new environment for
+me I have vectorization but you can
+create the one of your own in which we
+will install the various libraries I can
+also show you another way to do that
+which is Anaconda uh prompt right so you
+can execute that as an administrator and
+you have here so you are in the Anaconda
+prompt of anaconda and basically what
+you just have to do here is cond and
+list uh to check out the environment
+that you have installed already and you
+see that you have a lot of them and the
+one that I will be using is
+vectorization but if you do not have
+that you just make
+cond and uh cond create and for the name
+and here the name could be uh
+YouTube YouTube V and then you give the
+python version that you want to use so
+for example 3.10 or 3.9 is okay and this
+will create your environment it may ask
+you sometime to agree with stuff you
+just press Y and enter and will follow
+the installation now it should be
+installed so if I make
+coma M
+list now I have YouTube VEC all right so
+what I can do is K activate and I type
+the name of my uh environment
+okay and this is
+it this is I'm in the environment so
+from there I can install the various
+library that I would want to have so
+first first um we will install three
+Base Library with Pip install and the
+libraries that we want are n computation
+libraries that we want are n computation um
+pandas M plot Li to plot and at this
+stage it's really good so let's install
+this fundamental libraries and we are
+good all the Base Library are installed
+now we can move on to installing um 3D
+libraries P install open 3D for
+manipulating 3D data and open 3D is
+installed so now call try to insult last
+spy with
+umet ar and class
+uhp and we are good to go so we have the
+Base Library NP P and M lip we have two
+3D libraries open 3D and aspy for the
+point clouds and now let's load a bunch
+of geospatial Library so peep install um
+rasa EO for manipulating rest of data um
+geopandas an extension of pandas for
+just special data as well shapely to to
+handle 2D Vector data and also alha
+shape which is a small library to
+compute Alpha shapes now we are almost
+ready so we have our environment
+isolated created with a bunch of
+libraries onto this environment and the
+last stage will be to use an IDE and
+here we could use Jupiter lab right
+Jupiter lab so install jupyter lab and I
+press enter and that means that it will
+fetch jupyter lab for us IDE install it
+and we will be able to code from there
+now very good the installation is is
+done so we're ready to code to code we
+can just launch Jupiter space lab and
+that will open us um a
+window of Jupiter lab there there is one
+thing though is um that you are
+launching jupyter lab from the folder in
+which you are cited into your little um
+uh terminal so here you will see that I
+will be in a local folder which is not
+really what I want to have uh instead I
+want want to change the folder to where
+my code would be written and I usually
+have always the same structure so code
+data results which means that I need to
+change that so I will close my jupyter
+lab uh window I will go back to my
+terminal you see that my server is
+running and I will close it by pressing
+control+ C now I will change to where my
+code is so first uh if you need to
+change the drive you just need to press
+um the letter and from there I will
+fetch my little uh with
+change uh change folder so CD and where
+my code is all right I press enter and
+everything is fine and from there just
+everything is fine and from there just launch
+launch Jupiter
+LA and here we good to
+go now when you're here you can go into
+uh your specific file that I created for
+you right so you can donad it and put it
+here from the GitHub or the link that is
+just down below and you should arve here
+okay so so the first stage that we have
+to do is actually load the libraries and
+the first stage is loading the Base
+Library so import n by as NP
+import um MTH plot lip directly pip plot
+I will use so P plot as
+PLT and import bers as p and then same
+thing for the libraries the 3D libraries
+so here it's import up in 3D as all 3D
+and for the just spatial libraries which
+are here and also um I will make sure to
+import from this Library some specific
+function uh from origin resembling
+shapes and polygon so that we are ready
+to go and once this is done you just
+press uh Mash enter so shift enter and
+no mod will name m PLP which is normal I
+press that and I rerun
+it and everything is imported and you
+can see my version of Last bu which is
+2.5.1 okay now phase two data
+preparation that's where we AG going to
+create the data prepare it so profile it
+and then uh pre-process it so that we
+can then directly take it from there and
+run the follow followup actions okay so
+the data that I chose is from a region
+that I really love in Canada uh which is
+Vancouver and basically you can go to
+the Vancouver portal here and I selected
+one tile from here okay and you can do
+the same so taking a tile and
+downloading it and you will have a l
+file or you can go to my uh Google drive
+folder uh where here okay I did not drop
+yet the file but you will find the
+neighborhood file directly here okay so
+um some stuff about this if I go into
+the information why do I choose that is
+that we already have classification
+given to us with un classifying two is
+the ground and six is the building so we
+have to to remember that now let's load
+the data so to do that we will use last
+py okay and uh the function read and we
+will pass where our data is so I express
+everything relatively with uh this two
+points points to say go one back data
+and the name of my file is
+neighborhoods. La okay and that will
+load our file into the Las variable now
+from that we could explore the
+classification field by getting the
+last. classification and printing the
+unique values of that and then finally
+printing whatever we have in our um in
+our header and finally I like to print
+out the coordinate system projection
+system and once I put everything there
+we can have an output where we see that
+we have classes ranging from 1 to 7 okay
+we have XYZ and a lot of features and
+the projection is in epsg 26 910 which
+is I think uh UTM on 10 Central Meridian
+1 2 3 West okay that's important if you
+want to to then fuse data sets together
+that's it for the part of creating the
+data now still within this phase two uh
+we will do some kind of pre-processing
+and basically here what we want to do is
+to create a
+mask okay uh which will call Point mask
+which will retain only uh the points
+where the classification from the last
+file is equal to six so which is
+building and then we'll transform that
+into a NPI array with NPI v stack we
+stack vertically the various um points
+from that so the x last. x last. y and
+last do Z so the XY and Z except we'll
+pass the mask to that to filter out only
+the point with the mask so Point mask
+and I take that I put it here and yeah
+right and that's uh pretty much it I
+forgot to put another double bracket
+forgot to put another double bracket around
+that that will be good to go and once we
+have this nump array I put the T because
+it's Trans Sport this will be X Y and Z
+instead of X Y and Z okay uh we will
+create an open 3D geometry of type Point
+Cloud here and we will pass to this new
+geometry which is called PCD or 3D the
+points with a vector 3D Vector function
+from open 3D that take the transpose of
+the transpose right and uh from there we
+can make sure that we will work therea
+with local coordinates because they are
+too big and we may have problems to
+handle that so to do just that we can
+trans translate uh our Point Cloud but
+before translating we get the center
+with this little function and then we
+translate um our Point Cloud so PCD 3d.
+translate minus PCD Center and the final
+operation to do is actually to visualize
+the results with this little line or.
+visualization. geometry and I press
+enter and you see that I have a window
+that pops up that shows the little
+buildings that are extracted using the
+classification field so pretty nice
+already at this stage we see that we
+have a lot of noise points it's not
+perfect classification but it's good
+enough and that will be the base for the
+follow um steps where we want to derive
+buildings from that right okay so let me
+close this now let's do the same thing
+uh and isolate only the ground points so
+basically I'm just retaking everything
+I'm not translating again right so
+that's what I'm doing Point mask
+transpose and I take a ground point and
+I visualize that let's see what it makes
+that's only the ground point you may
+have a hint why we are doing that at
+this stage um if you do not please trust
+me you will see just down below why we
+still need ground points in our
+still need ground points in our experiments
+okay so that's very cool we uh went
+through this data pre-processing phase
+and the last stage that I like to do is
+to bit profile more what we have and
+compute the nearest neighbor distance
+between point and I want to average the
+nearest neighbor for each point around
+its neighborhood and I can do that with
+this common line where I see that I have
+around 11 cm between points okay now
+it's time for phase three which is the
+single unit experiment and as you can
+see from this nice uh chart we're going
+to go through first an unsupervised
+segmentation phase okay okay so trying
+to identify the Clusters within the
+buildings for having each instance of
+its own and um then I will retain from
+that just one single house and I will
+pass through all the unit experiments so
+first extracting a building footprint a
+2d building footprint expecting a bit of
+centic and attribute information from
+that that can be very useful and then
+going from a 2d to a 3D Vector that
+would be the base to create the model
+with both the meshes and the faces and
+then we post-process that and Export
+okay so that's really what I'm going to
+show you so the unsupervised
+segmentation you have many ways to
+approach this and uh I will show you one
+way to do that but I encourage you to
+extend what you learn here with other
+ways um one way would be to use cins the
+problem is that you do not have outlier
+filtered out so you need to be sure
+exactly how many hours you have so it's
+not fully automatic you can Define this
+parameter automatically but it's not as
+accurate the second way will be for
+example to use S so the segment anything
+model that will work but you need to go
+through a phase of projection that
+that's a bit heavy on the computation
+side so I will show you a third way
+using DB scan because um you can
+basically work in an ENT space which we
+have clear delimitations and on top you
+will filter out what is noise and only
+retain relevant clusters and for that we
+need two parameters um I will set that
+very high to make sure to retain uh a
+sufficient let's say number of points
+and then after I want to compute labels
+and Max label so my label will basically
+take PCD cluster DB scan we take the
+Epsilon the minimum cluster of points
+and the max label we just want to know
+how many uh clusters we have okay and
+finally let's color each of our cluster
+differently so for that we use M PL lip
+basically and we Define what are the
+colors so we take the top 20 discrete
+color range and each um labels that is
+below zero because the noise will be
+classified label minus one will color it
+black and all the rest will take it from
+there all right and finally what is
+missing is the visualization
+that we have here so now
+let's activate and wow you can see that
+we have something super nice we have the
+houses nicely detected with various
+colors um and that would be very very
+interesting and I think a strong base to
+use for individual modeling so even if
+this two looks like they have the same
+color they're actually in two different
+segments and here again
+okay so we have 31 cluster that's the
+stage and now let's go onto a single
+experiment so here we will select the
+segment to be considered which is the
+step five and to select this segment we
+will just take one for now and we know
+that we'll be we'll have that as a
+parameter within a loop um and to to to
+get the segment basically you have a
+function which is Select by index from
+open 3D and we will make a check where
+we need to have the labels which is
+equal to the selector so the labels okay
+and that's what I do and I just take the
+first because it returns to me um an MP
+array with more than one element I just
+want the the first one and that's it
+that's my segment and from there what we
+do is actually draw the geometry of the
+segment so let's check out yes we have
+the house if I were to change uh the
+selection let's see if it works you can
+see that we have another house so this
+is very nice let's keep the first one uh
+which is interesting because we have
+chimneys we have three layers of roofs
+um yeah it's it's it's a nice little
+sample right so now that's finished we
+go on to the step six which is
+extracting the outline the building
+footprint of the selection to do that we
+will uh first extract the x and y
+coordinate of our Point cloud and uh you
+know how to do that we take the point 2D
+and we will filter out based on the
+index we take all the points and we just
+take X and Y okay the two is excluded
+always when you use NP array segments.
+point we need to make sure to go through
+um the initial open 3D object to an MP
+array that's why I do that because after
+that for the shape with Al shape we need
+to pass an array okay and to use the
+alpha shape of the building Vector we
+just use the library that we imported we
+use the function we pass the 2D points
+and we give a parameter of alpha the
+lower um uh you will be the the more
+little detail you will have the higher
+you are the more you will be close to a
+convex F so having the full envelope
+without any concavities that's what we
+also would like to have and to print it
+here with um shapely you can just type
+the name of your variable at the end in
+the cell and if you press ENT normally
+the magic happens you have your shapes
+that happens here okay now let's create
+some kind of way to store this
+information and we will use geopandas to
+do that and we use a building gdf or Geo
+data frame and uh to create a geod DAT
+frame basically you just call the
+function geod data frame you pass the
+geometry which will be building vector
+and the CRS and if I were to print uh
+the first line here so I will do
+building gf. head press enter and you
+see that we have a geometry which is a
+polygon which is stored in kind of a
+data frame but it's a geod data frame
+entirety very cool at this stage um we
+already accomplished a lot but it's not
+finished and uh it may be interesting to
+push a bit more and go onto the second
+phase which is Computing semantic and
+attributes step seven now uh we want to
+have the height right of the house as a
+relative measure and let me show you
+something first first um by Computing
+the altitude so what do you think is
+wrong if I do that I compute the
+altitude by taking only the Z value of
+all my points I add my uh translation of
+Z to get to the real coordinates of Z so
+the attitude right and after that I will
+take the maximum of my little segment
+point cloud and minimum and that will be
+my height so what is wrong with that I
+will tell you just right away we are
+dealing with imperfect data which means
+that it's real data and you may not have
+within the building actually points that
+are close to the ground close to the
+reality where your house is standing you
+may have a a shift where actually if you
+were to use that you may have a house
+that is 2 met instead of 10 for example
+so that is something that we do not want
+to have but you may see that in a moment
+so that's where if you connect the dot I
+will actually leverage what we did at
+the beginning so extracting the ground
+points and we have to define the ground
+level in the local area so what I do is
+the following I will uh Define a query
+Point first that will be based on the
+center of my segment okay so I want to
+take the center of my segment and from
+that I want to actually drop the Z
+because I don't want the center of my
+segment there but I want it at the
+minimal value okay so for that my query
+point will get at the minimal value of
+my segment which is get min bound and
+the Z now I will take my um ground
+points okay and I will construct a kd3
+with the following line PCD
+uh tree um equal to all3 Geometry kd3 FL
+ground points so that will construct my
+KD tree and from there I will uh do a
+kind NE search where I will retain the
+indexes um of my of of my points for
+each of of my points okay so I pass the
+gray point and I take 200 100 whichever
+if it's best for you let's put 200 for
+now okay and uh I will retain all my
+indexes and now what I just need to do
+is to create a sample of points that
+will return that so I will take my
+ground points and I will select my index
+and I will pass my index list okay and I
+will paint that and visualize it so uh
+yeah let's do that for now so I will
+delete that and let's do the
+visualization to see what we have and as
+you can see my house was standing there
+you can see in Gray all the points that
+will be selected uh by my little Cay and
+the idea now is to use that to compute
+the minimum value of my building okay so
+the point that are close to my to to to
+to my building uh this is the only data
+point that we have that could hint where
+our building is okay that has that is
+relevant enough so we will use that to
+define the lowest bound and the highest
+bound of my building will use the point
+of the segment okay so the last step is
+to define the ground zero and we take
+the sample and we get the center and we
+take the zv value of all this points and
+finally for the he we do a uh Max bound
+minus this ground zero right of the
+segment minus the ground zero and if we
+were to check the difference we could do
+that H so again this is the one that we
+have previously and this is the new one
+um which is a shift of minus 12 CM so in
+this case we we were actually pretty
+close but that's important to have that
+that was a big step now let's move on to
+Computing some parameters so basically
+here it would be nice to have a lot of
+parameters and because we have the alpha
+shape we are able to compute some
+interesting parameters so the first uh
+parameter that we would like to to stick
+with is um let's say the um label
+information okay so we stack all into a
+geod data frame so my building gdf now I
+will add a column called ID and here I
+want it to keep my selector which is one
+for now okay to make sure that we have
+always that now we want the height so I
+just do the same
+thing and here I put height and my
+height is basically um segment minus
+clown zero but we could do that directly
+by taking sample get Center instead of
+Ground Zero okay and we can have an area
+for getting the area we can use the
+alpha shape so here area we take my
+Alpha shape which was building
+vector and do ARA that's that simple
+same thing we could have the perimeter
+which is an
+information that could be useful
+perimeter uh and then let's take out the
+local Central WID of our building and
+also the shift okay translation by
+keeping that and the point number and to
+do that we can have the length of the
+segment points uh just like this okay
+and now if we were to print the first
+line of our data frame how would this
+look like so now I have everything if I
+print out perimeter is wrong yes it's
+normal because it's length that we need
+to have so I press enter and you see
+that I have my geometry ID height area
+perimeter and so on so this way we
+already have a very ways to structure
+the information that we have after
+processing through the steps now I want
+to show you some way to get some extra
+attributes right so I pass um I will
+extract points 1D along the z-axis and I
+want to print the local Minima and the
+local Maxima right and then after I want
+to plot the histogram because we saw
+that we had three roofs so maybe we we
+could leverage that somehow right and um
+extract some kind of very interesting
+way to after we could model the roof
+layers for example so let's see that
+just right away we'll delete this line
+and as you can see if I do the histogram
+along the z- axis we have the three roof
+that are really popping out through this
+chart which means that we could use some
+break points and identify the breaks to
+try and segments our Point Cloud even
+more so that is very good perspective to
+have now let's move on to step eight
+which is going from 2D to 3D so
+basically here it's very simple we'll
+compute uh vertices by using the list
+operator building Vector X records and
+then we'll compute a polygon 2D and here
+I show you way to do that uh with the
+list utility so we still have to compute
+a 3D Vector but here we actually using a
+list comprehension that will obain the
+point plus zero value and uh that's it
+pretty much right right and at the end
+we could use open 3D to visualize so we
+went from the shapely to open 3D and
+very interestingly you have here your
+shape so this is super cool now uh we
+have to do that for the top layer so
+this is exactly the same process okay I
+will call that an extrusion so I create
+a line set geometry I create my Vector
+3D oity and 2D and I draw my geometry
+and after I will also plot my vertices
+so that you see the difference between
+both so those are my two lines pretty
+nice nicely uh plotted and here that's
+all the vertices in blue and in red that
+we have that Define this
+polygons okay so that's one way to go uh
+around it you can see that instead of
+putting a zero uh and yeah uh itating
+over the line set I put the height so
+it's from zero to the height so that's
+is correct now we could do that in more
+efficient manner in the Step n which is
+actually by um using an MP approach so
+what do I do is first I'm I'm going to
+um yeah I'm going to Define three
+variables a b and c a being the
+coordinates of my Alpha shape okay B is
+basically taking my Alpha shape and uh
+basically taking my Alpha shape and uh dropping
+the and B is basically just creating a
+single array that is the same size as a
+but filled with the center of my sample
+so the ground points and see that's the
+same thing but I take that plus the he
+okay to make sure that we really put in
+a local frame of reference um our two uh
+vertices and now what I do is actually
+hash stack so horizontal stacking with n
+Pi a plus b and a plus c for the up
+Point Cloud so every time the x cord so
+only 2D plus C and B okay and finally I
+will create an open 3D object and fill
+the points with exactly what I have so
+the concatenation of both okay and along
+the axis zero and that will create one
+the axis zero and that will create one single
+entity which is the following nice nice
+nice we are now ready to compute the
+alpha shape of the base point and we
+could use open 3D to do that here I pass
+the line of code what is interesting is
+that I use the function create from
+point Cloud Alpha shape and I put a very
+high alpha because let's say if we have
+building up to 20 met I still want to
+create some kind of triangle and I want
+to paint it as well and I want to show
+my point cloud my mesh and also uh the
+segment in it okay so the vertices the
+mesh and the segment and beautiful we
+have our model that comes out of it and
+you see the vertices and if I zoom in
+you can see that we have our Point Cloud
+uh which is enclosed into our
+mesh okay we have a lot of uh warning
+but that's to be expected um because you
+have invalid Tetra mesh within our
+creation beautiful now it's time to go
+onto um the final stage of this single
+building which is Step 11 postprocessing
+operation and export
+the first thing that is before exporting
+we want to reposition the mesh so you
+can use the translate function of open
+3D and pass the center that we uh saved
+just before now for the mesh basically
+we will write our mesh and then export
+also the shape file so for the mesh um
+you can
+just do that right triangle mesh and you
+go into the res folder how sample mesh
+WR as key false so it will be binary and
+I put a bunch of other commments in in
+it and then uh for the shape file there
+ising gf2 file and you export your shape
+file and I press enter and everything is
+now exported so here is my folder as you
+can see we have our shape file with all
+its dependencies and our py so let's
+open Cloud compare okay and load the
+input data that we had and on top the
+sample house and the shape file to see
+exactly what is the results of our
+exactly what is the results of our little
+experiments so now let's let me go to
+the initial data and you can see here
+the point Cloud that I use neighborhood
+I'm just dragging and dropping this
+point cloud and making sure to apply a
+little translation that's okay and I
+will reapply that result our sample and
+I just drag and drop it here and we have
+XYZ I apply I take the previous input
+and as you can see we have our eyes
+really nicely positioned here right
+where it makes sense and it sticks
+nicely to the ground as well so that's a
+massive success at this stage and the
+last thing that we wanted to check is to
+load the shape file and you see that we
+have the shape file it's normal it's in
+a local frame of reference because I
+didn't want it to truncate uh the
+Precision of our shape file so I I stick
+to have it in local but you have the
+translation so it's easy after to apply
+the translation upon
+it beautiful so let's now automate and
+move on to phase four which is 3D
+Automation and scaling and for that we
+are are first creating a loop where we
+will select the segment okay so to
+select the segment we do what we had
+before CD or 3D select by index npw
+label equal to selector so for cell in
+range the max label plus one that's what
+we do I take the L line that we had
+before that is not needed then we
+compute the building footprint okay so
+for that we you remember we take the 2D
+points and the building Vector with
+Alpha shape then we compute the height
+of the segment so this is with the query
+point and uh using the sample ground
+points and ground zero and then we are
+going to um compute the various
+going to um compute the various attributes
+entries we actually could drop that
+because I don't think it's used uh but
+let's keep it for now and after that
+let's add that to um geometries entries
+but for that we need to initialize some
+kind of U Master geop the data frame
+that's not a the common practice but I
+still wanted to to show you that it's
+possible to initialize Jo data frame and
+for that you do uh you data frame and
+you pass all the the the column names
+right and at the end you just say which
+geometry uh column you are going to use
+and the CRS okay and that will
+initialize an empty GE data frame nice
+so that means that now we could use that
+to concatenate every time this single
+building GE data frame to our Master GE
+buildings geod data frame to have some
+think um which is
+updated great finally we can compute the
+vertices and the 3D geometry and for
+that nothing simpler than just doing
+that one little thing is that it will be
+good to paint um each instance with a
+specific function that take random
+colors and I will Define that just here
+this kind of function um it's an
+optional utility let's say and I will
+import random and Define RGB as random
+color and return a float color which
+will be interesting to colorize then uh
+my mesh okay and that's pretty much it
+we did here everything that we wanted
+except um except except exporting so for
+some reason here it's not
+yeah so that I can delete and here I
+think we are good to go we have a right
+triangle Mach the result house
+underscore something string selection py
+mesh right asky false com so let me I
+think I have already some houses there
+created so let me drop all of that um
+and drop all of that as
+well and be ready so now that I made my
+automation I just press enter and it
+will Loop this is normal uh that we have
+a lot of outputs so maybe what we could
+do is also um let's say reduce the
+output wave of open 3D so else it's very
+heavy so just add this set verbality to
+just have the error and not the warning
+so I very good so uh let's check out our
+building GE data frame so if I do that
+and we have all our polygons which is
+very cool right with all the information
+every time so before going to step five
+we could export also the uh shape file
+so let me do that by just doing exactly
+as before and now if we look at our
+folder we have all the houses and what I
+will do is take all of them and drop
+them in Cloud compare yes and beautiful
+you can see that we have all of our
+building that appears and instantiated
+right so I could select each of them
+independently this is beautiful and
+wonderful at the same time I will also
+load uh my shape file which is there and
+it was not this one it's the full
+neighorhood shape file and you can see
+that we have all of it as well right
+so this is wonderful um you you could
+see that we would need to have some kind
+of post process for example to merge
+this little um here this little entities
+with a big entity and here as well with
+buing operation you do not have that in
+open 3D but in other libraries um or you
+could just filter out using here the
+number of points uh whenever you have
+like a low number of points like let me
+show you the building gdf like here
+translation and so on but if I were to
+put head five be better um or just yeah
+put head five be better um or just yeah add
+five yeah like for example here you have
+335 points whereas the other one have a
+big number so this means that we could
+filter out here at this stage right we
+are at the end of this tutorial that was
+a big one but but I think it will
+provide a massive value uh here if you
+are into the scope of going to export
+vectorized entities whether 2D or 3D as
+we saw if you like comp guide an article
+you can dive onto the medium
+article if you prefer tutorials please
+subscribe uh that means a lot to me and
+uh share it with the world that would be
+also something super nice to help as
+much people as possible if you want an
+entire ano course there it is at the
+geodata Academy
+and I was really happy to have you on to
+this journey and let's see each other in
+the next video tutorial
+the next video tutorial [Music]
+bye-bye
