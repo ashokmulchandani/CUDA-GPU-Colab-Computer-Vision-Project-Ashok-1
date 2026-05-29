@@ -398,6 +398,41 @@
 | 9F.5 | Remote monitoring — SSH + Telegram status updates |
 | 9F.6 | Power management — handle power cuts, auto-resume |
 
+## Phase 10: Fine-Tuning & Transfer Learning (Customize Pre-trained Models)
+
+> Take existing powerful models and adapt them to YOUR specific task — the most common real-world ML workflow.
+
+### 10A: Fine-Tuning Fundamentals
+
+| Step | Task |
+|------|------|
+| 10A.1 | Understand pre-training vs fine-tuning — "general knowledge" vs "specialized skill" |
+| 10A.2 | Freeze vs unfreeze layers — which layers to retrain |
+| 10A.3 | Learning rate scheduling — lower LR for fine-tuning (don't destroy pre-trained knowledge) |
+| 10A.4 | LoRA (Low-Rank Adaptation) — fine-tune with minimal parameters |
+| 10A.5 | QLoRA — quantized fine-tuning (fit large models on small GPUs) |
+
+### 10B: Fine-Tune Vision Models
+
+| Step | Task |
+|------|------|
+| 10B.1 | Fine-tune YOLOv8 on custom dataset (detect YOUR objects) |
+| 10B.2 | Fine-tune VGG16/ResNet on Chicken Disease dataset |
+| 10B.3 | Data augmentation — flip, rotate, color jitter for small datasets |
+| 10B.4 | Evaluate: precision, recall, mAP, confusion matrix |
+| 10B.5 | Export fine-tuned model to TensorRT for deployment |
+
+### 10C: Fine-Tune Language Models (LLMs)
+
+| Step | Task |
+|------|------|
+| 10C.1 | Fine-tune GPT-2 / Llama on custom text data |
+| 10C.2 | Prepare dataset — instruction format, chat format |
+| 10C.3 | LoRA fine-tuning with HuggingFace PEFT library |
+| 10C.4 | Evaluate: perplexity, BLEU score, human evaluation |
+| 10C.5 | Deploy fine-tuned LLM with vLLM or TGI |
+| 10C.6 | Compare: base model vs fine-tuned on your task |
+
 ---
 
 ## Execution Order (Recommended)
