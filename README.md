@@ -1,0 +1,34 @@
+# CUDA GPU & Computer Vision Project
+
+## Notebooks (Open in Colab)
+
+| Phase | Notebook | Open |
+|-------|----------|------|
+| Phase 1-3.5 | CUDA Fundamentals + MLP + CNN | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/1_Ashok_CUDA.ipynb) |
+| Phase 4 | YOLO + TensorRT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_YOLO.ipynb) |
+| Phase 7 | 3D Perception (LiDAR, Fusion, SLAM) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/3_Ashok_CUDA_3D_Perception.ipynb) |
+| Phase 6 | Multi-Stream CUDA | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/6_Multistream.ipynb) |
+
+## Local Scripts
+
+| Script | What it does |
+|--------|-------------|
+| `smart_camera.py` | Real-time YOLO + tracking + zone alerts + Telegram notifications |
+| `yolo_webcam.py` | Simple YOLO webcam detection |
+
+## Plan
+
+See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
+
+## Progress
+
+- ✅ Phase 1: CUDA Fundamentals
+- ✅ Phase 2: Matrix Multiplication (694 GFLOPS)
+- ✅ Phase 3: MLP on MNIST (95.55%, 30x faster than PyTorch)
+- ✅ Phase 3.5: CNN on MNIST (96.29%, 7.4x faster than PyTorch)
+- ✅ Phase 4: YOLO (137 FPS, TensorRT, live webcam)
+- ✅ Phase 6: Production CUDA (TensorRT, Triton, Multi-stream 7x speedup)
+- ✅ Phase 7: 3D Perception (LiDAR, PointPillars, Sensor Fusion, SLAM)
+- ✅ Phase 9: Smart Camera (tracking, zones, Telegram alerts)
+- ⬜ Phase 5: Chicken Disease (VGG16 + DVC)
+- ⬜ Phase 8: Transformer from Scratch
