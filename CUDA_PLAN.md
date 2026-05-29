@@ -256,6 +256,27 @@
 | 7F.5 | Free-space detection — identify drivable/walkable areas |
 | 7F.6 | Deploy full perception stack: sensors → preprocessing → detection → tracking → mapping |
 
+### 7G: GIS & 3D City Modeling (Point Cloud Vectorization)
+
+> From raw LiDAR to exportable 2D/3D building models — GIS/urban planning applications.
+
+| Step | Task |
+|------|------|
+| 7G.1 | Load real LiDAR data (.las format) — laspy library |
+| 7G.2 | Classification filtering — extract buildings (class=6) from point cloud |
+| 7G.3 | DBSCAN clustering — segment individual buildings |
+| 7G.4 | Alpha shape extraction — compute 2D building footprint outline |
+| 7G.5 | Height computation — ground level (KD-Tree) + max height per building |
+| 7G.6 | Attribute extraction — area, perimeter, height, point count per building |
+| 7G.7 | 2D to 3D extrusion — create 3D vector model from footprint + height |
+| 7G.8 | 3D mesh creation — Open3D alpha shape mesh generation |
+| 7G.9 | Export shape file (.shp) — GeoDataFrame with geopandas |
+| 7G.10 | Export PLY/OBJ mesh — for CloudCompare/Blender visualization |
+| 7G.11 | Automation — loop over all buildings, batch export |
+| 7G.12 | Visualize in CloudCompare — load real DJI LiDAR + generated models |
+
+---
+
 ## Phase 8: Transformer from Scratch in CUDA (Attention Is All You Need)
 
 > The architecture behind GPT, Claude, Gemini, DALL-E, Whisper — the dominant AI architecture.
@@ -543,5 +564,19 @@ CUDA_Projects-Ashok/
 │           └── python_bindings.cpp
 ├── data/                           # MNIST, chicken disease images
 ├── models/                         # Saved weights
+├── Lidar_Data/                     # Real DJI LiDAR + generated PLY (gitignored, local only)
+│   ├── cloud2b201cc0229f67.las     # 112M point urban scan (DJI drone, Oct 2024)
+│   └── our_scene.ply              # Simulated scene (car, person, wall)
+├── yolo_webcam.py                  # Real-time YOLO webcam detection script
 └── Makefile                        # Build all CUDA files
+
+## LiDAR Data Sources
+
+| Data | Location | Size |
+|------|----------|------|
+| DJI Urban LiDAR | Google Drive: `Photogrammetry VS LiDAR Data Sets/LiDAR Data/Urban Data/` | ~400MB |
+| DJI Vegetation LiDAR | Google Drive: `Photogrammetry VS LiDAR Data Sets/LiDAR Data/Vegetation Data/` | ~400MB |
+| Photogrammetry Urban | Google Drive: `Photogrammetry VS LiDAR Data Sets/Photogrammetry Data/Urban Data/` | ~200MB |
+| Generated outputs | Google Drive root: `buildings_mesh.ply`, `buildings_colored.ply`, `buildings_footprint.shp` | ~50MB |
+| Dataset reference | GitHub: `ashokmulchandani/Awesome-3D-LiDAR-Datasets-Ashok-CUDA-1` | README only |
 ```
