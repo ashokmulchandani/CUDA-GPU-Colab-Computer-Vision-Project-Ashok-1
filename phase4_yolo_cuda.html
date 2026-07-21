@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 4: YOLO Object Detection with CUDA — Interactive Learning</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06090f;
+  --bg-card: #0d1117;
+  --bg-raised: #161b22;
+  --border: #21262d;
+  --border-active: #30363d;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --text-muted: #484f58;
+  --cyan: #39d2ff;
+  --cyan-bg: #39d2ff15;
+  --cyan-border: #39d2ff40;
+  --amber: #ffb347;
+  --amber-bg: #ffb34715;
+  --green: #3fb950;
+  --green-bg: #3fb95015;
+  --magenta: #ff6ec7;
+  --magenta-bg: #ff6ec715;
+  --red: #f85149;
+  --violet: #a371f7;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Light theme */
+body.light {
+  --bg: #f6f8fa;
+  --bg-card: #ffffff;
+  --bg-raised: #e8ecf0;
+  --border: #d0d7de;
+  --border-active: #afb8c1;
+  --text: #1f2328;
+  --text-dim: #656d76;
+  --text-muted: #8b949e;
+  --cyan: #0969da;
+  --cyan-bg: #ddf4ff;
+  --cyan-border: #54aeff;
+  --amber: #9a6700;
+  --amber-bg: #fff8c5;
+  --green: #1a7f37;
+  --green-bg: #dafbe1;
+  --magenta: #bf3989;
+  --magenta-bg: #fbefff;
+  --red: #cf222e;
+  --violet: #8250df;
+}
+body.light .topbar { background: rgba(246,248,250,0.9); }
+body.light .eq-box { background: rgba(0,0,0,0.03); }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  line-height: 1.65;
+  transition: background 0.3s, color 0.3s;
+}
+
+.bg-canvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+.app { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:2rem; }
+
+/* ── Theme Toggle ── */
+.theme-toggle {
+  position: fixed; top: 0.7rem; right: 2rem; z-index: 200;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--text); font-size: 1.1rem; cursor: pointer;
+  padding: 0.35rem 0.6rem; border-radius: 6px;
+  transition: var(--transition);
+  font-family: 'JetBrains Mono', monospace;
+}
+.theme-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── Top Bar ── */
+.topbar {
+  position: sticky; top:0; z-index:100;
+  background: rgba(6,9,15,0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 2rem;
+  display: flex; align-items: center; gap: 1rem;
+  font-size: 0.8rem;
+}
+.topbar .logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem; letter-spacing: 0.15em;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+.topbar .step-dots {
+  display: flex; gap: 0.4rem; flex:1; justify-content: center;
+}
+.topbar .step-dot {
+  width: 28px; height: 4px; border-radius: 2px;
+  background: var(--border);
+  transition: var(--transition);
+  cursor: pointer;
+}
+.topbar .step-dot.done { background: var(--green); }
+.topbar .step-dot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.topbar .step-dot:hover { background: var(--text-dim); }
+.topbar .step-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ── Header ── */
+.header {
+  text-align: center;
+  padding: 3rem 0 1rem;
+}
+.header .phase-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.2em;
+  color: var(--green); border: 1px solid var(--green-bg);
+  border-radius: 100px; padding: 0.4em 1.4em;
+  margin-bottom: 1rem;
+}
+.header h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+.header .tagline {
+  color: var(--text-dim); font-size: 1rem;
+}
+
+/* ── Topic Chips ── */
+.topic-list {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  justify-content: center; margin: 1.5rem 0 1rem;
+}
+.topic-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.04em;
+  padding: 0.3rem 0.7rem; border-radius: 100px;
+  border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer;
+  transition: var(--transition);
+  background: transparent;
+}
+.topic-chip.visited { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.topic-chip.current { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); box-shadow: 0 0 10px var(--cyan-border); }
+.topic-chip:hover { border-color: var(--text-dim); color: var(--text-dim); }
+
+/* ── Fun Fact ── */
+.fun-fact {
+  background: linear-gradient(135deg, var(--amber-bg), var(--magenta-bg));
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.65rem 1.2rem; margin-bottom: 1.5rem;
+  font-size: 0.78rem; color: var(--text-dim);
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.fun-fact .bulb { font-size: 1.2rem; flex-shrink: 0; }
+.fun-fact strong { color: var(--amber); }
+
+/* ── Slide ── */
+.slide { animation: slideIn 0.35s ease; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+}
+.card h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem; font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  color: var(--text);
+}
+.card h2 .num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem; color: var(--cyan);
+  background: var(--cyan-bg); border-radius: 6px;
+  padding: 0.2em 0.6em;
+}
+.card p { color: var(--text-dim); margin-bottom: 1rem; font-size: 0.95rem; }
+.card h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem; color: var(--cyan);
+  margin: 1.2rem 0 0.5rem;
+}
+.card ul, .card ol {
+  color: var(--text-dim); padding-left: 1.5rem;
+  margin-bottom: 1rem; font-size: 0.9rem;
+}
+.card ul li, .card ol li { margin-bottom: 0.4rem; }
+
+/* ── Eq Box (Code) ── */
+.eq-box {
+  background: rgba(0,0,0,0.4);
+  border-left: 3px solid var(--cyan);
+  border-radius: var(--radius-sm);
+  padding: 1.2rem 1.5rem; margin: 1rem 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem; line-height: 1.8;
+  color: var(--text); white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/* ── Compare Grid ── */
+.compare-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;
+  margin: 1rem 0;
+}
+.compare-grid.two-col { grid-template-columns: 1fr 1fr; }
+.compare-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1.2rem;
+  transition: var(--transition);
+}
+.compare-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.compare-card.pick-a { border-left: 3px solid var(--red); }
+.compare-card.pick-b { border-left: 3px solid var(--cyan); }
+.compare-card.pick-c { border-left: 3px solid var(--green); }
+.compare-card h4 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.78rem; margin-bottom: 0.5rem;
+}
+.compare-card.pick-a h4 { color: var(--red); }
+.compare-card.pick-b h4 { color: var(--cyan); }
+.compare-card.pick-c h4 { color: var(--green); }
+.compare-card p { font-size: 0.82rem !important; color: var(--text-dim) !important; }
+.compare-card .tag-row {
+  display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem;
+}
+.compare-card .tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; padding: 0.2em 0.6em;
+  border-radius: 100px;
+}
+.tag.low { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.tag.med { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.tag.high { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+/* ── Pipeline ── */
+.pipeline {
+  display: flex; align-items: center; gap: 0.6rem;
+  justify-content: center; flex-wrap: wrap;
+  margin: 1.2rem 0;
+}
+.pipeline-stage {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem 1rem; text-align: center;
+  transition: var(--transition);
+  min-width: 120px;
+}
+.pipeline-stage.highlight { border-color: var(--cyan); background: var(--cyan-bg); }
+.pipeline-stage .stage-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.pipeline-stage .stage-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem; color: var(--cyan);
+  line-height: 1.3;
+}
+.pipeline-stage .stage-desc {
+  font-size: 0.72rem; color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+.pipeline-arrow {
+  font-size: 1.4rem; color: var(--cyan);
+  animation: arrowPulse 1.5s ease-in-out infinite;
+}
+@keyframes arrowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ── Data Type Cards ── */
+.data-types {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem;
+  margin: 1rem 0;
+}
+.data-types.two { grid-template-columns: repeat(2, 1fr); }
+.data-type-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  transition: var(--transition);
+  cursor: default;
+}
+.data-type-card:nth-child(1) { border-top-color: var(--cyan); }
+.data-type-card:nth-child(2) { border-top-color: var(--amber); }
+.data-type-card:nth-child(3) { border-top-color: var(--magenta); }
+.data-type-card:nth-child(4) { border-top-color: var(--green); }
+.data-type-card:nth-child(5) { border-top-color: var(--violet); }
+.data-type-card:nth-child(6) { border-top-color: var(--red); }
+.data-type-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.data-type-card .dt-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.data-type-card h4 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.78rem; margin-bottom: 0.3rem;
+}
+.data-type-card :nth-child(2) { color: var(--cyan); }
+.data-type-card p { font-size: 0.78rem !important; color: var(--text-muted) !important; margin-bottom: 0 !important; }
+
+/* ── Speed Ladder ── */
+.ladder {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  margin: 1rem 0;
+}
+.ladder-rung {
+  display: flex; align-items: center; gap: 0.8rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 1rem;
+  transition: var(--transition);
+}
+.ladder-rung:hover { border-color: var(--cyan); }
+.ladder-rung .rung-icon { font-size: 1.3rem; flex-shrink: 0; }
+.ladder-rung .rung-bar {
+  width: 6px; height: 36px; border-radius: 3px; flex-shrink: 0;
+}
+.ladder-rung .rung-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem; color: var(--text);
+  min-width: 100px;
+}
+.ladder-rung .rung-metric {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem; color: var(--cyan);
+  flex: 1;
+}
+.ladder-rung .rung-example {
+  font-size: 0.72rem; color: var(--text-muted);
+}
+
+/* ── Flashcard ── */
+.flashcard-wrap {
+  perspective: 800px; margin: 1rem 0;
+  cursor: pointer;
+}
+.flashcard {
+  position: relative;
+  width: 100%; min-height: 90px;
+  transform-style: preserve-3d;
+  transition: transform 0.5s;
+}
+.flashcard.flipped { transform: rotateY(180deg); }
+.flashcard .front, .flashcard .back {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  border-radius: var(--radius-sm);
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: 1rem;
+}
+.flashcard .front {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  color: var(--cyan);
+}
+.flashcard .front .hint {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem; color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+.flashcard .back {
+  background: var(--bg-raised);
+  border: 1px solid var(--cyan);
+  transform: rotateY(180deg);
+  color: var(--text-dim);
+  font-size: 0.85rem; text-align: center;
+}
+
+/* ── Quiz ── */
+.quiz {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1.2rem; margin-top: 1.5rem;
+}
+.quiz .question {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.82rem; color: var(--text);
+  margin-bottom: 0.8rem;
+}
+.quiz .options { display: flex; flex-direction: column; gap: 0.4rem; }
+.quiz .option {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem; color: var(--text-dim);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.quiz .option:hover { border-color: var(--cyan); color: var(--cyan); }
+.quiz .option.correct { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.quiz .option.wrong { border-color: var(--red); background: #f8514920; color: var(--red); }
+.quiz .feedback {
+  display: none;
+  margin-top: 0.8rem; padding: 0.6rem 1rem;
+  border-radius: 6px; font-size: 0.82rem;
+}
+.quiz .feedback.show { display: block; }
+.quiz .feedback.correct { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.quiz .feedback.wrong { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+/* ── Checklist ── */
+.checklist { margin: 1rem 0; }
+.checklist .check-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem; color: var(--text-dim);
+}
+.checklist .check-box {
+  font-size: 1rem; flex-shrink: 0;
+}
+
+/* ── Big Number Stat ── */
+.big-stat {
+  text-align: center;
+  margin: 1rem 0;
+}
+.big-stat .number {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.8rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--cyan), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.big-stat .label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem; color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* ── Nav Row ── */
+.nav-row {
+  display: flex; gap: 1rem; justify-content: center;
+  margin-top: 1.5rem;
+}
+.nav-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem; padding: 0.6rem 1.8rem;
+  border-radius: 100px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  cursor: pointer; transition: var(--transition);
+}
+.nav-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-btn.primary {
+  border-color: var(--cyan); color: var(--cyan);
+  background: var(--cyan-bg);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .app { padding: 1rem; }
+  .topbar { padding: 0.5rem 1rem; }
+  .compare-grid { grid-template-columns: 1fr; }
+  .data-types { grid-template-columns: 1fr; }
+  .pipeline { flex-direction: column; }
+  .pipeline-arrow { transform: rotate(90deg); }
+  .header h1 { font-size: 1.3rem; }
+  .card { padding: 1.2rem; }
+  .theme-toggle { right: 0.5rem; top: 0.5rem; font-size: 0.9rem; padding: 0.3rem 0.5rem; }
+  .big-stat .number { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+
+<button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme" onclick="toggleTheme()">☀️</button>
+
+<nav class="topbar">
+  <span class="logo">CUDA — PHASE 4</span>
+  <div class="step-dots" id="stepDots"></div>
+  <span class="step-label" id="stepLabel">1/8</span>
+</nav>
+
+<div class="app">
+  <header class="header">
+    <div class="phase-badge">✅ COMPLETED — 137 FPS on Tesla T4</div>
+    <h1>Phase 4: YOLO Object Detection with CUDA</h1>
+    <p class="tagline">From raw pixels to bounding boxes in 7.3ms — how CUDA kernels + TensorRT turn a 252ms pipeline into real-time 137 FPS</p>
+  </header>
+
+  <div class="topic-list" id="topicChips"></div>
+
+  <div class="fun-fact" id="funFact">
+    <span class="bulb">💡</span>
+    <span class="fact-text" id="funFactText"></span>
+  </div>
+
+  <div id="slideContainer"></div>
+
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn" onclick="goTo(currentSlide-1)">← Previous</button>
+    <button class="nav-btn primary" id="nextBtn" onclick="goTo(currentSlide+1)">Next →</button>
+  </div>
+</div>
+
+<script>
+// ── Theme Toggle ──
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  const btn = document.getElementById('themeToggle');
+  btn.textContent = document.body.classList.contains('light') ? '🌙' : '☀️';
+  localStorage.setItem('cuda-phase4-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+}
+(function() {
+  if (localStorage.getItem('cuda-phase4-theme') === 'light') {
+    document.body.classList.add('light');
+    document.getElementById('themeToggle').textContent = '🌙';
+  }
+})();
+
+// ── Background Particles ──
+(function() {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize(); window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      r: Math.random() * 2 + 0.5,
+      a: Math.random() * 0.3 + 0.1,
+    });
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const isLight = document.body.classList.contains('light');
+    const lineColor = isLight ? 'rgba(9,105,218,0.06)' : 'rgba(57,210,255,0.06)';
+    const dotColor = isLight ? 'rgba(9,105,218,0.3)' : 'rgba(57,210,255,0.3)';
+
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+    });
+
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 100) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = lineColor;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    particles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = dotColor;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+// ── Slide Data ──
+const slides = [
+  // ═══════ SLIDE 1: What is YOLO? ═══════
+  {
+    id: '4.1',
+    title: 'What is YOLO?',
+    fact: '<strong>YOLO looks at an image ONCE.</strong> Unlike older detectors that scan thousands of regions, YOLO divides the image into a grid and predicts everything in one pass — that\'s why it\'s fast enough for real-time video.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.1</span> What is YOLO? — You Only Look Once</h2>
+    <p>YOLO is a <strong style="color:var(--cyan)">single-shot object detector</strong>. Instead of sliding a window across the image thousands of times (like older R-CNN approaches), YOLO divides the image into a grid and predicts all bounding boxes + class probabilities <em>in one forward pass</em> through a CNN.</p>
+
+    <h3>🧠 The Core Idea: Grid Cells</h3>
+    <p>YOLO splits the input image (640×640) into an S×S grid. Each grid cell is responsible for detecting objects whose <strong style="color:var(--cyan)">center falls inside that cell</strong>. Every cell predicts:</p>
+
+    <div class="data-types">
+      <div class="data-type-card">
+        <div class="dt-icon">📦</div>
+        <h4>Bounding Boxes</h4>
+        <p>5 numbers per box: x, y (center), w, h (size), and a confidence score. Each cell predicts 3 boxes at different aspect ratios.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🏷️</div>
+        <h4>Class Probabilities</h4>
+        <p>80 numbers (one per COCO class: person, car, dog, etc.). The probability that a detected object belongs to each class.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">⚡</div>
+        <h4>Single Pass</h4>
+        <p>The magic: ONE forward pass produces ALL predictions. No region proposals, no sliding windows. Just one CNN forward → all boxes at once.</p>
+      </div>
+    </div>
+
+    <h3>🔢 The Numbers (YOLOv8n — the "nano" model)</h3>
+    <div class="eq-box">
+<span style="color:var(--text-muted)">// YOLOv8n architecture at a glance:</span>
+<span style="color:var(--cyan)">Input:</span>        640 × 640 × 3  (RGB image)
+<span style="color:var(--cyan)">Parameters:</span>    3,151,904  (only 3.1M — tiny by modern standards!)
+<span style="color:var(--cyan)">GFLOPs:</span>        8.7 billion floating-point operations per image
+<span style="color:var(--cyan)">Layers:</span>        225  (CNN backbone + detection head)
+<span style="color:var(--cyan)">Output:</span>        (1, 84, 8400)  —  8400 candidate boxes, each with 4 coords + 80 class scores
+<span style="color:var(--cyan)">Classes:</span>       80 COCO classes  (person, bicycle, car, ... , toothbrush)</div>
+
+    <h3>🐌 The Problem: Python is Too Slow</h3>
+    <p>A naive PyTorch pipeline takes <strong style="color:var(--red)">~252ms per image (~4 FPS)</strong> — not even close to real-time (30 FPS needed). The bottlenecks? Preprocessing the image, running 225 layers, and filtering duplicate boxes. <strong style="color:var(--cyan)">That's where CUDA comes in.</strong></p>
+
+    <div class="quiz" id="quiz1">
+      <div class="question">🧪 Why is YOLO called "You Only Look Once"?</div>
+      <div class="options">
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz1', this)">A. It processes the entire image in ONE forward pass through the CNN — no region proposals or sliding windows</div>
+        <div class="option" onclick="checkQuiz('quiz1', this)">B. It only looks at one object per image</div>
+        <div class="option" onclick="checkQuiz('quiz1', this)">C. You only need to train it once and it works forever</div>
+      </div>
+      <div class="feedback" id="quiz1-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 2: The 3-Stage Pipeline ═══════
+  {
+    id: '4.2',
+    title: 'The 3-Stage Detection Pipeline',
+    fact: '<strong>The original Python pipeline took 252ms per frame.</strong> That\'s 4 FPS — a slideshow, not a video. The goal: squeeze each stage until the total drops below 33ms (30 FPS). We got to 7.3ms (137 FPS).',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.2</span> The 3-Stage Detection Pipeline</h2>
+    <p>Every object detection system has <strong style="color:var(--cyan)">three stages</strong>. The original Python pipeline spent almost all its time in stage 2. CUDA attacks all three.</p>
+
+    <div class="pipeline">
+      <div class="pipeline-stage">
+        <div class="stage-icon">🖼️</div>
+        <div class="stage-name">STAGE 1<br>PREPROCESS</div>
+        <div class="stage-desc">Resize + Normalize<br>+ HWC → CHW</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">🧠</div>
+        <div class="stage-name">STAGE 2<br>INFERENCE</div>
+        <div class="stage-desc">CNN Forward Pass<br>8400 box predictions</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <div class="stage-icon">🔍</div>
+        <div class="stage-name">STAGE 3<br>POSTPROCESS</div>
+        <div class="stage-desc">NMS: Filter<br>duplicate boxes</div>
+      </div>
+    </div>
+
+    <h3>⏱️ Timing Breakdown: Before vs After CUDA</h3>
+    <div class="ladder">
+      <div class="ladder-rung">
+        <div class="rung-icon">🐍</div>
+        <div class="rung-bar" style="background:var(--red)"></div>
+        <div class="rung-label">Stage 1 Python</div>
+        <div class="rung-metric">19.3 ms</div>
+        <div class="rung-example">NumPy resize + normalize + transpose</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">⚡</div>
+        <div class="rung-bar" style="background:var(--green)"></div>
+        <div class="rung-label">Stage 1 CUDA</div>
+        <div class="rung-metric">0.046 ms</div>
+        <div class="rung-example">419× faster! One fused kernel</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">🐍</div>
+        <div class="rung-bar" style="background:var(--red)"></div>
+        <div class="rung-label">Stage 2 PyTorch</div>
+        <div class="rung-metric">168 ms</div>
+        <div class="rung-example">225 layers, FP32 precision</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">⚡</div>
+        <div class="rung-bar" style="background:var(--green)"></div>
+        <div class="rung-label">Stage 2 TensorRT</div>
+        <div class="rung-metric">11.3 ms</div>
+        <div class="rung-example">15× faster! FP16 + fused layers</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">🐍</div>
+        <div class="rung-bar" style="background:var(--red)"></div>
+        <div class="rung-label">Stage 3 Python</div>
+        <div class="rung-metric">72.5 ms</div>
+        <div class="rung-example">torchvision NMS on 8400 boxes</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">⚡</div>
+        <div class="rung-bar" style="background:var(--green)"></div>
+        <div class="rung-label">Stage 3 CUDA</div>
+        <div class="rung-metric">~1 ms</div>
+        <div class="rung-example">GPU NMS kernel, 72× faster</div>
+      </div>
+    </div>
+
+    <div class="big-stat">
+      <div class="number">252 → 12 ms</div>
+      <div class="label">TOTAL PIPELINE: FROM 4 FPS TO 83+ FPS</div>
+    </div>
+
+    <div class="quiz" id="quiz2">
+      <div class="question">🧪 Which stage is the biggest bottleneck in the ORIGINAL Python pipeline?</div>
+      <div class="options">
+        <div class="option" onclick="checkQuiz('quiz2', this)">A. Stage 1 (Preprocess) — resizing images is expensive in Python</div>
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz2', this)">B. Stage 2 (Inference) — 168ms for 225 CNN layers dominates the 252ms total</div>
+        <div class="option" onclick="checkQuiz('quiz2', this)">C. Stage 3 (NMS) — sorting 8400 boxes takes forever</div>
+      </div>
+      <div class="feedback" id="quiz2-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 3: CUDA Preprocess Kernel ═══════
+  {
+    id: '4.3',
+    title: 'CUDA Preprocess Kernel: 419× Faster',
+    fact: '<strong>Three Python operations became ONE CUDA kernel.</strong> Resize + Normalize + HWC→CHW — three separate NumPy calls that each loop over 1.2M pixels — fused into a single GPU pass taking 0.046 milliseconds.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.3</span> CUDA Preprocess Kernel — 3 Operations, 1 Kernel</h2>
+    <p>The preprocess step must transform a raw camera image into the exact tensor format the CNN expects. Python does this with <strong style="color:var(--red)">three separate operations</strong>, each looping over 1.2M pixels. CUDA fuses them into <strong style="color:var(--cyan)">one kernel = one pass</strong>.</p>
+
+    <h3>🔀 What Needs to Happen</h3>
+    <div class="compare-grid">
+      <div class="compare-card pick-a">
+        <h4>🔴 Input (from camera)</h4>
+        <p><strong>Shape:</strong> 810 × 1080 × 3 (HWC)</p>
+        <p><strong>Type:</strong> uint8 [0-255]</p>
+        <p><strong>Layout:</strong> Height-Width-Channel</p>
+        <p style="margin-top:0.5rem;color:var(--text-muted)">Raw bytes from webcam. Pixels stored as [R,G,B, R,G,B, ...] row by row.</p>
+      </div>
+      <div class="compare-card pick-c">
+        <h4>🟢 Output (to CNN)</h4>
+        <p><strong>Shape:</strong> 1 × 3 × 640 × 640 (NCHW)</p>
+        <p><strong>Type:</strong> float32 [0.0-1.0]</p>
+        <p><strong>Layout:</strong> Batch-Channel-Height-Width</p>
+        <p style="margin-top:0.5rem;color:var(--text-muted)">All red pixels contiguous, then all green, then all blue. What PyTorch/TensorRT expect.</p>
+      </div>
+    </div>
+
+    <h3>🧵 Thread Mapping: 3D Grid for 3 Channels</h3>
+    <div class="eq-box">
+<span style="color:var(--text-muted)">// Grid configuration: 3D — one dimension per color channel</span>
+<span style="color:var(--cyan)">dim3</span> threads(<span style="color:var(--green)">16, 16</span>);          <span style="color:var(--text-muted)">// 256 threads per block → good occupancy</span>
+<span style="color:var(--cyan)">dim3</span> blocks(<span style="color:var(--green)">40, 40, 3</span>);        <span style="color:var(--text-muted)">// 40×40 = 1600 blocks cover 640×640 pixels</span>
+                              <span style="color:var(--text-muted)">// z=3: one "layer" of blocks per channel (R, G, B)</span>
+
+<span style="color:var(--text-muted)">// Each thread processes exactly ONE pixel in ONE channel</span>
+<span style="color:var(--cyan)">int</span> out_x = blockIdx.x * blockDim.x + threadIdx.x;  <span style="color:var(--text-muted)">// 0..639</span>
+<span style="color:var(--cyan)">int</span> out_y = blockIdx.y * blockDim.y + threadIdx.y;  <span style="color:var(--text-muted)">// 0..639</span>
+<span style="color:var(--cyan)">int</span> c     = blockIdx.z;                            <span style="color:var(--text-muted)">// 0=R, 1=G, 2=B</span></div>
+
+    <h3>⚡ The Fused Operation (per thread)</h3>
+    <div class="eq-box">
+<span style="color:var(--text-muted)">// Step 1: Nearest-neighbor resize — map output coords back to input coords</span>
+<span style="color:var(--cyan)">int</span> in_x = (<span style="color:var(--cyan)">int</span>)((<span style="color:var(--cyan)">float</span>)out_x / <span style="color:var(--green)">640</span> * in_w);
+<span style="color:var(--cyan)">int</span> in_y = (<span style="color:var(--cyan)">int</span>)((<span style="color:var(--cyan)">float</span>)out_y / <span style="color:var(--green)">640</span> * in_h);
+
+<span style="color:var(--text-muted)">// Step 2: Read from HWC layout (all channels interleaved per pixel)</span>
+<span style="color:var(--cyan)">unsigned char</span> pixel = input[in_y * in_w * <span style="color:var(--green)">3</span> + in_x * <span style="color:var(--green)">3</span> + c];
+
+<span style="color:var(--text-muted)">// Step 3: Normalize + write to CHW layout (all pixels of one channel together)</span>
+output[c * out_h * out_w + out_y * out_w + out_x] = (<span style="color:var(--cyan)">float</span>)pixel / <span style="color:var(--green)">255.0f</span>;</div>
+
+    <div class="big-stat">
+      <div class="number">0.046 ms</div>
+      <div class="label">CUDA KERNEL TIME (vs 19.3ms NumPy = 419× FASTER)</div>
+    </div>
+
+    <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+      <div class="flashcard">
+        <div class="front">
+          <span>🤔 Why is HWC→CHW transformation needed?</span>
+          <span class="hint">Click to reveal ↻</span>
+        </div>
+        <div class="back">
+          <strong>Memory coalescing.</strong> In CHW layout, all red pixels are contiguous in memory. When the CNN's first convolution filter slides across the red channel, it reads sequential memory addresses — maximizing GPU memory bandwidth. HWC layout would make the GPU jump 3 bytes between every pixel.
+        </div>
+      </div>
+    </div>
+
+    <div class="quiz" id="quiz3">
+      <div class="question">🧪 Why does fusing 3 operations into 1 kernel give such a huge speedup?</div>
+      <div class="options">
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz3', this)">A. The data stays in GPU registers — no round-trips to global memory between operations. Plus 1,228,800 threads run in parallel.</div>
+        <div class="option" onclick="checkQuiz('quiz3', this)">B. CUDA code compiles to faster machine code than NumPy</div>
+        <div class="option" onclick="checkQuiz('quiz3', this)">C. The GPU has more RAM than the CPU, so it can hold more pixels at once</div>
+      </div>
+      <div class="feedback" id="quiz3-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 4: Inside YOLO Inference ═══════
+  {
+    id: '4.4',
+    title: 'Inside YOLO Inference',
+    fact: '<strong>YOLOv8n has 225 layers but only 3.15M parameters.</strong> That\'s smaller than a single fully-connected layer in GPT-2. The entire model fits in the GPU cache, which is why it can run at 137 FPS.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.4</span> Inside YOLO Inference — What the CNN Actually Does</h2>
+    <p>The CNN backbone is a series of <strong style="color:var(--cyan)">convolution → batch norm → activation</strong> blocks, progressively extracting higher-level features. Early layers detect edges and textures; deep layers detect "dog face-ness" or "car wheel-ness".</p>
+
+    <h3>🏗️ CNN Backbone Architecture</h3>
+    <div class="pipeline">
+      <div class="pipeline-stage">
+        <div class="stage-icon">🟦</div>
+        <div class="stage-name">INPUT</div>
+        <div class="stage-desc">640×640×3</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <div class="stage-icon">🔲</div>
+        <div class="stage-name">CONV</div>
+        <div class="stage-desc">Detect edges<br>textures</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <div class="stage-icon">🔳</div>
+        <div class="stage-name">DEEP CONV</div>
+        <div class="stage-desc">Detect shapes<br>parts</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <div class="stage-icon">🧩</div>
+        <div class="stage-name">NECK</div>
+        <div class="stage-desc">Multi-scale<br>feature fusion</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">🎯</div>
+        <div class="stage-name">HEAD</div>
+        <div class="stage-desc">8400 box<br>predictions</div>
+      </div>
+    </div>
+
+    <h3>📊 The Output Tensor: (1, 84, 8400)</h3>
+    <div class="data-types">
+      <div class="data-type-card">
+        <div class="dt-icon">📐</div>
+        <h4>8400 = Candidate Boxes</h4>
+        <p>3 scales × (80×80 + 40×40 + 20×20) grid cells. Each grid cell proposes boxes at 3 anchor sizes. Fine grid = small objects, coarse grid = large objects.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">📏</div>
+        <h4>84 = 4 + 80</h4>
+        <p>First 4 values: x_center, y_center, width, height (normalized 0-1). Next 80 values: probability score for each COCO class.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🎯</div>
+        <h4>Confidence Filtering</h4>
+        <p>Most of the 8400 boxes are garbage (confidence < 0.5). After filtering, only ~10-50 boxes remain — and NMS reduces duplicates further.</p>
+      </div>
+    </div>
+
+    <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+      <div class="flashcard">
+        <div class="front">
+          <span>🤔 Why 8400 boxes? Why not just predict the objects directly?</span>
+          <span class="hint">Click to reveal ↻</span>
+        </div>
+        <div class="back">
+          <strong>Dense predictions = robustness.</strong> By predicting boxes at EVERY grid cell and EVERY anchor scale, YOLO doesn't miss objects. If a person spans 4 grid cells, all 4 will try to predict it — NMS then picks the best one. This is why YOLO rarely misses visible objects.
+        </div>
+      </div>
+    </div>
+
+    <div class="quiz" id="quiz4">
+      <div class="question">🧪 Why can a CNN with only 3.15M parameters detect 80 different object classes?</div>
+      <div class="options">
+        <div class="option" onclick="checkQuiz('quiz4', this)">A. It downloads class definitions from the internet at inference time</div>
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz4', this)">B. The SAME convolutional filters work for ALL classes — the model learns general visual features (edges, textures, shapes) that apply universally. The class-specific part is just the final classification layer.</div>
+        <div class="option" onclick="checkQuiz('quiz4', this)">C. It has 80 separate CNNs, one for each class</div>
+      </div>
+      <div class="feedback" id="quiz4-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 5: TensorRT ═══════
+  {
+    id: '4.5',
+    title: 'TensorRT: From 13.8ms to 11.3ms',
+    fact: '<strong>TensorRT rewrites your neural network before running it.</strong> It fuses consecutive layers (Conv+BN+ReLU → one operation), picks the fastest kernel for YOUR specific GPU, and uses FP16 precision. The result: 1.2× to 15× faster inference with zero accuracy loss.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.5</span> TensorRT — The Production Inference Engine</h2>
+    <p>PyTorch is built for <strong style="color:var(--amber)">training flexibility</strong>. TensorRT is built for <strong style="color:var(--cyan)">inference speed</strong>. It takes your trained model and applies aggressive optimizations that would be impossible during training.</p>
+
+    <h3>🔧 What TensorRT Does to Your Model</h3>
+    <div class="data-types two">
+      <div class="data-type-card">
+        <div class="dt-icon">🔗</div>
+        <h4>Layer Fusion</h4>
+        <p>Conv → BatchNorm → ReLU becomes ONE fused kernel. No intermediate memory reads/writes between layers.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🔍</div>
+        <h4>Kernel Auto-Tuning</h4>
+        <p>Tests 50+ kernel implementations for each layer on YOUR specific GPU. Picks the fastest one. Different GPUs get different kernels.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">📉</div>
+        <h4>FP16 Precision</h4>
+        <p>Runs in half-precision (16-bit floats). 2× smaller tensors = 2× memory bandwidth. Tensor Cores on T4 love FP16.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🗑️</div>
+        <h4>Dead Code Elimination</h4>
+        <p>Strips out training-only ops: dropout, loss functions, gradient computations. Inference doesn't need them.</p>
+      </div>
+    </div>
+
+    <h3>📦 Export Pipeline: PyTorch → ONNX → TensorRT</h3>
+    <div class="pipeline">
+      <div class="pipeline-stage">
+        <div class="stage-icon">🔥</div>
+        <div class="stage-name">PYTORCH</div>
+        <div class="stage-desc">yolov8n.pt<br>6.3 MB</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage">
+        <div class="stage-icon">🔷</div>
+        <div class="stage-name">ONNX</div>
+        <div class="stage-desc">Intermediate format<br>12.3 MB, 6.9s export</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">🚀</div>
+        <div class="stage-name">TENSORRT</div>
+        <div class="stage-desc">Optimized engine<br>7.9 MB, 418s build</div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">Note: The 418-second build time is one-time. Once built, the engine loads in milliseconds and runs at 11.3ms per image forever.</p>
+
+    <h3>⏱️ Benchmark: PyTorch vs TensorRT on Tesla T4</h3>
+    <div class="compare-grid two-col">
+      <div class="compare-card pick-a">
+        <h4>🔴 PyTorch FP32</h4>
+        <div class="big-stat" style="margin:0.5rem 0"><div class="number" style="font-size:2rem">13.8 ms</div></div>
+        <p>73 FPS. Full precision, no optimizations. Good for training, wasteful for inference.</p>
+        <div class="tag-row"><span class="tag low">Flexible</span><span class="tag med">73 FPS</span></div>
+      </div>
+      <div class="compare-card pick-c">
+        <h4>🟢 TensorRT FP16</h4>
+        <div class="big-stat" style="margin:0.5rem 0"><div class="number" style="font-size:2rem">11.3 ms</div></div>
+        <p>89 FPS. Layer fusion + FP16 + auto-tuned kernels. <strong style="color:var(--green)">1.2× faster.</strong></p>
+        <div class="tag-row"><span class="tag high">Optimized</span><span class="tag high">89 FPS</span></div>
+      </div>
+    </div>
+
+    <div class="quiz" id="quiz5">
+      <div class="question">🧪 Why is the TensorRT engine build slow (418s) but inference fast (11.3ms)?</div>
+      <div class="options">
+        <div class="option" onclick="checkQuiz('quiz5', this)">A. TensorRT downloads pre-built kernels from NVIDIA's servers</div>
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz5', this)">B. Build time is spent auto-tuning: trying 50+ kernel variants per layer, benchmarking each, picking the fastest. Inference just runs the winners. This is "compile once, run forever."</div>
+        <div class="option" onclick="checkQuiz('quiz5', this)">C. The engine is encrypted and needs to be decrypted each time</div>
+      </div>
+      <div class="feedback" id="quiz5-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 6: CUDA NMS Kernel ═══════
+  {
+    id: '4.6',
+    title: 'CUDA NMS: Filtering Duplicate Boxes',
+    fact: '<strong>Without NMS, every object gets detected 5-10 times.</strong> Each of the 8400 grid cells near an object predicts a box. NMS keeps only the single best box per object — and CUDA makes it fast.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.6</span> CUDA NMS — Keeping the Best, Discarding the Rest</h2>
+    <p>After the CNN, you have <strong style="color:var(--red)">8400 candidate boxes</strong>. A single person might have 8 overlapping boxes from 8 nearby grid cells. NMS (Non-Maximum Suppression) keeps only the <strong style="color:var(--cyan)">single highest-confidence box per object</strong>.</p>
+
+    <h3>📐 IoU: Intersection over Union — "How Much Do They Overlap?"</h3>
+    <div class="eq-box">
+<span style="color:var(--text-muted)">// IoU = area of overlap / area of union. Range: 0 (no overlap) to 1 (identical)</span>
+<span style="color:var(--cyan)">__device__ float</span> compute_iou(<span style="color:var(--cyan)">float</span> *box1, <span style="color:var(--cyan)">float</span> *box2) {
+    <span style="color:var(--text-muted)">// Find intersection rectangle</span>
+    <span style="color:var(--cyan)">float</span> x1 = <span style="color:var(--green)">fmaxf</span>(box1[<span style="color:var(--green)">0</span>], box2[<span style="color:var(--green)">0</span>]);  <span style="color:var(--text-muted)">// rightmost left edge</span>
+    <span style="color:var(--cyan)">float</span> y1 = <span style="color:var(--green)">fmaxf</span>(box1[<span style="color:var(--green)">1</span>], box2[<span style="color:var(--green)">1</span>]);  <span style="color:var(--text-muted)">// bottommost top edge</span>
+    <span style="color:var(--cyan)">float</span> x2 = <span style="color:var(--green)">fminf</span>(box1[<span style="color:var(--green)">2</span>], box2[<span style="color:var(--green)">2</span>]);  <span style="color:var(--text-muted)">// leftmost right edge</span>
+    <span style="color:var(--cyan)">float</span> y2 = <span style="color:var(--green)">fminf</span>(box1[<span style="color:var(--green)">3</span>], box2[<span style="color:var(--green)">3</span>]);  <span style="color:var(--text-muted)">// topmost bottom edge</span>
+
+    <span style="color:var(--cyan)">float</span> intersection = <span style="color:var(--green)">fmaxf</span>(<span style="color:var(--green)">0.0f</span>, x2-x1) * <span style="color:var(--green)">fmaxf</span>(<span style="color:var(--green)">0.0f</span>, y2-y1);
+    <span style="color:var(--cyan)">float</span> area1 = (box1[<span style="color:var(--green)">2</span>]-box1[<span style="color:var(--green)">0</span>]) * (box1[<span style="color:var(--green)">3</span>]-box1[<span style="color:var(--green)">1</span>]);
+    <span style="color:var(--cyan)">float</span> area2 = (box2[<span style="color:var(--green)">2</span>]-box2[<span style="color:var(--green)">0</span>]) * (box2[<span style="color:var(--green)">3</span>]-box2[<span style="color:var(--green)">1</span>]);
+    <span style="color:var(--cyan)">float</span> union_area = area1 + area2 - intersection;
+
+    <span style="color:var(--magenta)">return</span> (union_area > <span style="color:var(--green)">0</span>) ? intersection / union_area : <span style="color:var(--green)">0.0f</span>;
+}</div>
+
+    <h3>🧹 The NMS Algorithm (per thread)</h3>
+    <div class="eq-box">
+<span style="color:var(--text-muted)">// Step 1: Sort all boxes by confidence (highest first) — done on CPU</span>
+<span style="color:var(--text-muted)">// Step 2: Each GPU thread checks one box against all HIGHER-confidence boxes</span>
+<span style="color:var(--cyan)">int</span> i = blockIdx.x * blockDim.x + threadIdx.x;  <span style="color:var(--text-muted)">// my box index</span>
+<span style="color:var(--magenta)">if</span> (!keep[i]) <span style="color:var(--magenta)">return</span>;                         <span style="color:var(--text-muted)">// already suppressed</span>
+
+<span style="color:var(--magenta)">for</span> (<span style="color:var(--cyan)">int</span> j = <span style="color:var(--green)">0</span>; j < i; j++) {             <span style="color:var(--text-muted)">// check higher-confidence boxes</span>
+    <span style="color:var(--magenta)">if</span> (!keep[j]) <span style="color:var(--magenta)">continue</span>;
+    <span style="color:var(--magenta)">if</span> (compute_iou(boxes[i], boxes[j]) > <span style="color:var(--green)">0.5</span>) {
+        keep[i] = <span style="color:var(--green)">0</span>;                       <span style="color:var(--text-muted)">// suppress: too similar to a better box</span>
+        <span style="color:var(--magenta)">return</span>;
+    }
+}</div>
+
+    <h3>🎯 Concrete Example: 10 Boxes → 5 Objects</h3>
+    <div class="compare-grid">
+      <div class="compare-card pick-a">
+        <h4>🔴 BEFORE NMS (10 boxes)</h4>
+        <p>🚌 Bus: 4 overlapping boxes (conf: 0.45, 0.78, 0.95, 0.61)</p>
+        <p style="margin-top:0.3rem">🧑 Person: 3 overlapping boxes (conf: 0.55, 0.92, 0.38)</p>
+        <p style="margin-top:0.3rem">🚗 Car: 1 box (conf: 0.88)</p>
+        <p style="margin-top:0.3rem">🐕 Dog: 1 box (conf: 0.71)</p>
+        <p style="margin-top:0.3rem">🚦 Sign: 1 box (conf: 0.64)</p>
+      </div>
+      <div class="compare-card pick-c">
+        <h4>🟢 AFTER NMS (5 boxes)</h4>
+        <p>🚌 Bus: 1 box (conf: 0.95) ✅</p>
+        <p style="margin-top:0.3rem">🧑 Person: 1 box (conf: 0.92) ✅</p>
+        <p style="margin-top:0.3rem">🚗 Car: 1 box (conf: 0.88) ✅</p>
+        <p style="margin-top:0.3rem">🐕 Dog: 1 box (conf: 0.71) ✅</p>
+        <p style="margin-top:0.3rem">🚦 Sign: 1 box (conf: 0.64) ✅</p>
+      </div>
+    </div>
+
+    <div class="quiz" id="quiz6">
+      <div class="question">🧪 What happens if you set the IoU threshold too LOW (e.g., 0.1)?</div>
+      <div class="options">
+        <div class="option" onclick="checkQuiz('quiz6', this)">A. More boxes survive — better recall for crowded scenes</div>
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz6', this)">B. Too many boxes get suppressed — even slightly overlapping boxes for DIFFERENT objects get killed. You'll miss detections.</div>
+        <div class="option" onclick="checkQuiz('quiz6', this)">C. Nothing changes — IoU threshold doesn't affect the result</div>
+      </div>
+      <div class="feedback" id="quiz6-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 7: Complete CUDA Pipeline ═══════
+  {
+    id: '4.7',
+    title: 'The Complete CUDA + TensorRT Pipeline',
+    fact: '<strong>Video inference hit 137 FPS on a Tesla T4.</strong> That\'s 4.5× faster than the video source (30 FPS), meaning you could process 4 camera streams simultaneously on a single free-tier GPU.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.7</span> The Complete CUDA + TensorRT Pipeline</h2>
+    <p>This is what you <strong style="color:var(--cyan)">actually built</strong> — a production-grade object detection pipeline combining custom CUDA kernels with TensorRT for real-time performance.</p>
+
+    <h3>🔄 End-to-End Video Pipeline</h3>
+    <div class="pipeline">
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">📹</div>
+        <div class="stage-name">VIDEO<br>FRAME</div>
+        <div class="stage-desc">810×1080<br>uint8 HWC</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">⚡</div>
+        <div class="stage-name">CUDA<br>PREPROCESS</div>
+        <div class="stage-desc">0.046ms<br>419× faster</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">🚀</div>
+        <div class="stage-name">TENSORRT<br>INFERENCE</div>
+        <div class="stage-desc">11.3ms<br>FP16 engine</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">🔍</div>
+        <div class="stage-name">CUDA<br>NMS</div>
+        <div class="stage-desc">~1ms<br>GPU filtering</div>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-stage highlight">
+        <div class="stage-icon">🖼️</div>
+        <div class="stage-name">DRAW +<br>DISPLAY</div>
+        <div class="stage-desc">Boxes, labels<br>FPS counter</div>
+      </div>
+    </div>
+
+    <h3>🎥 Video Inference Results (Real Test)</h3>
+    <div class="data-types three">
+      <div class="data-type-card">
+        <div class="dt-icon">🎬</div>
+        <h4>Input Video</h4>
+        <p>810×1080, 30 FPS, 60 frames. Standard HD video from a security camera.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">⚡</div>
+        <h4>Inference Speed</h4>
+        <p><strong style="font-size:1.2rem">7.3 ms/frame = 137 FPS</strong></p>
+        <p>4.5× faster than real-time. Tesla T4 GPU.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">✅</div>
+        <h4>Real-Time?</h4>
+        <p><strong style="color:var(--green);font-size:1.1rem">YES ✓</strong></p>
+        <p>Needed ≥30 FPS. Achieved 137 FPS — headroom for 4+ cameras.</p>
+      </div>
+    </div>
+
+    <h3>🏗️ Production Serving with Triton Inference Server</h3>
+    <p>You also built a <strong style="color:var(--cyan)">Triton Inference Server</strong> demo — the same tech NVIDIA uses to serve models at scale. The pattern:</p>
+    <div class="checklist">
+      <div class="check-item"><span class="check-box">📦</span> <strong>Model Repository:</strong> Organized as <code>model_repository/yolo_detector/1/model.onnx</code> with <code>config.pbtxt</code> (dynamic batching, max batch 8)</div>
+      <div class="check-item"><span class="check-box">🔌</span> <strong>HTTP API:</strong> <code>POST /v2/models/yolo_detector/infer</code> — send preprocessed tensor, get detections back</div>
+      <div class="check-item"><span class="check-box">📱</span> <strong>Phone Camera Demo:</strong> Flask server with <code>/camera</code> endpoint — opens phone camera, captures frame, runs YOLO, shows results</div>
+      <div class="check-item"><span class="check-box">✅</span> <strong>Health Checks:</strong> <code>GET /v2/health/ready</code> — standard Triton health endpoint for load balancers</div>
+    </div>
+
+    <div class="quiz" id="quiz7">
+      <div class="question">🧪 You have 4 security cameras streaming at 30 FPS each. Can one Tesla T4 GPU handle all 4 simultaneously with this pipeline?</div>
+      <div class="options">
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz7', this)">A. YES — 137 FPS capacity ÷ 30 FPS per camera = 4.5 cameras. With multi-stream CUDA (Phase 6), you can process all 4 in parallel overlapping transfer + compute.</div>
+        <div class="option" onclick="checkQuiz('quiz7', this)">B. No — each camera needs its own dedicated GPU</div>
+        <div class="option" onclick="checkQuiz('quiz7', this)">C. Only if you reduce the resolution to 320×320</div>
+      </div>
+      <div class="feedback" id="quiz7-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  },
+
+  // ═══════ SLIDE 8: Results & What You Built ═══════
+  {
+    id: '4.8',
+    title: 'Results & What You Built',
+    fact: '<strong>This is a portfolio-grade project.</strong> You didn\'t just use YOLO — you wrote the preprocessing kernel, wrote the NMS kernel, optimized with TensorRT, and benchmarked every stage. This is what "CUDA performance engineering" looks like in the real world.',
+    render() { return `
+<div class="slide">
+  <div class="card">
+    <h2><span class="num">4.8</span> Results & What You Actually Built</h2>
+    <p>Phase 4 isn't about running someone else's YOLO code — it's about <strong style="color:var(--cyan)">understanding and optimizing every stage of the pipeline</strong> from raw pixels to labeled bounding boxes.</p>
+
+    <h3>📊 The Speedup Table</h3>
+    <div class="ladder">
+      <div class="ladder-rung">
+        <div class="rung-icon">🖼️</div>
+        <div class="rung-bar" style="background:var(--green)"></div>
+        <div class="rung-label">Preprocess</div>
+        <div class="rung-metric">19.3ms → 0.046ms</div>
+        <div class="rung-example">419× faster (CUDA kernel)</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">🧠</div>
+        <div class="rung-bar" style="background:var(--cyan)"></div>
+        <div class="rung-label">Inference</div>
+        <div class="rung-metric">168ms → 11.3ms</div>
+        <div class="rung-example">15× faster (TensorRT FP16)</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">🔍</div>
+        <div class="rung-bar" style="background:var(--violet)"></div>
+        <div class="rung-label">NMS</div>
+        <div class="rung-metric">72.5ms → ~1ms</div>
+        <div class="rung-example">72× faster (CUDA kernel)</div>
+      </div>
+      <div class="ladder-rung">
+        <div class="rung-icon">🎯</div>
+        <div class="rung-bar" style="background:var(--amber)"></div>
+        <div class="rung-label">TOTAL</div>
+        <div class="rung-metric">252ms → 12ms</div>
+        <div class="rung-example">21× faster end-to-end</div>
+      </div>
+    </div>
+
+    <div class="big-stat">
+      <div class="number">137 FPS</div>
+      <div class="label">VIDEO INFERENCE ON TESLA T4 (7.3ms PER FRAME)</div>
+    </div>
+
+    <h3>✅ Phase 4 Deliverables</h3>
+    <div class="data-types">
+      <div class="data-type-card">
+        <div class="dt-icon">⚡</div>
+        <h4>CUDA Preprocess Kernel</h4>
+        <p>Fused resize+normalize+HWC→CHW. 3D grid, 1.2M threads. 0.046ms.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🎯</div>
+        <h4>CUDA NMS Kernel</h4>
+        <p>IoU computation + box suppression on GPU. O(n²) per thread against higher-confidence boxes.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🚀</div>
+        <h4>TensorRT Engine</h4>
+        <p>YOLOv8n → ONNX → TensorRT FP16. Auto-tuned kernels for T4. 1.2× faster than PyTorch.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">📹</div>
+        <h4>Video Pipeline</h4>
+        <p>End-to-end: video file → preprocess → TensorRT → NMS → display. 137 FPS on T4.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">🖥️</div>
+        <h4>Triton Server Demo</h4>
+        <p>Model repository, HTTP API, phone camera web demo, dynamic batching config.</p>
+      </div>
+      <div class="data-type-card">
+        <div class="dt-icon">📷</div>
+        <h4>Smart Camera (Phase 9)</h4>
+        <p>YOLO + ByteTrack + line counting + zone alerts + Telegram notifications.</p>
+      </div>
+    </div>
+
+    <h3>🧠 What You Learned</h3>
+    <div class="checklist">
+      <div class="check-item"><span class="check-box">🧵</span> <strong>3D kernel launch configuration:</strong> Using grid.z dimension for multi-channel processing</div>
+      <div class="check-item"><span class="check-box">🔀</span> <strong>Memory layout transformation:</strong> Why HWC→CHW matters for coalesced memory access</div>
+      <div class="check-item"><span class="check-box">🔗</span> <strong>Kernel fusion:</strong> Combining 3 operations into 1 kernel to avoid global memory round-trips</div>
+      <div class="check-item"><span class="check-box">⚡</span> <strong>CUDA events timing:</strong> cudaEventRecord/cudaEventSynchronize for microsecond-precise kernel timing</div>
+      <div class="check-item"><span class="check-box">🚀</span> <strong>TensorRT optimization:</strong> FP16 precision, layer fusion, kernel auto-tuning, engine serialization</div>
+      <div class="check-item"><span class="check-box">📊</span> <strong>System benchmarking:</strong> Comparing Python/NumPy vs PyTorch vs CUDA vs TensorRT — knowing when to use each</div>
+      <div class="check-item"><span class="check-box">🏗️</span> <strong>Production serving:</strong> Triton Inference Server, model repository, HTTP/gRPC API design</div>
+    </div>
+
+    <div class="quiz" id="quiz8">
+      <div class="question">🧪 You've reduced the pipeline from 252ms to 12ms. A colleague says "Just use a faster GPU." Why is CUDA optimization STILL important even with a faster GPU?</div>
+      <div class="options">
+        <div class="option" onclick="checkQuiz('quiz8', this)">A. Faster GPUs are too expensive for most projects</div>
+        <div class="option" data-correct="true" onclick="checkQuiz('quiz8', this)">B. The same optimizations scale to the faster GPU — kernel fusion and memory layout matter at EVERY hardware level. Plus: lower latency = more streams per GPU = lower cloud costs. A 21× speedup on a T4 means you might not NEED an A100.</div>
+        <div class="option" onclick="checkQuiz('quiz8', this)">C. CUDA code only works on older GPUs</div>
+      </div>
+      <div class="feedback" id="quiz8-fb"></div>
+    </div>
+  </div>
+</div>`; }
+  }
+];
+
+// ── Quiz Logic ──
+window.checkQuiz = function(quizId, clickedEl) {
+  const quiz = document.getElementById(quizId);
+  if (quiz.dataset.answered === 'true') return;
+
+  const options = quiz.querySelectorAll('.option');
+  const feedback = document.getElementById(quizId + '-fb');
+  const isCorrect = clickedEl.dataset.correct === 'true';
+
+  options.forEach(o => {
+    if (o.dataset.correct === 'true') o.classList.add('correct');
+  });
+  if (!isCorrect) clickedEl.classList.add('wrong');
+
+  feedback.className = 'feedback show ' + (isCorrect ? 'correct' : 'wrong');
+  feedback.textContent = isCorrect
+    ? '✅ Correct! Well done.'
+    : '❌ Not quite. The correct answer is highlighted in green.';
+  quiz.dataset.answered = 'true';
+};
+
+// ── Navigation State ──
+let currentSlide = 0;
+const visitedSlides = new Set([0]);
+
+function renderSlide(index) {
+  currentSlide = index;
+  visitedSlides.add(index);
+  document.getElementById('slideContainer').innerHTML = slides[index].render();
+  updateDots();
+  updateChips();
+  document.getElementById('funFactText').innerHTML = '<strong>' + slides[index].id + ':</strong> ' + slides[index].fact;
+  document.getElementById('stepLabel').textContent = (index + 1) + '/' + slides.length;
+  document.getElementById('prevBtn').disabled = index === 0;
+  const nextBtn = document.getElementById('nextBtn');
+  if (index === slides.length - 1) {
+    nextBtn.textContent = '✓ Complete';
+    nextBtn.style.background = 'var(--green-bg)';
+    nextBtn.style.borderColor = 'var(--green)';
+    nextBtn.style.color = 'var(--green)';
+  } else {
+    nextBtn.textContent = 'Next →';
+    nextBtn.style.background = 'var(--cyan-bg)';
+    nextBtn.style.borderColor = 'var(--cyan)';
+    nextBtn.style.color = 'var(--cyan)';
+  }
+  document.getElementById('slideContainer').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function goTo(index) {
+  if (index < 0 || index >= slides.length) return;
+  renderSlide(index);
+}
+
+function updateDots() {
+  document.getElementById('stepDots').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'active' : visitedSlides.has(i) ? 'done' : '';
+    return '<div class="step-dot ' + cls + '" onclick="goTo(' + i + ')" title="' + s.id + ': ' + s.title + '"></div>';
+  }).join('');
+}
+
+function updateChips() {
+  document.getElementById('topicChips').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'current' : visitedSlides.has(i) ? 'visited' : '';
+    return '<span class="topic-chip ' + cls + '" onclick="goTo(' + i + ')">' + s.id + ' ' + s.title + '</span>';
+  }).join('');
+}
+
+// ── Keyboard Navigation ──
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' && currentSlide < slides.length - 1) goTo(currentSlide + 1);
+  if (e.key === 'ArrowLeft' && currentSlide > 0) goTo(currentSlide - 1);
+});
+
+// ── Init ──
+renderSlide(0);
+</script>
+</body>
+</html>

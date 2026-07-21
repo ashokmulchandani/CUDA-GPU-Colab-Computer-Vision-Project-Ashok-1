@@ -5,7 +5,7 @@
 | Phase | Notebook | Open |
 |-------|----------|------|
 | Phase 1-3.5 | CUDA Fundamentals + MLP + CNN | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/1_Ashok_CUDA.ipynb) |
-| Phase 4 | YOLO + TensorRT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_YOLO.ipynb) |
+| Phase 4 | YOLO + TensorRT | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_YOLO.ipynb) — [🎓 Interactive Module](phase4_yolo_cuda.html) |
 | Phase 7 | 3D Perception (LiDAR, Fusion, SLAM) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/3_Ashok_CUDA_3D_Perception.ipynb) |
 | Phase 6 | Multi-Stream CUDA | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/6_Multistream.ipynb) |
 
@@ -32,3 +32,11 @@ See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
 - ✅ Phase 9: Smart Camera (tracking, zones, Telegram alerts)
 - ⬜ Phase 5: Chicken Disease (VGG16 + DVC)
 - ⬜ Phase 8: Transformer from Scratch
+
+## Interactive Learning Modules
+
+| Phase | Module | Slides |
+|-------|--------|--------|
+| **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 8 slides — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving |
+
+> Use ← → arrow keys to navigate. Dark/light theme toggle in top-right. Each slide has a quiz.

@@ -67,6 +67,8 @@
 
 ## Phase 4: Object Detection (YOLO) — Real CNN in Action
 
+> 🎓 **Interactive Learning Module:** [phase4_yolo_cuda.html](phase4_yolo_cuda.html) — 8 interactive slides covering the full YOLO + CUDA pipeline with quizzes, code walkthroughs, and benchmarks. Use ← → arrow keys to navigate.
+
 | Step | Task |
 |------|------|
 | 4.1 | Understand YOLO architecture — grid cells, bounding boxes, class probs |
@@ -400,6 +402,11 @@
 
 ## Phase 10: Fine-Tuning & Transfer Learning (Customize Pre-trained Models)
 
+> **All fine-tuning work has moved to a dedicated repo:**
+> `https://github.com/ashokmulchandani/Fine_tuning-ML-Pipleine--Synthetic_Data-Ashok-1`
+> Local path: `C:\Users\ashok\OneDrive\NOblox\Fine_tuning-ML-Pipleine--Synthetic_Data-Ashok-1`
+> See `FINETUNING_PLAN.md` in that repo for the full 10-phase plan including Synthetic Data (Gretel, Mostly AI, Tonic).
+
 > Take existing powerful models and adapt them to YOUR specific task — the most common real-world ML workflow.
 
 ### 10A: Fine-Tuning Fundamentals
@@ -615,3 +622,46 @@ CUDA_Projects-Ashok/
 | Generated outputs | Google Drive root: `buildings_mesh.ply`, `buildings_colored.ply`, `buildings_footprint.shp` | ~50MB |
 | Dataset reference | GitHub: `ashokmulchandani/Awesome-3D-LiDAR-Datasets-Ashok-CUDA-1` | README only |
 ```
+
+---
+
+## Interactive Learning Modules
+
+Visual, slide-based learning modules following the same pattern as the [MLOPS System Design](https://github.com/ashokmulchandani/MLOPS-End-End-Prediction-Pipeline-Ashok-1) project. Each module has keyboard navigation (← →), quizzes, dark/light themes, and code walkthroughs.
+
+| Phase | Module | Slides | Topics |
+|-------|--------|--------|--------|
+| **4** | [phase4_yolo_cuda.html](phase4_yolo_cuda.html) | 8 slides | YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS kernel, 137 FPS pipeline, Triton serving |
+
+> **Coming:** Phase 5 (Chicken Disease VGG16 + MLOps Bridge), Phase 8 (Transformer from Scratch in CUDA), Phase 9 (Smart Camera).
+
+---
+
+## Chat Context & Revision Notes (2026-07-22)
+
+This plan was reviewed with Claude Code on 2026-07-22. Key findings and actions:
+
+### What Was Reviewed
+- Full directory structure of `CUDA_Projects-Ashok/` — 7 Colab notebooks, 2 Python scripts, Triton demo, 3D recon reference, LiDAR datasets reference, 3.6 GB local LiDAR data
+- Cross-referenced with 3 sibling repos: `Chicken-Disease-Classification-Projects/` (TF VGG16 + DVC pipeline), `Ashok-Disease_Chicken_Deep_Learning_Classification/` (raw dataset), `Fine_tuning-ML-Pipleine--Synthetic_Data-Ashok-1/` (Phase 10 spinoff, 10-phase fine-tuning plan)
+- Compared plan structure with `MLOPS_System_Design_Thinking/` project for HTML learning module patterns
+
+### Issues Identified
+1. **Ordering is broken** — Phases 6, 7, 9 completed before Phase 5. The 32-session execution table is frozen in time.
+2. **Phase 5 (VGG16 in CUDA) is partially redundant** — user already wrote CNN kernels (Phase 3.5), deployed TensorRT/Triton (Phase 6), and has a working TF VGG16 chicken disease classifier with DVC in another repo.
+3. **Phase 8 (Transformer) only has a stub notebook** — the most important remaining topic needs a full breakdown.
+4. **No multi-GPU programming** — NCCL, data/model parallelism, all-reduce are missing.
+5. **All code lives in notebooks** — the `src/` directory structure in the plan was never populated. No CMake/Makefile build system.
+6. **Phase 10** moved to a separate fine-tuning repo — the CUDA_PLAN.md Phase 10 section should be trimmed to a pointer.
+
+### Actions Taken (2026-07-22)
+- ✅ Created `phase4_yolo_cuda.html` — interactive learning module for Phase 4 following MLOPS project patterns (8 slides, quizzes, dark/light theme, keyboard nav, particle background)
+- ✅ Linked HTML in CUDA_PLAN.md Phase 4 section and README.md
+- ✅ Added "Interactive Learning Modules" section to this plan
+
+### Recommended Next Revisions
+- **Phase 5** → Replace "VGG16 from scratch" with "Applied MLOps Bridge": take existing TF chicken disease model → TensorRT → Triton → CI/CD. Keeps the VGG16 connection but focuses on the novel production engineering work.
+- **Phase 8** → Expand into 3 sub-phases: 8A (Self-attention + multi-head kernels), 8B (GPT-style decoder + KV-Cache), 8C (Flash Attention + FP16 optimization)
+- **Add Phase 11** → Multi-GPU Programming: NCCL, data parallelism, model parallelism, all-reduce, gradient accumulation
+- **Add build system** — CMakeLists.txt for all CUDA source files, moving from notebook `%%writefile` to proper `.cu` files
+- **Drop the frozen 32-session table** — replace with a "Current Status" table reflecting actual completion order
