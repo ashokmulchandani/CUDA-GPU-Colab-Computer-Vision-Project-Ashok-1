@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6: Production CUDA — Interactive Learning</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06090f; --bg-card: #0d1117; --bg-raised: #161b22;
+  --border: #21262d; --border-active: #30363d;
+  --text: #e6edf3; --text-dim: #8b949e; --text-muted: #484f58;
+  --cyan: #39d2ff; --cyan-bg: #39d2ff15; --cyan-border: #39d2ff40;
+  --amber: #ffb347; --amber-bg: #ffb34715;
+  --green: #3fb950; --green-bg: #3fb95015;
+  --magenta: #ff6ec7; --magenta-bg: #ff6ec715;
+  --red: #f85149; --violet: #a371f7;
+  --radius: 14px; --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+body.light {
+  --bg: #f6f8fa; --bg-card: #ffffff; --bg-raised: #e8ecf0;
+  --border: #d0d7de; --border-active: #afb8c1;
+  --text: #1f2328; --text-dim: #656d76; --text-muted: #8b949e;
+  --cyan: #0969da; --cyan-bg: #ddf4ff; --cyan-border: #54aeff;
+  --amber: #9a6700; --amber-bg: #fff8c5;
+  --green: #1a7f37; --green-bg: #dafbe1;
+  --magenta: #bf3989; --magenta-bg: #fbefff;
+  --red: #cf222e; --violet: #8250df;
+}
+body.light .topbar { background: rgba(246,248,250,0.9); }
+body.light .eq-box { background: rgba(0,0,0,0.03); }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow-x: hidden; line-height: 1.65;
+  transition: background 0.3s, color 0.3s;
+}
+.bg-canvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.app { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:2rem; }
+
+.theme-toggle {
+  position: fixed; top: 0.7rem; right: 2rem; z-index: 200;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--text); font-size: 1.1rem; cursor: pointer;
+  padding: 0.35rem 0.6rem; border-radius: 6px;
+  transition: var(--transition);
+  font-family: 'JetBrains Mono', monospace;
+}
+.theme-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.topbar {
+  position: sticky; top:0; z-index:100;
+  background: rgba(6,9,15,0.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 2rem; display: flex; align-items: center; gap: 1rem; font-size: 0.8rem;
+}
+.topbar .logo { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; letter-spacing: 0.15em; color: var(--cyan); white-space: nowrap; }
+.topbar .step-dots { display: flex; gap: 0.4rem; flex:1; justify-content: center; }
+.topbar .step-dot { width: 28px; height: 4px; border-radius: 2px; background: var(--border); transition: var(--transition); cursor: pointer; }
+.topbar .step-dot.done { background: var(--green); }
+.topbar .step-dot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.topbar .step-dot:hover { background: var(--text-dim); }
+.topbar .step-label { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; }
+
+.header { text-align: center; padding: 3rem 0 1rem; }
+.header .phase-badge { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.2em; color: var(--green); border: 1px solid var(--green-bg); border-radius: 100px; padding: 0.4em 1.4em; margin-bottom: 1rem; }
+.header h1 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: 700; background: linear-gradient(135deg, var(--cyan), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+.header .tagline { color: var(--text-dim); font-size: 1rem; }
+
+.topic-list { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin: 1.5rem 0 1rem; }
+.topic-chip { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.04em; padding: 0.3rem 0.7rem; border-radius: 100px; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: var(--transition); background: transparent; }
+.topic-chip.visited { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.topic-chip.current { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); box-shadow: 0 0 10px var(--cyan-border); }
+.topic-chip:hover { border-color: var(--text-dim); color: var(--text-dim); }
+
+.fun-fact { background: linear-gradient(135deg, var(--amber-bg), var(--magenta-bg)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 1.2rem; margin-bottom: 1.5rem; font-size: 0.78rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.6rem; }
+.fun-fact .bulb { font-size: 1.2rem; flex-shrink: 0; }
+.fun-fact strong { color: var(--amber); }
+
+.slide { animation: slideIn 0.35s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; }
+.card h2 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text); }
+.card h2 .num { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--cyan); background: var(--cyan-bg); border-radius: 6px; padding: 0.2em 0.6em; }
+.card p { color: var(--text-dim); margin-bottom: 1rem; font-size: 0.95rem; }
+.card h3 { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--cyan); margin: 1.2rem 0 0.5rem; }
+.card ul, .card ol { color: var(--text-dim); padding-left: 1.5rem; margin-bottom: 1rem; font-size: 0.9rem; }
+.card ul li, .card ol li { margin-bottom: 0.4rem; }
+
+.eq-box { background: rgba(0,0,0,0.4); border-left: 3px solid var(--cyan); border-radius: var(--radius-sm); padding: 1.2rem 1.5rem; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.8; color: var(--text); white-space: pre-wrap; overflow-x: auto; }
+
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.compare-grid.two-col { grid-template-columns: 1fr 1fr; }
+.compare-card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; transition: var(--transition); }
+.compare-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.compare-card.pick-a { border-left: 3px solid var(--red); }
+.compare-card.pick-b { border-left: 3px solid var(--cyan); }
+.compare-card.pick-c { border-left: 3px solid var(--green); }
+.compare-card h4 { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; margin-bottom: 0.5rem; }
+.compare-card.pick-a h4 { color: var(--red); }
+.compare-card.pick-b h4 { color: var(--cyan); }
+.compare-card.pick-c h4 { color: var(--green); }
+.compare-card p { font-size: 0.82rem !important; color: var(--text-dim) !important; }
+.compare-card .tag-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.compare-card .tag { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; padding: 0.2em 0.6em; border-radius: 100px; }
+.tag.low { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.tag.med { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.tag.high { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+.pipeline { display: flex; align-items: center; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin: 1.2rem 0; }
+.pipeline-stage { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.8rem 1rem; text-align: center; transition: var(--transition); min-width: 100px; }
+.pipeline-stage.highlight { border-color: var(--cyan); background: var(--cyan-bg); }
+.pipeline-stage .stage-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.pipeline-stage .stage-name { font-family: 'Orbitron', sans-serif; font-size: 0.6rem; color: var(--cyan); line-height: 1.3; }
+.pipeline-stage .stage-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.2rem; }
+.pipeline-arrow { font-size: 1.4rem; color: var(--cyan); animation: arrowPulse 1.5s ease-in-out infinite; }
+@keyframes arrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+.data-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin: 1rem 0; }
+.data-types.two { grid-template-columns: repeat(2, 1fr); }
+.data-type-card { background: var(--bg-raised); border: 1px solid var(--border); border-top: 3px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; transition: var(--transition); cursor: default; }
+.data-type-card:nth-child(1) { border-top-color: var(--cyan); }
+.data-type-card:nth-child(2) { border-top-color: var(--amber); }
+.data-type-card:nth-child(3) { border-top-color: var(--magenta); }
+.data-type-card:nth-child(4) { border-top-color: var(--green); }
+.data-type-card:nth-child(5) { border-top-color: var(--violet); }
+.data-type-card:nth-child(6) { border-top-color: var(--red); }
+.data-type-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.data-type-card .dt-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.data-type-card h4 { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; margin-bottom: 0.3rem; color: var(--cyan); }
+.data-type-card p { font-size: 0.78rem !important; color: var(--text-muted) !important; margin-bottom: 0 !important; }
+
+.ladder { display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
+.ladder-rung { display: flex; align-items: center; gap: 0.8rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 1rem; transition: var(--transition); }
+.ladder-rung:hover { border-color: var(--cyan); }
+.ladder-rung .rung-icon { font-size: 1.3rem; flex-shrink: 0; }
+.ladder-rung .rung-bar { width: 6px; height: 36px; border-radius: 3px; flex-shrink: 0; }
+.ladder-rung .rung-label { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text); min-width: 90px; }
+.ladder-rung .rung-metric { font-family: 'Orbitron', sans-serif; font-size: 0.72rem; color: var(--cyan); flex: 1; }
+.ladder-rung .rung-example { font-size: 0.72rem; color: var(--text-muted); }
+
+.checklist { margin: 1rem 0; }
+.checklist .check-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-dim); }
+.checklist .check-box { font-size: 1rem; flex-shrink: 0; }
+
+.flashcard-wrap { perspective: 800px; margin: 1rem 0; cursor: pointer; }
+.flashcard { position: relative; width: 100%; min-height: 90px; transform-style: preserve-3d; transition: transform 0.5s; }
+.flashcard.flipped { transform: rotateY(180deg); }
+.flashcard .front, .flashcard .back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: var(--radius-sm); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1rem; }
+.flashcard .front { background: var(--bg-raised); border: 1px solid var(--border); font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--cyan); }
+.flashcard .front .hint { font-family: 'DM Sans', sans-serif; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem; }
+.flashcard .back { background: var(--bg-raised); border: 1px solid var(--cyan); transform: rotateY(180deg); color: var(--text-dim); font-size: 0.85rem; text-align: center; }
+
+.big-stat { text-align: center; margin: 1rem 0; }
+.big-stat .number { font-family: 'Orbitron', sans-serif; font-size: 2.8rem; font-weight: 700; background: linear-gradient(135deg, var(--cyan), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.big-stat .label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+.quiz { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; margin-top: 1.5rem; }
+.quiz .question { font-family: 'Orbitron', sans-serif; font-size: 0.82rem; color: var(--text); margin-bottom: 0.8rem; }
+.quiz .options { display: flex; flex-direction: column; gap: 0.4rem; }
+.quiz .option { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 1rem; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; transition: var(--transition); }
+.quiz .option:hover { border-color: var(--cyan); color: var(--cyan); }
+.quiz .option.correct { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.quiz .option.wrong { border-color: var(--red); background: #f8514920; color: var(--red); }
+.quiz .feedback { display: none; margin-top: 0.8rem; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.82rem; }
+.quiz .feedback.show { display: block; }
+.quiz .feedback.correct { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.quiz .feedback.wrong { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+.nav-row { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
+.nav-btn { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; padding: 0.6rem 1.8rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); cursor: pointer; transition: var(--transition); }
+.nav-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-btn.primary { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); }
+
+@media (max-width: 768px) {
+  .app { padding: 1rem; } .topbar { padding: 0.5rem 1rem; }
+  .compare-grid { grid-template-columns: 1fr; } .data-types { grid-template-columns: 1fr; }
+  .pipeline { flex-direction: column; } .pipeline-arrow { transform: rotate(90deg); }
+  .header h1 { font-size: 1.3rem; } .card { padding: 1.2rem; }
+  .theme-toggle { right: 0.5rem; top: 0.5rem; font-size: 0.9rem; padding: 0.3rem 0.5rem; }
+  .big-stat .number { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme" onclick="toggleTheme()">☀️</button>
+
+<nav class="topbar">
+  <span class="logo">CUDA — PHASE 6</span>
+  <div class="step-dots" id="stepDots"></div>
+  <span class="step-label" id="stepLabel">1/10</span>
+</nav>
+
+<div class="app">
+  <header class="header">
+    <div class="phase-badge">✅ COMPLETED — 7× Multi-Stream, TensorRT, Triton</div>
+    <h1>Phase 6: Production CUDA</h1>
+    <p class="tagline">From "it works in Colab" to "it runs 24/7 in production" — TensorRT, Triton, Nsight profiling, multi-stream async, and cloud deployment</p>
+  </header>
+
+  <div class="topic-list" id="topicChips"></div>
+
+  <div class="fun-fact" id="funFact">
+    <span class="bulb">💡</span>
+    <span class="fact-text" id="funFactText"></span>
+  </div>
+
+  <div id="slideContainer"></div>
+
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn" onclick="goTo(currentSlide-1)">← Previous</button>
+    <button class="nav-btn primary" id="nextBtn" onclick="goTo(currentSlide+1)">Next →</button>
+  </div>
+</div>
+
+<script>
+// ── Theme ──
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  const btn = document.getElementById('themeToggle');
+  btn.textContent = document.body.classList.contains('light') ? '🌙' : '☀️';
+  localStorage.setItem('cuda-phase6-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+}
+(function() {
+  if (localStorage.getItem('cuda-phase6-theme') === 'light') {
+    document.body.classList.add('light');
+    document.getElementById('themeToggle').textContent = '🌙';
+  }
+})();
+
+// ── Particles ──
+(function() {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  for (let i = 0; i < 60; i++) {
+    particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, r: Math.random() * 2 + 0.5 });
+  }
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const isLight = document.body.classList.contains('light');
+    const lineColor = isLight ? 'rgba(9,105,218,0.06)' : 'rgba(57,210,255,0.06)';
+    const dotColor = isLight ? 'rgba(9,105,218,0.3)' : 'rgba(57,210,255,0.3)';
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0; if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0; });
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        if (Math.sqrt(dx*dx + dy*dy) < 100) { ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.strokeStyle = lineColor; ctx.lineWidth = 0.5; ctx.stroke(); }
+      }
+    }
+    particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = dotColor; ctx.fill(); });
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+// ── Slides ──
+const slides = [
+  // ═══════ SLIDE 1: Phase 6 Overview ═══════
+  {
+    id: '6.0',
+    title: 'Phase 6 Overview — The 6 Pillars',
+    fact: '<strong>90% of GPU code never reaches production.</strong> The difference between a Colab notebook and a production system is these 6 pillars: optimization, serving, profiling, async execution, custom kernels, and infrastructure.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6.0</span> Phase 6 Overview — The 6 Pillars of Production CUDA</h2>
+  <p>Writing a CUDA kernel that works is Phase 1-3. <strong style="color:var(--cyan)">Making it run 24/7 at scale, with monitoring, auto-scaling, and optimal performance</strong> — that's Phase 6. Each pillar addresses a different production concern.</p>
+
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">🚀</div><h4>6A: TensorRT</h4><p>Graph optimization, layer fusion, FP16/INT8 precision, kernel auto-tuning. Turns your PyTorch model into a production engine.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🖥️</div><h4>6B: Triton Server</h4><p>Model repository, HTTP/gRPC API, dynamic batching, A/B testing. Serves multiple models on one GPU.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔍</div><h4>6C: Nsight Profiling</h4><p>Nsight Systems (timeline), Nsight Compute (kernel deep-dive), roofline model. Find the bottleneck, fix it, measure again.</p></div>
+    <div class="data-type-card"><div class="dt-icon">⚡</div><h4>6D: Multi-Stream</h4><p>Async execution, overlapping transfer+compute, CUDA Graphs. 7× speedup by keeping the GPU never idle.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔧</div><h4>6E: Custom Kernels</h4><p>Preprocess, NMS, pybind11 Python bindings. Custom CUDA integrated into the production pipeline.</p></div>
+    <div class="data-type-card"><div class="dt-icon">☁️</div><h4>6F: Deployment</h4><p>Docker+CUDA, K8s, auto-scaling, spot instances, CloudWatch/Grafana. The infrastructure that keeps it running.</p></div>
+  </div>
+
+  <h3>🧠 The Production Mindset Shift</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 Colab/Research</h4><p>"It got 95% accuracy on my test set!"</p><p style="color:var(--text-muted);margin-top:0.5rem">Single image, no latency target, no monitoring, manual restart if it crashes.</p></div>
+    <div class="compare-card pick-c"><h4>🟢 Production</h4><p>"It serves 1000 requests/sec at p99 < 50ms, auto-scales at 80% GPU util, and has never dropped a request in 30 days."</p></div>
+  </div>
+
+  <div class="quiz" id="quiz0"><div class="question">🧪 What's the #1 reason ML models fail in production?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz0', this)">A. The model isn't accurate enough</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz0', this)">B. The infrastructure around the model — no monitoring, no auto-scaling, no rollback plan, no latency budget — was never built</div>
+    <div class="option" onclick="checkQuiz('quiz0', this)">C. GPUs are too expensive to run 24/7</div>
+  </div><div class="feedback" id="quiz0-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 2: 6A TensorRT ═══════
+  {
+    id: '6A',
+    title: 'TensorRT — Optimize for Inference',
+    fact: '<strong>TensorRT can make your model 15× faster</strong> by fusing layers, using FP16/INT8 precision, and auto-tuning kernels for your specific GPU. The build is slow (minutes), but inference is blazing fast (milliseconds).',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6A</span> TensorRT — The Production Inference Engine</h2>
+  <p>PyTorch is a <strong style="color:var(--amber)">training framework</strong>. TensorRT is an <strong style="color:var(--cyan)">inference compiler</strong>. It takes your trained model and rewrites it for maximum throughput on your specific GPU.</p>
+
+  <h3>🔧 4 Optimizations TensorRT Applies</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">🔗</div><h4>1. Layer Fusion</h4><p>Conv→BatchNorm→ReLU becomes ONE kernel. No intermediate tensor writes to global memory. 3 memory round-trips → 1.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🎯</div><h4>2. Kernel Auto-Tuning</h4><p>Tests 50+ CUDA kernel variants per layer on YOUR GPU. Different GPUs (T4 vs A100) get different kernels. Like a race car tuner for your specific engine.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📉</div><h4>3. Precision Calibration</h4><p>FP32→FP16 (2× faster, no accuracy loss) or FP32→INT8 (4× faster, <0.5% accuracy loss with calibration). Tensor Cores love low precision.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🗑️</div><h4>4. Dead Code Elimination</h4><p>Strips training-only ops: dropout layers, loss functions, gradient computation, optimizer state. Inference doesn't need any of it.</p></div>
+  </div>
+
+  <h3>📦 The Export Pipeline</h3>
+  <div class="pipeline">
+    <div class="pipeline-stage"><div class="stage-icon">🔥</div><div class="stage-name">PYTORCH</div><div class="stage-desc">yolov8n.pt<br>6.3 MB</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">🔷</div><div class="stage-name">ONNX</div><div class="stage-desc">Universal format<br>12.3 MB</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🚀</div><div class="stage-name">TENSORRT</div><div class="stage-desc">Optimized engine<br>7.9 MB, FP16</div></div>
+  </div>
+
+  <h3>⚡ Precision Tradeoff</h3>
+  <div class="compare-grid">
+    <div class="compare-card pick-a"><h4>🔴 FP32</h4><p>Full precision. ~14ms on T4. Baseline accuracy. Used for training.</p><div class="tag-row"><span class="tag med">1× speed</span><span class="tag low">Best accuracy</span></div></div>
+    <div class="compare-card pick-b"><h4>🔵 FP16</h4><p>Half precision. ~11ms on T4. <0.1% accuracy loss. Tensor Cores accelerate this.</p><div class="tag-row"><span class="tag high">1.2× speed</span><span class="tag low">Negligible loss</span></div></div>
+    <div class="compare-card pick-c"><h4>🟢 INT8</h4><p>8-bit integer. ~5ms on T4. <0.5% accuracy loss WITH calibration. Requires representative dataset.</p><div class="tag-row"><span class="tag high">3× speed</span><span class="tag med">Needs calibration</span></div></div>
+  </div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 Why not always use INT8?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Calibration is tricky.</strong> You need a representative dataset to find the right quantization range. If production data drifts, INT8 accuracy can silently degrade. FP16 is the sweet spot — 2× faster with no calibration needed.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz1"><div class="question">🧪 You serialize a TensorRT engine to a file. Can you run that same engine on a different GPU model (e.g., T4 → A100)?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz1', this)">A. Yes — TensorRT engines are portable across all NVIDIA GPUs</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz1', this)">B. No — the engine is compiled for the SPECIFIC GPU it was built on. Different SMs, different Tensor Cores, different optimal kernels. Rebuild on the target GPU.</div>
+    <div class="option" onclick="checkQuiz('quiz1', this)">C. Yes, but only if you use FP32 precision</div>
+  </div><div class="feedback" id="quiz1-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 3: 6B Triton ═══════
+  {
+    id: '6B',
+    title: 'Triton Inference Server — Serve Models at Scale',
+    fact: '<strong>Triton can serve 10+ models on a single GPU simultaneously.</strong> NVIDIA uses Triton internally for everything from autonomous driving to healthcare AI. It\'s the industry standard for GPU model serving.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6B</span> Triton Inference Server — The Model Serving Standard</h2>
+  <p>Triton is an <strong style="color:var(--cyan)">inference server</strong> that handles everything you don't want to build: request queuing, dynamic batching, model versioning, health checks, and multi-model GPU sharing.</p>
+
+  <h3>🏗️ Model Repository Structure</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">model_repository/</span>
+<span style="color:var(--text-muted)">└──</span> <span style="color:var(--cyan)">yolo_detector/</span>           <span style="color:var(--text-muted)">← Model name (used in API)</span>
+<span style="color:var(--text-muted)">    ├──</span> <span style="color:var(--green)">config.pbtxt</span>            <span style="color:var(--text-muted)">← Platform, max_batch, I/O shapes, batching strategy</span>
+<span style="color:var(--text-muted)">    └──</span> <span style="color:var(--green)">1/</span>                      <span style="color:var(--text-muted)">← Version number</span>
+<span style="color:var(--text-muted)">        └──</span> <span style="color:var(--green)">model.onnx</span>           <span style="color:var(--text-muted)">← The actual model file</span></div>
+
+  <h3>📋 config.pbtxt — What It Tells Triton</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Key configuration for YOLO detector</span>
+<span style="color:var(--cyan)">platform:</span> <span style="color:var(--green)">"onnxruntime_onnx"</span>     <span style="color:var(--text-muted)">// Could also be: tensorrt_plan, pytorch_libtorch, python</span>
+<span style="color:var(--cyan)">max_batch_size:</span> <span style="color:var(--green)">8</span>                  <span style="color:var(--text-muted)">// Triton will accumulate up to 8 requests before running inference</span>
+<span style="color:var(--cyan)">input:</span> [{
+  <span style="color:var(--cyan)">name:</span> <span style="color:var(--green)">"images"</span>
+  <span style="color:var(--cyan)">data_type:</span> <span style="color:var(--green)">TYPE_FP32</span>
+  <span style="color:var(--cyan)">dims:</span> [ <span style="color:var(--green)">3</span>, <span style="color:var(--green)">640</span>, <span style="color:var(--green)">640</span> ]          <span style="color:var(--text-muted)">// CHW format</span>
+}]
+<span style="color:var(--cyan)">output:</span> [{
+  <span style="color:var(--cyan)">name:</span> <span style="color:var(--green)">"output0"</span>
+  <span style="color:var(--cyan)">data_type:</span> <span style="color:var(--green)">TYPE_FP32</span>
+  <span style="color:var(--cyan)">dims:</span> [ <span style="color:var(--green)">84</span>, <span style="color:var(--green)">8400</span> ]            <span style="color:var(--text-muted)">// 4 coords + 80 class scores per box</span>
+}]
+<span style="color:var(--cyan)">dynamic_batching:</span> { <span style="color:var(--cyan)">max_queue_delay_microseconds:</span> <span style="color:var(--green)">100</span> }  <span style="color:var(--text-muted)">// Wait up to 100μs to batch requests</span></div>
+
+  <h3>🔌 Triton API — How Clients Talk to It</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 HTTP/REST</h4><p>POST /v2/models/yolo_detector/infer with JSON body. Good for debugging, low-throughput, non-CUDA clients.</p><div class="tag-row"><span class="tag low">Easy</span><span class="tag med">~5ms overhead</span></div></div>
+    <div class="compare-card pick-c"><h4>🟢 gRPC</h4><p>Binary protobuf protocol. 10× lower overhead than HTTP. Streaming support. The production choice for high-throughput serving.</p><div class="tag-row"><span class="tag med">Binary</span><span class="tag high">~0.5ms overhead</span></div></div>
+  </div>
+
+  <h3>🎯 Advanced Triton Features</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">📦</div><h4>Dynamic Batching</h4><p>If requests arrive within 100μs of each other, Triton combines them into one batch. Higher throughput, same latency. Zero code changes.</p></div>
+    <div class="data-type-card"><div class="dt-icon">⛓️</div><h4>Model Ensembles</h4><p>Chain models: preprocess → YOLO → NMS. Triton pipes tensors between them on GPU — no CPU round-trip between stages.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔄</div><h4>A/B Testing</h4><p>Serve v1 and v2 simultaneously. Route 10% of traffic to v2. Compare latency/accuracy. If v2 wins, promote to 100%.</p></div>
+  </div>
+
+  <div class="quiz" id="quiz2"><div class="question">🧪 Why does dynamic batching improve throughput WITHOUT hurting latency?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz2', this)">A. GPUs are throughput machines — processing 8 images in one batch takes almost the SAME time as processing 1 image (parallelism). Triton waits just 100μs to see if another request arrives. If it does, you get 8× throughput for the same GPU time.</div>
+    <div class="option" onclick="checkQuiz('quiz2', this)">B. Triton uses a faster GPU when batching is enabled</div>
+    <div class="option" onclick="checkQuiz('quiz2', this)">C. Batching compresses the images so they process faster</div>
+  </div><div class="feedback" id="quiz2-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 4: 6C Nsight Profiling ═══════
+  {
+    id: '6C',
+    title: 'Nsight Profiling — Find the Bottleneck',
+    fact: '<strong>"If you can\'t measure it, you can\'t improve it."</strong> Nsight Systems shows you WHERE time is spent. Nsight Compute shows you WHY each kernel takes that long. Together, they turn "my code is slow" into "my kernel is memory-bound at 78% of peak bandwidth."',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6C</span> Nsight Profiling — Find & Fix Bottlenecks</h2>
+  <p>Guessing why your GPU code is slow is a waste of time. <strong style="color:var(--cyan)">Profile first, optimize second.</strong> NVIDIA provides two tools: one for the big picture, one for kernel internals.</p>
+
+  <h3>🔬 Two Tools, Two Levels</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 Nsight Systems</h4><p><strong>Timeline view</strong> of your entire application. Shows CPU threads, CUDA API calls, kernel launches, memory copies — all on one scrolling timeline.</p><p style="margin-top:0.5rem;color:var(--cyan)">Answers: "Where is the GPU idle? Is CPU the bottleneck? Are memory transfers serialized?"</p></div>
+    <div class="compare-card pick-c"><h4>🟢 Nsight Compute</h4><p><strong>Single-kernel deep dive.</strong> Select one kernel launch and see: memory throughput, compute utilization, warp stall reasons, occupancy, register usage.</p><p style="margin-top:0.5rem;color:var(--cyan)">Answers: "Is this kernel compute-bound or memory-bound? Which warp stalls are costing me?"</p></div>
+  </div>
+
+  <h3>📊 The Roofline Model</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">                       ↑ Peak Compute (TFLOPS)</span>
+<span style="color:var(--text-muted)">  Performance  ↑        ╱╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲</span>
+<span style="color:var(--text-muted)">  (GFLOPS)     ↑      ╱                      ╲</span>
+<span style="color:var(--text-muted)">               ↑    ╱       MEMORY-BOUND       ╲  COMPUTE-BOUND</span>
+<span style="color:var(--text-muted)">               ↑  ╱          REGION             ╲   REGION</span>
+<span style="color:var(--text-muted)">               ↑╱________________________________╲_______________</span>
+<span style="color:var(--text-muted)">                    Operational Intensity (FLOP/byte) →</span>
+
+<span style="color:var(--cyan)">Memory-Bound:</span> Your kernel spends more time waiting for data than computing.
+                  Fix: shared memory, memory coalescing, reduce global memory reads.
+
+<span style="color:var(--green)">Compute-Bound:</span> Your kernel is doing heavy math. The GPU's ALUs are the bottleneck.
+                 Fix: use faster math (__sinf vs sin), FP16, reduce thread divergence.</div>
+
+  <h3>🔍 What Nsight Compute Reveals</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">📊</span> <strong>Memory Throughput:</strong> % of peak GPU bandwidth your kernel is using. < 60% = room to improve coalescing.</div>
+    <div class="check-item"><span class="check-box">🏢</span> <strong>Occupancy:</strong> % of theoretical max warps active per SM. < 50% = too many registers per thread, or bad block size.</div>
+    <div class="check-item"><span class="check-box">⏸️</span> <strong>Warp Stall Reasons:</strong> Why are warps idle? Waiting on memory? Sync barrier? Execution dependency? Tells you exactly what to fix.</div>
+    <div class="check-item"><span class="check-box">📈</span> <strong>Roofline Chart:</strong> One dot = your kernel. If it's in the memory-bound region, stop optimizing math and start optimizing memory access.</div>
+  </div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 How much faster can profiling make my kernel?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>2× to 10× is common.</strong> Most first-attempt CUDA kernels achieve 10-30% of peak GPU throughput. The tiled matmul in Phase 2 went from naive (5 GFLOPS) to tiled shared memory (694 GFLOPS) — a <strong>138× improvement</strong> — purely from profiling-driven optimization.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz3"><div class="question">🧪 Your kernel achieves only 15% of peak memory bandwidth. The profiler shows high "Long Scoreboard" stall. What does this mean?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz3', this)">A. Your kernel has too many arithmetic instructions</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz3', this)">B. Warps are stalled waiting for global memory loads. Your kernel is memory-bound. Fix: use shared memory tiling, ensure coalesced access, or increase arithmetic intensity to hide latency.</div>
+    <div class="option" onclick="checkQuiz('quiz3', this)">C. Your GPU is overheating and throttling</div>
+  </div><div class="feedback" id="quiz3-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 5: 6D Multi-Stream — The Concept ═══════
+  {
+    id: '6D-1',
+    title: 'Multi-Stream CUDA — The Concept',
+    fact: '<strong>The default CUDA stream serializes EVERYTHING.</strong> Even if you launch 4 independent kernels, they run one at a time on the default stream. Custom streams let you overlap — while one stream computes, another uploads data.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6D</span> Multi-Stream CUDA — Overlap Everything</h2>
+  <p>The GPU has <strong style="color:var(--cyan)">separate engines</strong> for compute and memory copy. On the default stream, they take turns — the GPU sits idle during data transfers. Multi-stream lets them work <strong style="color:var(--green)">simultaneously</strong>.</p>
+
+  <h3>🧵 What is a CUDA Stream?</h3>
+  <p>A stream is an <strong style="color:var(--cyan)">independent queue of GPU operations</strong>. Operations within a stream run in order. Operations across DIFFERENT streams can run in parallel. The default stream (stream 0) is what you've been using — it serializes everything.</p>
+
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 Default Stream (Sequential)</h4>
+    <div class="eq-box" style="font-size:0.65rem;line-height:1.5;padding:0.6rem;margin:0.5rem 0;">
+<span style="color:var(--red)">| Upload 1 | GPU IDLE | Compute 1 | GPU IDLE | Download 1 |</span>
+<span style="color:var(--red)">                                            | Upload 2 | ...</span>
+</div><p>Upload engine works → GPU waits. GPU computes → upload engine waits. <strong>GPU idle ~40% of the time.</strong></p></div>
+    <div class="compare-card pick-c"><h4>🟢 Multi-Stream (Overlapped)</h4>
+    <div class="eq-box" style="font-size:0.65rem;line-height:1.5;padding:0.6rem;margin:0.5rem 0;">
+<span style="color:var(--green)">Stream 0: | Upload 1 | Compute 1 | Download 1 |</span>
+<span style="color:var(--cyan)">Stream 1:     | Upload 2 | Compute 2 | Download 2 |</span>
+<span style="color:var(--amber)">Stream 2:         | Upload 3 | Compute 3 | Download 3 |</span>
+</div><p>While Stream 1 computes, Stream 2 uploads — <strong>GPU NEVER idle.</strong></p></div>
+  </div>
+
+  <h3>🔑 3 Requirements for Multi-Stream</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">📌</div><h4>1. Pinned Memory</h4><p><code>cudaMallocHost()</code> not <code>malloc()</code>. Pageable memory can't do async DMA transfers. Pinned memory stays in RAM — GPU's DMA engine can access it directly.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔄</div><h4>2. Async Functions</h4><p><code>cudaMemcpyAsync()</code> not <code>cudaMemcpy()</code>. The "Async" version returns immediately — the copy happens in the background while your code continues.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔗</div><h4>3. Stream Assignment</h4><p><code>kernel<<<blocks, threads, 0, stream>>></code> — the 4th launch parameter assigns the kernel to a specific stream. Operations in different streams overlap.</p></div>
+  </div>
+
+  <h3>🔄 Round-Robin Stream Assignment</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Process 100 video frames using 4 streams:</span>
+<span style="color:var(--cyan)">cudaStream_t</span> streams[<span style="color:var(--green)">4</span>];
+<span style="color:var(--magenta)">for</span> (<span style="color:var(--cyan)">int</span> i = <span style="color:var(--green)">0</span>; i < <span style="color:var(--green)">4</span>; i++) cudaStreamCreate(&streams[i]);
+
+<span style="color:var(--magenta)">for</span> (<span style="color:var(--cyan)">int</span> frame = <span style="color:var(--green)">0</span>; frame < <span style="color:var(--green)">100</span>; frame++) {
+    <span style="color:var(--cyan)">int</span> s = frame % <span style="color:var(--green)">4</span>;  <span style="color:var(--text-muted)">// Round-robin across 4 streams</span>
+    cudaMemcpyAsync(d_frame, h_frame, size, <span style="color:var(--green)">cudaMemcpyHostToDevice</span>, streams[s]);
+    process_kernel<<<blocks, threads, <span style="color:var(--green)">0</span>, streams[s]>>>(d_frame);
+    cudaMemcpyAsync(h_result, d_frame, size, <span style="color:var(--green)">cudaMemcpyDeviceToHost</span>, streams[s]);
+}
+<span style="color:var(--text-muted)">// Frame 1 processes in stream 0 while frame 2 uploads in stream 1!</span></div>
+
+  <div class="quiz" id="quiz4"><div class="question">🧪 What happens if you use regular malloc() (pageable memory) with cudaMemcpyAsync?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz4', this)">A. It still works — but the copy becomes SYNCHRONOUS. The GPU's DMA engine can't access pageable memory directly, so CUDA falls back to a blocking copy through a pinned staging buffer. Your "async" is secretly sync.</div>
+    <div class="option" onclick="checkQuiz('quiz4', this)">B. The program crashes with a segfault</div>
+    <div class="option" onclick="checkQuiz('quiz4', this)">C. It works exactly the same — malloc and cudaMallocHost are identical</div>
+  </div><div class="feedback" id="quiz4-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 6: 6D Multi-Stream — The Benchmark ═══════
+  {
+    id: '6D-2',
+    title: 'Multi-Stream Benchmark — 7× Speedup',
+    fact: '<strong>131.62ms → 18.60ms on the exact same GPU.</strong> No code changes to the kernel itself — just changing HOW operations are submitted to the GPU. This is the power of understanding CUDA\'s execution model.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6D</span> Multi-Stream Benchmark — 7.07× Speedup in Practice</h2>
+  <p>This is the <strong style="color:var(--cyan)">actual benchmark</strong> from the Colab notebook. 4 batches of 10M elements each. Same kernel, same data, same GPU — only the stream configuration changed.</p>
+
+  <h3>🧪 The Experiment</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// 4 batches × 10 million float32 elements = 40M elements = 160 MB total</span>
+<span style="color:var(--text-muted)">// Each batch: Upload (40 MB H→D) → Process (kernel) → Download (40 MB D→H)</span>
+<span style="color:var(--text-muted)">// GPU: Tesla T4, CUDA 13.0, 256 threads/block</span></div>
+
+  <h3>📊 Results</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 Single Stream</h4>
+    <div class="big-stat" style="margin:0.3rem 0"><div class="number" style="font-size:2.2rem">131.62 ms</div></div>
+    <div class="eq-box" style="font-size:0.65rem;line-height:1.4;padding:0.5rem;margin:0.5rem 0;">
+<span style="color:var(--red)">Upload1 → Process1 → Download1 → Upload2 → Process2 → ...</span></div>
+    <p>GPU idle during every upload and download. <strong>Only ~40% GPU utilization.</strong></p></div>
+    <div class="compare-card pick-c"><h4>🟢 Multi-Stream (4 streams)</h4>
+    <div class="big-stat" style="margin:0.3rem 0"><div class="number" style="font-size:2.2rem">18.60 ms</div></div>
+    <div class="eq-box" style="font-size:0.65rem;line-height:1.4;padding:0.5rem;margin:0.5rem 0;">
+<span style="color:var(--green)">S0:|Up1|Proc1|Dn1|
+S1:   |Up2|Proc2|Dn2|
+S2:      |Up3|Proc3|Dn3|
+S3:         |Up4|Proc4|Dn4|</span></div>
+    <p>Upload and compute engines work simultaneously. <strong>GPU ~95% utilized.</strong></p></div>
+  </div>
+
+  <div class="big-stat">
+    <div class="number">7.07×</div>
+    <div class="label">SPEEDUP — SAME GPU, SAME KERNEL, DIFFERENT STREAM CONFIG</div>
+  </div>
+
+  <h3>🎯 When Multi-Stream Helps (and When It Doesn't)</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-c"><h4>🟢 Helps Massively</h4><p>• Video processing (next frame uploads while current processes)</p><p>• Batch inference (multiple images in parallel pipelines)</p><p>• Any upload→compute→download pattern</p><p>• Multiple independent workloads on one GPU</p></div>
+    <div class="compare-card pick-a"><h4>🔴 Doesn't Help</h4><p>• Single large computation with no data transfer</p><p>• Operations that depend on each other's results</p><p>• Kernels that already saturate the GPU's compute</p><p>• When using default (pageable) memory — async becomes sync!</p></div>
+  </div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 Why 4 streams? Why not 16?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Diminishing returns + hardware limits.</strong> A T4 has 1 copy engine and limited concurrency. With 16 streams, many streams just queue behind each other. 2-4 streams is the sweet spot for most workloads. Profile to find YOUR GPU's sweet spot.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz5"><div class="question">🧪 The benchmark shows 131.62ms → 18.60ms (7.07×). Is this speedup guaranteed for ANY workload?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz5', this)">A. Yes — multi-stream always gives 7× speedup</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz5', this)">B. No — the speedup depends on how much overlap is possible. If your kernel dominates (99% compute, 1% transfer), the speedup is tiny. If transfers dominate (50% transfer, 50% compute), you can approach 2×. This benchmark was designed to show the best case.</div>
+    <div class="option" onclick="checkQuiz('quiz5', this)">C. No — you need at least 8 streams to get 7× speedup</div>
+  </div><div class="feedback" id="quiz5-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 7: 6D CUDA Graphs ═══════
+  {
+    id: '6D-3',
+    title: 'CUDA Graphs — Capture Once, Replay Forever',
+    fact: '<strong>Each kernel launch costs ~5μs of CPU overhead.</strong> For a pipeline with 100 kernel launches per frame at 1000 FPS, that\'s 500μs per second wasted on launch overhead alone. CUDA Graphs capture the whole graph and replay it in ~0.5μs total.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6D</span> CUDA Graphs — Capture, Instantiate, Replay</h2>
+  <p>Kernel launches aren't free — each one costs <strong style="color:var(--red)">~5μs of CPU overhead</strong> to validate parameters and submit to the GPU. For a complex pipeline with dozens of kernels, this adds up. CUDA Graphs solve this.</p>
+
+  <h3>📸 How CUDA Graphs Work</h3>
+  <div class="pipeline">
+    <div class="pipeline-stage highlight"><div class="stage-icon">📸</div><div class="stage-name">CAPTURE</div><div class="stage-desc">Record all kernel<br>launches once</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">🏗️</div><div class="stage-name">INSTANTIATE</div><div class="stage-desc">Build optimized<br>execution graph</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">▶️</div><div class="stage-name">REPLAY</div><div class="stage-desc">Submit entire graph<br>in ONE call (~0.5μs)</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">🔁</div><div class="stage-name">REPLAY AGAIN</div><div class="stage-desc">Same graph,<br>different inputs</div></div>
+  </div>
+
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Step 1: Begin capture on a stream</span>
+<span style="color:var(--cyan)">cudaStreamBeginCapture</span>(stream, cudaStreamCaptureModeGlobal);
+
+<span style="color:var(--text-muted)">// Step 2: Launch all your kernels as normal (they get RECORDED, not executed)</span>
+preprocess_kernel<<<grid, block, <span style="color:var(--green)">0</span>, stream>>>(...);
+inference_kernel<<<grid, block, <span style="color:var(--green)">0</span>, stream>>>(...);
+nms_kernel<<<grid, block, <span style="color:var(--green)">0</span>, stream>>>(...);
+
+<span style="color:var(--text-muted)">// Step 3: End capture → get a graph object</span>
+<span style="color:var(--cyan)">cudaGraph_t</span> graph;
+<span style="color:var(--cyan)">cudaStreamEndCapture</span>(stream, &graph);
+
+<span style="color:var(--text-muted)">// Step 4: Instantiate (optimize the graph for THIS GPU)</span>
+<span style="color:var(--cyan)">cudaGraphExec_t</span> instance;
+<span style="color:var(--cyan)">cudaGraphInstantiate</span>(&instance, graph);
+
+<span style="color:var(--text-muted)">// Step 5: Replay — submit entire pipeline in ONE call!</span>
+<span style="color:var(--cyan)">cudaGraphLaunch</span>(instance, stream);  <span style="color:var(--text-muted)">// ~0.5μs instead of N×5μs</span></div>
+
+  <h3>⚡ Launch Overhead Comparison</h3>
+  <div class="ladder">
+    <div class="ladder-rung"><div class="rung-icon">🐌</div><div class="rung-bar" style="background:var(--red)"></div><div class="rung-label">Individual</div><div class="rung-metric">~5μs per kernel</div><div class="rung-example">100 kernels = 500μs overhead</div></div>
+    <div class="ladder-rung"><div class="rung-icon">⚡</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">CUDA Graph</div><div class="rung-metric">~0.5μs TOTAL</div><div class="rung-example">100 kernels = 0.5μs overhead (1000× less!)</div></div>
+  </div>
+
+  <h3>⚠️ CUDA Graph Limitations</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">🔒</span> <strong>Static shape only:</strong> All tensor sizes must be fixed at capture time. No dynamic allocations inside the graph.</div>
+    <div class="check-item"><span class="check-box">📋</span> <strong>No CPU interaction:</strong> Can't call cudaMemcpy or CPU code inside the graph. Must be pure GPU→GPU.</div>
+    <div class="check-item"><span class="check-box">🎯</span> <strong>Best for:</strong> Fixed-size inference pipelines (always 640×640 input), iterative algorithms, small-kernel-heavy workloads.</div>
+  </div>
+
+  <div class="quiz" id="quiz6"><div class="question">🧪 Your pipeline has only 3 kernel launches per frame. Is CUDA Graphs worth the complexity?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz6', this)">A. Yes — CUDA Graphs always improve performance</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz6', this)">B. Probably not — with only 3 kernels, you're saving ~15μs of CPU overhead per frame. Unless your app runs at 1000+ FPS or the CPU is heavily loaded, the added complexity isn't worth it. CUDA Graphs shine with 20+ kernel launches per frame.</div>
+    <div class="option" onclick="checkQuiz('quiz6', this)">C. Only if using an A100 GPU</div>
+  </div><div class="feedback" id="quiz6-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 8: 6E Custom Production Kernels ═══════
+  {
+    id: '6E',
+    title: 'Custom Kernels in Production — 6E',
+    fact: '<strong>Python is for prototyping; CUDA is for production.</strong> When latency matters, custom CUDA kernels replace Python preprocessing/NMS — and pybind11 lets you call them directly from your FastAPI server.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6E</span> Custom CUDA Kernels in Production Pipelines</h2>
+  <p>The preprocess and NMS CUDA kernels from Phase 4 aren't just demos — they're <strong style="color:var(--cyan)">production building blocks</strong> that replace slow Python code in the inference pipeline.</p>
+
+  <h3>🔧 The Production Kernel Toolkit</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">🖼️</div><h4>Preprocess Kernel</h4><p>Fused resize+normalize+HWC→CHW. 0.046ms vs 19.3ms NumPy. <strong>419× faster.</strong> Use this before EVERY inference call.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🎯</div><h4>Custom NMS Kernel</h4><p>IoU-based box filtering on GPU. ~1ms vs 72.5ms torchvision. <strong>72× faster.</strong> Keeps data on GPU — no CPU round-trip.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🎬</div><h4>NVDEC Video Decode</h4><p>GPU-accelerated H.264/H.265 decoding. Frames go straight to GPU memory — no CPU copy. Essential for multi-camera video pipelines.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📦</div><h4>Batch Preprocess</h4><p>Process 32 images simultaneously in one kernel launch. 32× throughput at the same latency. Grid stride loop pattern.</p></div>
+  </div>
+
+  <h3>🐍 pybind11 — Call CUDA from Python</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// cuda_kernels.cpp — CUDA + pybind11 binding</span>
+<span style="color:var(--magenta)">#include</span> <span style="color:var(--green)"><pybind11/pybind11.h></span>
+<span style="color:var(--magenta)">#include</span> <span style="color:var(--green)"><pybind11/numpy.h></span>
+
+<span style="color:var(--text-muted)">// The CUDA kernel (compiled with nvcc)</span>
+<span style="color:var(--cyan)">void</span> preprocess_gpu(<span style="color:var(--cyan)">unsigned char</span>* input, <span style="color:var(--cyan)">float</span>* output, <span style="color:var(--cyan)">int</span> h, <span style="color:var(--cyan)">int</span> w);
+
+<span style="color:var(--text-muted)">// Python-callable wrapper</span>
+<span style="color:var(--cyan)">py::array_t<float></span> preprocess(<span style="color:var(--cyan)">py::array_t<unsigned char></span> img) {
+    <span style="color:var(--cyan)">auto</span> result = <span style="color:var(--cyan)">py::array_t<float></span>({<span style="color:var(--green)">3</span>, <span style="color:var(--green)">640</span>, <span style="color:var(--green)">640</span>});
+    preprocess_gpu(img.data(), result.mutable_data(), img.shape(<span style="color:var(--green)">0</span>), img.shape(<span style="color:var(--green)">1</span>));
+    <span style="color:var(--magenta)">return</span> result;
+}
+
+<span style="color:var(--cyan)">PYBIND11_MODULE</span>(cuda_kernels, m) {
+    m.doc() = <span style="color:var(--green)">"Production CUDA kernels for YOLO pipeline"</span>;
+    m.def(<span style="color:var(--green)">"preprocess"</span>, &preprocess, <span style="color:var(--green)">"GPU image preprocessing"</span>);
+}</div>
+  <p style="text-align:center;font-size:0.78rem;color:var(--text-muted)">Then in your FastAPI server: <code style="color:var(--cyan)">import cuda_kernels; tensor = cuda_kernels.preprocess(frame)</code></p>
+
+  <h3>🔄 End-to-End Production Pipeline</h3>
+  <div class="pipeline">
+    <div class="pipeline-stage highlight"><div class="stage-icon">🎬</div><div class="stage-name">NVDEC</div><div class="stage-desc">GPU video<br>decode</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">⚡</div><div class="stage-name">CUDA<br>PREPROCESS</div><div class="stage-desc">0.046ms<br>419× faster</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🚀</div><div class="stage-name">TENSORRT<br>INFERENCE</div><div class="stage-desc">11.3ms<br>FP16 engine</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🎯</div><div class="stage-name">CUDA<br>NMS</div><div class="stage-desc">~1ms<br>GPU filter</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">📤</div><div class="stage-name">OUTPUT</div><div class="stage-desc">Boxes<br>to client</div></div>
+  </div>
+  <p style="text-align:center;font-size:0.72rem;color:var(--green);margin-top:0.3rem;">Data NEVER leaves the GPU from decode to NMS. Zero CPU round-trips = zero PCIe bottlenecks.</p>
+
+  <div class="quiz" id="quiz7"><div class="question">🧪 Why use pybind11 instead of writing the entire server in C++?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz7', this)">A. Best of both worlds: Python for the web server, business logic, and easy debugging. CUDA C++ ONLY for the performance-critical 1% of code (the kernels). pybind11 bridges them with near-zero overhead.</div>
+    <div class="option" onclick="checkQuiz('quiz7', this)">B. C++ web servers are always slower than Python ones</div>
+    <div class="option" onclick="checkQuiz('quiz7', this)">C. pybind11 automatically makes CUDA code 10× faster</div>
+  </div><div class="feedback" id="quiz7-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 9: 6F Deployment ═══════
+  {
+    id: '6F',
+    title: 'Deployment & Infrastructure — 6F',
+    fact: '<strong>The best CUDA kernel is useless if it crashes at 3 AM and nobody knows.</strong> Docker + K8s + auto-scaling + monitoring = the difference between a demo and a service.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6F</span> Deployment & Infrastructure — Run It 24/7</h2>
+  <p>Production CUDA isn't complete until the model is <strong style="color:var(--cyan)">containerized, deployed, monitored, and auto-scaled</strong>. This is the infrastructure layer that keeps your GPU inference running while you sleep.</p>
+
+  <h3>🐳 Docker with CUDA — Multi-Stage Build</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)"># Stage 1: BUILD — compile CUDA kernels (needs full CUDA toolkit, ~3 GB)</span>
+<span style="color:var(--magenta)">FROM</span> nvidia/cuda:<span style="color:var(--green)">12.6</span>-devel-ubuntu22.04 <span style="color:var(--cyan)">AS</span> builder
+<span style="color:var(--cyan)">RUN</span> nvcc -O3 preprocess.cu -o preprocess.o -c
+<span style="color:var(--cyan)">RUN</span> nvcc -O3 nms.cu -o nms.o -c
+
+<span style="color:var(--text-muted)"># Stage 2: RUNTIME — slim image with only what's needed (~500 MB)</span>
+<span style="color:var(--magenta">FROM</span> nvidia/cuda:<span style="color:var(--green)">12.6</span>-runtime-ubuntu22.04
+<span style="color:var(--cyan)">COPY</span> --from=builder /app/*.o /app/
+<span style="color:var(--cyan)">COPY</span> --from=builder /app/model.engine /app/
+<span style="color:var(--cyan)">CMD</span> [<span style="color:var(--green)">"python"</span>, <span style="color:var(--green)">"server.py"</span>]
+<span style="color:var(--text-muted)"># Result: 500 MB runtime image vs 3 GB if we used devel for everything</span></div>
+
+  <h3>☁️ GPU Infrastructure Stack</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">☸️</div><h4>AWS ECS/EKS + GPU</h4><p>Managed Kubernetes with GPU node groups. Triton deployed as a K8s service. Node selector: <code>nvidia.com/gpu: 1</code>.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📈</div><h4>Auto-Scaling</h4><p>Scale GPU instances based on Triton queue depth. If > 50 requests waiting, spin up another GPU node. Scale down at night.</p></div>
+    <div class="data-type-card"><div class="dt-icon">💰</div><h4>Cost Optimization</h4><p>Spot instances for batch inference (70% cheaper). Reserved instances for real-time serving. T4 ($0.15/hr spot) vs A10G ($0.50/hr) — profile to right-size.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📊</div><h4>Monitoring</h4><p>GPU utilization, memory, inference latency → CloudWatch/Grafana. Prometheus metrics from Triton. Alert if p99 latency > 50ms for 5 minutes.</p></div>
+  </div>
+
+  <h3>🔄 CI/CD for GPU Models</h3>
+  <div class="pipeline">
+    <div class="pipeline-stage"><div class="stage-icon">💻</div><div class="stage-name">CODE<br>PUSH</div><div class="stage-desc">GitHub</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">🧪</div><div class="stage-name">TEST</div><div class="stage-desc">Accuracy +<br>latency check</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🏗️</div><div class="stage-name">BUILD TRT<br>ENGINE</div><div class="stage-desc">GPU runner<br>required!</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">🐳</div><div class="stage-name">DOCKER<br>BUILD</div><div class="stage-desc">Multi-stage<br>image</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🚀</div><div class="stage-name">DEPLOY<br>TRITON</div><div class="stage-desc">Rolling<br>update</div></div>
+  </div>
+
+  <h3>🛡️ Production Readiness Checklist</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">✅</span> Containerized with Docker + CUDA runtime</div>
+    <div class="check-item"><span class="check-box">✅</span> Model serialized as TensorRT engine (fast cold start)</div>
+    <div class="check-item"><span class="check-box">✅</span> Health check endpoint for load balancer (<code>/v2/health/ready</code>)</div>
+    <div class="check-item"><span class="check-box">✅</span> GPU metrics exported to CloudWatch/Grafana</div>
+    <div class="check-item"><span class="check-box">✅</span> Auto-scaling rules based on queue depth</div>
+    <div class="check-item"><span class="check-box">✅</span> CI/CD pipeline with accuracy regression tests</div>
+    <div class="check-item"><span class="check-box">✅</span> Rollback plan — previous TensorRT engine version saved</div>
+    <div class="check-item"><span class="check-box">✅</span> Load tested — know your max throughput before latency degrades</div>
+  </div>
+
+  <div class="quiz" id="quiz8"><div class="question">🧪 Why use a multi-stage Docker build for CUDA applications?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz8', this)">A. The CUDA devel image (~3 GB) includes compilers, headers, and debugging tools needed ONLY for compilation. The runtime image (~500 MB) has just the libraries needed to run. Multi-stage keeps the deployed image small — faster pulls, smaller attack surface.</div>
+    <div class="option" onclick="checkQuiz('quiz8', this)">B. Docker doesn't support CUDA in single-stage builds</div>
+    <div class="option" onclick="checkQuiz('quiz8', this)">C. Multi-stage builds make the GPU run faster</div>
+  </div><div class="feedback" id="quiz8-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 10: Phase 6 Summary ═══════
+  {
+    id: '6.9',
+    title: 'Phase 6 Summary — Production Ready',
+    fact: '<strong>Phase 6 is what separates CUDA hobbyists from CUDA engineers.</strong> Anyone can write a kernel. Few can deploy it with auto-scaling, monitoring, and 7× multi-stream speedup on a production GPU cluster.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">6.9</span> Phase 6 Summary — What You Built</h2>
+  <p>Phase 6 turned a Colab notebook into a <strong style="color:var(--cyan)">production-grade GPU inference system</strong>. Here's everything you built across all 6 sub-phases:</p>
+
+  <h3>📦 Phase 6 Deliverables</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">🚀</div><h4>6A: TensorRT Engine</h4><p>YOLOv8n → ONNX → TensorRT FP16. 13.8ms→11.3ms. Engine serialized to file for instant startup.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🖥️</div><h4>6B: Triton Server Demo</h4><p>Model repository, config.pbtxt with dynamic batching, Flask inference server with phone camera, HTTP client.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔍</div><h4>6C: Profiling Knowledge</h4><p>Nsight Systems (timeline), Nsight Compute (kernel analysis), roofline model, occupancy, warp stall diagnosis.</p></div>
+    <div class="data-type-card"><div class="dt-icon">⚡</div><h4>6D: Multi-Stream Kernel</h4><p>multistream.cu: 4 batches × 10M elements. 131.62ms→18.60ms. <strong>7.07× speedup.</strong> Pinned memory, async ops, round-robin streams.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔧</div><h4>6E: Custom Kernels</h4><p>Preprocess kernel (0.046ms, 419×), NMS kernel (GPU-side filtering), pybind11 pattern, end-to-end all-GPU pipeline.</p></div>
+    <div class="data-type-card"><div class="dt-icon">☁️</div><h4>6F: Deployment Plan</h4><p>Docker multi-stage, K8s GPU scheduling, auto-scaling, spot instances, CloudWatch/Grafana monitoring, CI/CD pipeline design.</p></div>
+  </div>
+
+  <h3>🧠 Key Concepts Mastered</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">🔗</span> <strong>Layer fusion:</strong> Why Conv+BN+ReLU as one kernel beats three separate kernels</div>
+    <div class="check-item"><span class="check-box">📉</span> <strong>Precision tradeoff:</strong> FP32→FP16 (2×, no accuracy loss) vs FP32→INT8 (4×, needs calibration)</div>
+    <div class="check-item"><span class="check-box">📦</span> <strong>Dynamic batching:</strong> How waiting 100μs can multiply throughput with zero latency impact</div>
+    <div class="check-item"><span class="check-box">📊</span> <strong>Roofline model:</strong> Memory-bound vs compute-bound — knowing which one you are before optimizing</div>
+    <div class="check-item"><span class="check-box">🔄</span> <strong>Async execution:</strong> Overlapping transfer + compute using streams, pinned memory, and async functions</div>
+    <div class="check-item"><span class="check-box">📸</span> <strong>CUDA Graphs:</strong> Capture-once-replay-many for 1000× launch overhead reduction</div>
+    <div class="check-item"><span class="check-box">🐍</span> <strong>Python+CUDA integration:</strong> pybind11 for calling custom CUDA kernels from FastAPI servers</div>
+    <div class="check-item"><span class="check-box">☸️</span> <strong>GPU infrastructure:</strong> Docker, K8s, auto-scaling, spot instances, CI/CD for GPU models</div>
+  </div>
+
+  <h3>🏆 The Production CUDA Engineer Checklist</h3>
+  <div class="ladder">
+    <div class="ladder-rung"><div class="rung-icon">✅</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">Optimize</div><div class="rung-metric">TensorRT FP16 engine</div><div class="rung-example">1.2× faster, zero accuracy loss</div></div>
+    <div class="ladder-rung"><div class="rung-icon">✅</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">Serve</div><div class="rung-metric">Triton Inference Server</div><div class="rung-example">HTTP/gRPC, dynamic batching</div></div>
+    <div class="ladder-rung"><div class="rung-icon">✅</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">Profile</div><div class="rung-metric">Nsight Systems + Compute</div><div class="rung-example">Find bottlenecks, fix, measure</div></div>
+    <div class="ladder-rung"><div class="rung-icon">✅</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">Accelerate</div><div class="rung-metric">Multi-Stream 7× speedup</div><div class="rung-example">GPU never idle</div></div>
+    <div class="ladder-rung"><div class="rung-icon">✅</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">Integrate</div><div class="rung-metric">Custom CUDA + Python</div><div class="rung-example">pybind11, all-GPU pipeline</div></div>
+    <div class="ladder-rung"><div class="rung-icon">✅</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">Deploy</div><div class="rung-metric">Docker + K8s + Monitoring</div><div class="rung-example">24/7 production ready</div></div>
+  </div>
+
+  <div class="big-stat">
+    <div class="number">Phase 6 ✅</div>
+    <div class="label">PRODUCTION CUDA — COMPLETE (TensorRT, Triton, Multi-Stream 7×, Profiling, Deployment)</div>
+  </div>
+
+  <div class="quiz" id="quiz9"><div class="question">🧪 A colleague says "I just run my PyTorch model on an A100 — it's fast enough." Why invest in Phase 6 optimizations?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz9', this)">A. An A100 is so fast, optimization isn't needed</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz9', this)">B. Cost, scale, and headroom. A T4 with TensorRT + multi-stream costs $0.15/hr and handles 4 cameras at 137 FPS. An A100 costs $1.10/hr. Also: what happens when you need to serve 1000 requests/sec? Optimization skills scale; raw GPU power hits a budget wall.</div>
+    <div class="option" onclick="checkQuiz('quiz9', this)">C. Optimized models only work on older GPUs</div>
+  </div><div class="feedback" id="quiz9-fb"></div></div>
+</div></div>`; }
+  }
+];
+
+// ── Quiz Logic ──
+window.checkQuiz = function(quizId, clickedEl) {
+  const quiz = document.getElementById(quizId);
+  if (quiz.dataset.answered === 'true') return;
+  const options = quiz.querySelectorAll('.option');
+  const feedback = document.getElementById(quizId + '-fb');
+  const isCorrect = clickedEl.dataset.correct === 'true';
+  options.forEach(o => { if (o.dataset.correct === 'true') o.classList.add('correct'); });
+  if (!isCorrect) clickedEl.classList.add('wrong');
+  feedback.className = 'feedback show ' + (isCorrect ? 'correct' : 'wrong');
+  feedback.textContent = isCorrect ? '✅ Correct! Well done.' : '❌ Not quite. The correct answer is highlighted in green.';
+  quiz.dataset.answered = 'true';
+};
+
+// ── Navigation ──
+let currentSlide = 0;
+const visitedSlides = new Set([0]);
+
+function renderSlide(index) {
+  currentSlide = index;
+  visitedSlides.add(index);
+  document.getElementById('slideContainer').innerHTML = slides[index].render();
+  updateDots(); updateChips();
+  document.getElementById('funFactText').innerHTML = '<strong>' + slides[index].id + ':</strong> ' + slides[index].fact;
+  document.getElementById('stepLabel').textContent = (index + 1) + '/' + slides.length;
+  document.getElementById('prevBtn').disabled = index === 0;
+  const nextBtn = document.getElementById('nextBtn');
+  if (index === slides.length - 1) {
+    nextBtn.textContent = '✓ Complete';
+    nextBtn.style.background = 'var(--green-bg)'; nextBtn.style.borderColor = 'var(--green)'; nextBtn.style.color = 'var(--green)';
+  } else {
+    nextBtn.textContent = 'Next →';
+    nextBtn.style.background = 'var(--cyan-bg)'; nextBtn.style.borderColor = 'var(--cyan)'; nextBtn.style.color = 'var(--cyan)';
+  }
+  document.getElementById('slideContainer').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function goTo(index) { if (index >= 0 && index < slides.length) renderSlide(index); }
+
+function updateDots() {
+  document.getElementById('stepDots').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'active' : visitedSlides.has(i) ? 'done' : '';
+    return '<div class="step-dot ' + cls + '" onclick="goTo(' + i + ')" title="' + s.id + ': ' + s.title + '"></div>';
+  }).join('');
+}
+
+function updateChips() {
+  document.getElementById('topicChips').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'current' : visitedSlides.has(i) ? 'visited' : '';
+    return '<span class="topic-chip ' + cls + '" onclick="goTo(' + i + ')">' + s.id + ' ' + s.title + '</span>';
+  }).join('');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' && currentSlide < slides.length - 1) goTo(currentSlide + 1);
+  if (e.key === 'ArrowLeft' && currentSlide > 0) goTo(currentSlide - 1);
+});
+
+renderSlide(0);
+</script>
+</body>
+</html>

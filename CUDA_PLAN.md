@@ -102,6 +102,8 @@
 
 ## Phase 6: Production CUDA (Ship It — Real-World Deployment)
 
+> 🎓 **Interactive Learning Module:** [phase6_production_cuda.html](phase6_production_cuda.html) — 10 interactive slides covering all 6 sub-phases (6A-6F): TensorRT, Triton, Nsight profiling, multi-stream 7× speedup, CUDA Graphs, custom kernels + pybind11, Docker/K8s deployment. Use ← → arrow keys to navigate.
+
 ### 6A: TensorRT — Optimize Models for Production Inference
 
 | Step | Task |
@@ -632,6 +634,7 @@ Visual, slide-based learning modules following the same pattern as the [MLOPS Sy
 | Phase | Module | Slides | Topics |
 |-------|--------|--------|--------|
 | **4** | [phase4_yolo_cuda.html](phase4_yolo_cuda.html) | 8 slides | YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS kernel, 137 FPS pipeline, Triton serving |
+| **6** | [phase6_production_cuda.html](phase6_production_cuda.html) | 10 slides | 6A TensorRT, 6B Triton Server, 6C Nsight Profiling, 6D Multi-Stream 7×, CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment |
 
 > **Coming:** Phase 5 (Chicken Disease VGG16 + MLOps Bridge), Phase 8 (Transformer from Scratch in CUDA), Phase 9 (Smart Camera).
 

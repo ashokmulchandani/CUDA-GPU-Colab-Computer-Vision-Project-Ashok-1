@@ -38,5 +38,6 @@ See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
 | Phase | Module | Slides |
 |-------|--------|--------|
 | **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 8 slides — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving |
+| **6** | [🎓 Production CUDA (6A-6F)](phase6_production_cuda.html) | 10 slides — TensorRT, Triton, Nsight, Multi-Stream 7×, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s |
 
 > Use ← → arrow keys to navigate. Dark/light theme toggle in top-right. Each slide has a quiz.
