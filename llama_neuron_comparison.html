@@ -308,6 +308,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
   <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--amber);">
     <strong>PER BLOCK = 4,096 + 4,096 + 4,096 + 4,096 + 11,008 + 11,008 + 4,096 = 42,496 "neurons" across 7 matrices</strong><br>
     <span style="font-size:0.6rem;color:var(--text-dim);">Each one computes: Σ(inputᵢ × weightᵢ). Same as every neuron in the MLP. Just more of them.</span>
+    <br><br>
+    <span style="font-size:0.65rem;color:var(--text-dim);"><strong style="color:var(--amber);">⚠️ Why isn't total = 42,496 × 4,096 = 174M?</strong> Because the <strong style="color:var(--violet);">down_proj neurons have 11,008 inputs each</strong>, not 4,096!</span><br>
+    <span style="font-size:0.6rem;color:var(--text-muted);">
+    Q,K,V,O: 16,384 neurons × 4,096 inputs = <strong>67,108,864</strong><br>
+    gate,up: 22,016 neurons × 4,096 inputs = <strong>90,177,536</strong><br>
+    down: &nbsp;&nbsp;&nbsp;4,096 neurons × <strong>11,008</strong> inputs = <strong>45,088,768</strong><br>
+    ─────────────────────────────────────────────<br>
+    TOTAL: &nbsp;<strong>202,375,168</strong> ✓ (not 174M — the extra 28.3M is from down_proj's 11,008-input neurons)
+    </span>
   </div>
 </div>
 
@@ -410,6 +419,41 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 <span style="color:var(--text-muted);">64.2% of Llama 7B's parameters are in the FFN — the "MLP inside each transformer block."</span>
 <span style="color:var(--amber);">If you understand 128 neurons × 784 weights, you understand Llama's 11,008 neurons × 4,096 weights.</span>
 <span style="color:var(--cyan);">Same formula. Different scale. That's all a transformer is — MLPs with attention glued between them.</span>
+</div>
+
+<!-- MATH VERIFICATION -->
+<div class="section-title">✅ Full Math Verification — Step by Step</div>
+<div style="overflow-x:auto;">
+<table class="neuron-table">
+  <thead><tr><th>Component</th><th>Calculation</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td class="name">Q projection</td><td>4096 neurons × 4096 inputs</td><td class="total">16,777,216</td></tr>
+    <tr><td class="name">K projection</td><td>4096 neurons × 4096 inputs</td><td class="total">16,777,216</td></tr>
+    <tr><td class="name">V projection</td><td>4096 neurons × 4096 inputs</td><td class="total">16,777,216</td></tr>
+    <tr><td class="name">O projection</td><td>4096 neurons × 4096 inputs</td><td class="total">16,777,216</td></tr>
+    <tr><td colspan="3" style="text-align:right;color:var(--amber);">Attention sub-total: <strong>67,108,864</strong></td></tr>
+    <tr><td class="llama-name">gate_proj</td><td>11,008 neurons × 4,096 inputs</td><td class="total">45,088,768</td></tr>
+    <tr><td class="llama-name">up_proj</td><td>11,008 neurons × 4,096 inputs</td><td class="total">45,088,768</td></tr>
+    <tr><td class="llama-name">down_proj</td><td>4,096 neurons × <strong style="color:var(--red);">11,008</strong> inputs (NOT 4096!)</td><td class="total">45,088,768</td></tr>
+    <tr style="background:rgba(255,179,71,0.08);"><td colspan="3" style="text-align:right;color:var(--amber);font-weight:700;">ONE BLOCK TOTAL</td><td class="total">202,375,168</td></tr>
+    <tr><td colspan="3" style="text-align:right;color:var(--violet);">× 32 blocks</td><td class="total">6,476,005,376</td></tr>
+    <tr><td class="name">Token Embedding</td><td>32,000 tokens × 4,096 dims</td><td class="total">131,072,000</td></tr>
+    <tr><td class="name">Output (lm_head)</td><td>4,096 dims × 32,000 tokens</td><td class="total">131,072,000</td></tr>
+    <tr><td class="name">RMS Norm (all blocks)</td><td>32 blocks × 2 norms × 4096</td><td class="total">262,144</td></tr>
+    <tr style="background:rgba(255,179,71,0.12);"><td colspan="3" style="text-align:right;font-weight:700;color:var(--amber);font-size:0.75rem;">LLAMA 7B GRAND TOTAL</td><td class="total" style="font-size:0.75rem;">6,738,411,520</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="eq-box" style="text-align:center;">
+<span style="color:var(--text-muted);">Cross-check with the 42,496-neuron shortcut:</span>
+
+<span style="color:var(--text-dim);">16,384 neurons (Q,K,V,O) × 4,096 inputs = </span><span style="color:var(--green);">67,108,864</span>
+<span style="color:var(--text-dim);">22,016 neurons (gate,up) × 4,096 inputs  = </span><span style="color:var(--green);">90,177,536</span>
+<span style="color:var(--text-dim);"> 4,096 neurons (down)   × <strong style="color:var(--red);">11,008</strong> inputs = </span><span style="color:var(--green);">45,088,768</span>
+<span style="color:var(--text-muted);">─────────────────────────────────────────────</span>
+<span style="color:var(--text-dim);">42,496 total neurons, BUT not all have 4,096 inputs!</span>
+<span style="color:var(--amber);font-weight:bold;">TOTAL = 67,108,864 + 90,177,536 + 45,088,768 = 202,375,168 ✓</span></div>
 </div>
 
 </div>
