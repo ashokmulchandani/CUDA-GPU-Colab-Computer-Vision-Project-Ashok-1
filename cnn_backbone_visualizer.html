@@ -57,67 +57,40 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
 
   <!-- CHANNELS EXPLAINER -->
   <div style="background:var(--raised);border:2px solid var(--amber);border-radius:10px;padding:0.8rem 1rem;margin-bottom:0.8rem;text-align:center;">
-    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🔍 What Are "Channels"? — Think of Them as Stacked Feature Maps</div>
-    <div style="display:flex;gap:0.5rem;align-items:center;justify-content:center;flex-wrap:wrap;">
-      <div style="text-align:center;">
-        <div style="font-size:0.45rem;color:var(--tmut);">Input: <strong style="color:var(--amber);">3 channels</strong> (🔴R 🟢G 🔵B)</div>
-        <div style="display:flex;gap:1px;justify-content:center;">
-          <div style="width:50px;height:50px;background:rgba(248,81,73,0.7);border:1px solid var(--red);border-radius:2px;"></div>
-          <div style="width:50px;height:50px;background:rgba(63,185,80,0.7);border:1px solid var(--green);border-radius:2px;"></div>
-          <div style="width:50px;height:50px;background:rgba(57,210,255,0.7);border:1px solid var(--cyan);border-radius:2px;"></div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">3 grids of pixels</div>
-      </div>
-      <div style="font-size:1.2rem;color:var(--cyan);">→</div>
-      <div style="text-align:center;">
-        <div style="font-size:0.45rem;color:var(--tmut);">After 16 filters: 16 channels</div>
-        <div style="position:relative;width:50px;height:50px;">
-          <div style="position:absolute;top:0;left:0;width:10px;height:10px;background:var(--red);opacity:0.5;border:0.5px solid var(--red);border-radius:1px;"></div>
-          <div style="position:absolute;top:0;left:12px;width:10px;height:10px;background:var(--amber);opacity:0.5;border:0.5px solid var(--amber);border-radius:1px;"></div>
-          <div style="position:absolute;top:0;left:24px;width:10px;height:10px;background:var(--green);opacity:0.5;border:0.5px solid var(--green);border-radius:1px;"></div>
-          <div style="position:absolute;top:0;left:36px;width:10px;height:10px;background:var(--cyan);opacity:0.5;border:0.5px solid var(--cyan);border-radius:1px;"></div>
-          <div style="position:absolute;top:12px;left:0;width:10px;height:10px;background:var(--magenta);opacity:0.5;border:0.5px solid var(--magenta);border-radius:1px;"></div>
-          <div style="position:absolute;top:12px;left:12px;width:10px;height:10px;background:var(--violet);opacity:0.5;border:0.5px solid var(--violet);border-radius:1px;"></div>
-          <div style="position:absolute;top:12px;left:24px;width:10px;height:10px;background:var(--red);opacity:0.5;border:0.5px solid var(--red);border-radius:1px;"></div>
-          <div style="position:absolute;top:12px;left:36px;width:10px;height:10px;background:var(--amber);opacity:0.5;border:0.5px solid var(--amber);border-radius:1px;"></div>
-          <div style="position:absolute;top:24px;left:0;width:10px;height:10px;background:var(--green);opacity:0.5;border:0.5px solid var(--green);border-radius:1px;"></div>
-          <div style="position:absolute;top:24px;left:12px;width:10px;height:10px;background:var(--cyan);opacity:0.5;border:0.5px solid var(--cyan);border-radius:1px;"></div>
-          <div style="position:absolute;top:24px;left:24px;width:10px;height:10px;background:var(--magenta);opacity:0.5;border:0.5px solid var(--magenta);border-radius:1px;"></div>
-          <div style="position:absolute;top:24px;left:36px;width:10px;height:10px;background:var(--violet);opacity:0.5;border:0.5px solid var(--violet);border-radius:1px;"></div>
-          <div style="position:absolute;top:36px;left:0;width:10px;height:10px;background:var(--red);opacity:0.5;border:0.5px solid var(--red);border-radius:1px;"></div>
-          <div style="position:absolute;top:36px;left:12px;width:10px;height:10px;background:var(--amber);opacity:0.5;border:0.5px solid var(--amber);border-radius:1px;"></div>
-          <div style="position:absolute;top:36px;left:24px;width:10px;height:10px;background:var(--green);opacity:0.5;border:0.5px solid var(--green);border-radius:1px;"></div>
-          <div style="position:absolute;top:36px;left:36px;width:10px;height:10px;background:var(--cyan);opacity:0.5;border:0.5px solid var(--cyan);border-radius:1px;"></div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">16 feature maps<br>(edge/curve detectors)</div>
-      </div>
-      <div style="font-size:1.2rem;color:var(--cyan);">→</div>
-      <div style="text-align:center;">
-        <div style="font-size:0.45rem;color:var(--tmut);">Deep: 256 channels</div>
-        <div style="position:relative;width:50px;height:50px;background:var(--card);border:1px solid var(--border);border-radius:2px;">
-          <div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);gap:0.5px;padding:1px;">
-            <div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div><div style="background:var(--violet);opacity:0.3;border-radius:1px;"></div><div style="background:var(--red);opacity:0.3;border-radius:1px;"></div><div style="background:var(--cyan);opacity:0.3;border-radius:1px;"></div><div style="background:var(--amber);opacity:0.3;border-radius:1px;"></div><div style="background:var(--magenta);opacity:0.3;border-radius:1px;"></div><div style="background:var(--green);opacity:0.3;border-radius:1px;"></div>
-          </div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">256 tiny feature maps<br>(object-part detectors)</div>
-      </div>
+    <div style="font-family:Orbitron,sans-serif;font-size:0.6rem;color:var(--amber);margin-bottom:0.5rem;">What Are Channels? — Just Like RGB, But for PATTERNS Instead of Colors</div>
+    <div style="display:flex;gap:0.5rem;align-items:flex-start;justify-content:center;flex-wrap:wrap;">
+      <div style="background:var(--bg-card);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem;text-align:center;min-width:160px;">
+        <div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">RGB (3 channels) — You KNOW this</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:40px;background:linear-gradient(to right,#000,#f00);border:1px solid var(--red);border-radius:3px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--red);">R channel</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:40px;background:linear-gradient(to right,#000,#0f0);border:1px solid var(--green);border-radius:3px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--green);">G channel</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:40px;background:linear-gradient(to right,#000,#00f);border:1px solid var(--cyan);border-radius:3px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--cyan);">B channel</span></div>
+        </div><div style="font-size:0.4rem;color:var(--tmut);margin-top:0.4rem;">3 grids. Each: "how much of this COLOR here?"</div></div>
+      <div style="font-size:1.5rem;color:var(--amber);display:flex;align-items:center;">=</div>
+      <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.6rem;text-align:center;min-width:160px;">
+        <div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">16 channels — Same idea, different "question"</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:25px;background:linear-gradient(to right,#000,rgba(255,179,71,0.8));border:1px solid var(--amber);border-radius:3px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--amber);">Ch 0: vertical edges</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:25px;background:linear-gradient(to right,#000,rgba(255,110,199,0.8));border:1px solid var(--magenta);border-radius:3px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--magenta);">Ch 1: horizontal edges</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:25px;background:linear-gradient(to right,#000,rgba(163,113,247,0.8));border:1px solid var(--violet);border-radius:3px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--violet);">Ch 2: diagonal strokes</span></div>
+        </div><div style="font-size:0.4rem;color:var(--tmut);margin-top:0.4rem;">Each grid: "how much of this PATTERN here?"</div></div>
+      <div style="font-size:1.5rem;color:var(--amber);display:flex;align-items:center;">=</div>
+      <div style="background:var(--bg-card);border:2px solid var(--violet);border-radius:8px;padding:0.6rem;text-align:center;min-width:160px;">
+        <div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--violet);margin-bottom:0.4rem;">256 channels — Abstract object parts</div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:15px;background:linear-gradient(to right,#000,rgba(63,185,80,0.8));border:1px solid var(--green);border-radius:2px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--green);">Ch 0: wheel-ness</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:15px;background:linear-gradient(to right,#000,rgba(57,210,255,0.8));border:1px solid var(--cyan);border-radius:2px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--cyan);">Ch 1: face-ness</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:15px;background:linear-gradient(to right,#000,rgba(255,179,71,0.8));border:1px solid var(--amber);border-radius:2px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--amber);">Ch 2: window-ness</span></div>
+          <div style="display:flex;align-items:center;gap:0.5rem;"><div style="width:60px;height:15px;background:linear-gradient(to right,#000,rgba(248,81,73,0.8));border:1px solid var(--red);border-radius:2px;"></div><span style="font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--red);">Ch 3: door-ness</span></div>
+        </div><div style="font-size:0.4rem;color:var(--tmut);margin-top:0.4rem;">Each grid: "how much of this OBJECT PART here?"</div></div>
     </div>
-    <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-top:0.5rem;line-height:1.6;">
-      <strong style="color:var(--amber);">Each channel = one 2D grid.</strong> The grid pixels tell you "how much of pattern X appears at this location."<br>
-      Channel 0 = vertical edges. Channel 1 = horizontal edges. ... Channel 255 = "bus-ness" at this location.<br>
-      <strong style="color:var(--green);">More channels = more pattern types detected.</strong> Spatial shrinks (640→20) but channels grow (3→256) — trading location precision for semantic richness.
+    <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem 1rem;margin-top:0.6rem;font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+      <strong style="color:var(--amber);">RGB:</strong> 3 numbers per pixel = "this pixel is orange"<br>
+      <strong style="color:var(--green);">16 channels:</strong> 16 numbers per pixel = "vertical edge here, no horizontal, diagonal here..."<br>
+      <strong style="color:var(--violet);">256 channels:</strong> 256 numbers per pixel = "no wheel, no face, window-like here, door-like here..."<br><br>
+      <strong style="color:var(--cyan);">Channels grow = more questions asked per pixel.</strong> Spatial shrinks = fewer pixels, each richer. Same total information.
     </div>
   </div>
-
-  <div class="stats">
-    <div class="st" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);">640³</div><div class="lbl">Input</div></div>
-    <div class="st" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);">225</div><div class="lbl">Total Layers</div></div>
-    <div class="st" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);">3.15M</div><div class="lbl">Parameters</div></div>
-    <div class="st" style="border-top:2px solid var(--violet);"><div class="val" style="color:var(--violet);">8.7G</div><div class="lbl">FLOPs</div></div>
-  </div>
-
-  <!-- PYRAMID -->
-  <div class="pyramid" id="pyramid"></div>
 
   <!-- INSIGHT -->
   <div class="insight-box" id="insight"></div>
