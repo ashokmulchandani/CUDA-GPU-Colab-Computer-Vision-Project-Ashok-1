@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inner Loops — 25 Multiplications Per Thread</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background 0.3s,color 0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:1000px;margin:0 auto;padding:1.5rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{color:var(--tdim);font-size:0.75rem;margin:0.3rem 0 1rem}
+
+/* Layout */
+.main-layout{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap}
+.input-panel,.filter-panel,.output-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
+.input-panel{border-top:3px solid var(--cyan);min-width:260px}
+.filter-panel{border-top:3px solid var(--amber);min-width:160px}
+.output-panel{border-top:3px solid var(--green);min-width:200px}
+
+.section-label{font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);letter-spacing:0.06em;margin-bottom:0.5rem}
+
+/* Grids */
+.grid-table{border-collapse:collapse;margin:0 auto}
+.grid-table td{width:30px;height:30px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;border:1px solid var(--border);transition:all 0.2s}
+.grid-table td.highlight{border:2px solid var(--cyan)!important;background:var(--cyan-bg)!important;font-weight:700}
+.grid-table td.filter-cell{background:rgba(255,179,71,0.2);border-color:var(--amber)}
+
+/* Stats */
+.stats-row{display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin:0.8rem 0}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:80px}
+.stat-box .val{font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700}
+.stat-box .lbl{font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);text-transform:uppercase;letter-spacing:0.04em}
+
+/* Computation */
+.comp-row{display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;justify-content:center;margin:0.3rem 0}
+.comp-cell{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:2px 4px;border-radius:4px}
+.comp-active{background:var(--cyan-bg);border:1px solid var(--cyan);font-weight:700}
+.comp-done{opacity:0.5;font-size:0.5rem}
+.comp-pending{opacity:0.2;font-size:0.5rem}
+
+/* Code display */
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.8rem 1rem;margin:0.8rem 0;font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.7;color:#d4d4d4;white-space:pre;text-align:left;overflow-x:auto;max-width:550px;margin-left:auto;margin-right:auto}
+
+/* Controls */
+.controls{margin-top:1rem;display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;align-items:center}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.65rem;padding:0.4rem 1rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn.primary{background:var(--cyan-bg, #39d2ff15);border-color:var(--cyan);color:var(--cyan)}
+.btn:disabled{opacity:0.3;cursor:not-allowed}
+
+.comp-box{margin-top:1rem;background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:0.8rem 1rem;display:inline-block;text-align:center;min-width:300px}
+
+@media(max-width:700px){.grid-table td{width:22px;height:22px;font-size:0.45rem}.main-layout{flex-direction:column;align-items:center}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Inner Loops — 25 Multiplications Per GPU Thread</h1>
+  <p class="subtitle">One thread computes <strong>one output pixel</strong>. It loops over a 5×5 filter: <strong>25 multiplications + 24 additions + 1 bias = 49 arithmetic ops.</strong></p>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-box" style="border-top:3px solid var(--cyan);"><div class="val" id="memReads">0</div><div class="lbl">Memory Reads</div></div>
+    <div class="stat-box" style="border-top:3px solid var(--green);"><div class="val" id="memWrites">0</div><div class="lbl">Memory Writes</div></div>
+    <div class="stat-box" style="border-top:3px solid var(--amber);"><div class="val" id="arithOps">0</div><div class="lbl">Arithmetic Ops</div></div>
+    <div class="stat-box" style="border-top:3px solid var(--violet);"><div class="val" id="runningSum">0.00</div><div class="lbl">Running Sum</div></div>
+  </div>
+
+  <div class="main-layout">
+    <!-- INPUT: 5x5 patch from 28x28 -->
+    <div class="input-panel">
+      <div class="section-label">INPUT PATCH (row=3, col=8 of 28×28)</div>
+      <table class="grid-table" id="inputGrid"></table>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">input[row+fh][col+fw]</div>
+    </div>
+
+    <!-- FILTER 5x5 -->
+    <div class="filter-panel">
+      <div class="section-label">FILTER 1 (5×5 weights)</div>
+      <table class="grid-table" id="filterGrid"></table>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">filter[fh][fw]</div>
+    </div>
+  </div>
+
+  <!-- CODE -->
+  <div class="code-box" id="codeBox"><span style="color:#569cd6;">float</span> <span style="color:#c586c0;">sum</span> = <span style="color:#4ec9b0;">bias</span>[<span style="color:#ce9178;">0</span>];  <span style="color:#6a9955;">// +1 read</span>
+<span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fh = <span style="color:#ce9178;">0</span>; fh &lt; <span style="color:#ce9178;">5</span>; fh++)      <span style="color:#6a9955;">// filter row</span>
+    <span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fw = <span style="color:#ce9178;">0</span>; fw &lt; <span style="color:#ce9178;">5</span>; fw++)  <span style="color:#6a9955;">// filter col</span>
+        <span style="color:#c586c0;">sum</span> += <span style="color:#4ec9b0;">input</span>[row+fh][col+fw] * <span style="color:#4ec9b0;">filter</span>[fh][fw];
+<span style="color:#4ec9b0;">output</span>[row][col] = <span style="color:#c586c0;">sum</span>;           <span style="color:#6a9955;">// +1 write</span></div>
+
+  <!-- COMPUTATION -->
+  <div class="comp-box" id="compBox" style="min-height:60px;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tmut);">Press ▶ Step to walk through the inner loops</span>
+  </div>
+
+  <!-- LOOP STATE -->
+  <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tdim);margin-top:0.4rem;" id="loopState">fh=0, fw=0</div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="btn" onclick="prevStep()" id="prevBtn">◀</button>
+    <button class="btn primary" onclick="stepForward()" id="stepBtn">▶ Step</button>
+    <button class="btn" onclick="toggleAuto()" id="autoBtn">⏩ Auto</button>
+    <button class="btn" onclick="resetAll()">↺ Reset</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tdim);" id="stepLabel">0 / 25</span>
+  </div>
+  <div style="margin-top:0.4rem;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Speed:</span>
+    <input type="range" min="100" max="1000" value="400" oninput="speed=parseInt(this.value)" style="accent-color:var(--cyan);width:120px;">
+  </div>
+
+  <div style="margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);line-height:1.6;">
+    Threads per image: 24×24×8 = <strong style="color:var(--cyan);">294,912 threads</strong> all running this same loop simultaneously
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️'}
+if(localStorage.getItem('loops-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+// Data
+const inputPatch = [
+  [0.12, 0.08, 0.95, 0.88, 0.05],
+  [0.03, 0.15, 0.82, 0.91, 0.11],
+  [0.01, 0.22, 0.76, 0.84, 0.09],
+  [0.08, 0.18, 0.71, 0.79, 0.14],
+  [0.04, 0.10, 0.68, 0.73, 0.07]
+];
+const filterVals = [
+  [ 0.18,  0.35,  0.12, -0.22, -0.15],
+  [ 0.25,  0.42,  0.08, -0.18, -0.20],
+  [ 0.10,  0.28,  0.05, -0.25, -0.12],
+  [-0.08, -0.15, -0.30, -0.40, -0.35],
+  [-0.12, -0.20, -0.28, -0.38, -0.30]
+];
+const bias = 0.08;
+let currentStep = 0; // 0=start, 1..25=multiplications, 26=done
+let autoInterval = null;
+let speed = 400;
+
+function renderGrids(fh, fw) {
+  // Input grid
+  let ih = '';
+  for (let r = 0; r < 5; r++) {
+    ih += '<tr>';
+    for (let c = 0; c < 5; c++) {
+      let isActive = (r === fh && c === fw && currentStep > 0 && currentStep <= 25);
+      let isDone = (r*5+c < fh*5+fw && currentStep > 0);
+      let val = inputPatch[r][c];
+      let cls = isActive ? 'highlight' : '';
+      let bg = isActive ? 'var(--cyan-bg)' : isDone ? 'rgba(63,185,80,0.08)' : 'transparent';
+      let color = val > 0.8 ? 'var(--cyan)' : val > 0.6 ? 'var(--text)' : 'var(--tmut)';
+      ih += `<td class="${cls}" style="background:${bg};color:${color};font-weight:${val>0.7?'600':'400'}">${val.toFixed(2)}</td>`;
+    }
+    ih += '</tr>';
+  }
+  document.getElementById('inputGrid').innerHTML = ih;
+
+  // Filter grid
+  let fh2 = '';
+  for (let r = 0; r < 5; r++) {
+    fh2 += '<tr>';
+    for (let c = 0; c < 5; c++) {
+      let isActive = (r === fh && c === fw && currentStep > 0 && currentStep <= 25);
+      let isDone = (r*5+c < fh*5+fw && currentStep > 0);
+      let val = filterVals[r][c];
+      let sign = val >= 0 ? '+' : '';
+      let cls = isActive ? 'highlight' : '';
+      let bg = isActive ? 'rgba(255,179,71,0.3)' : isDone ? 'rgba(63,185,80,0.08)' : 'rgba(255,179,71,0.06)';
+      let color = val > 0.2 ? 'var(--amber)' : val < -0.2 ? 'var(--red)' : 'var(--tmut)';
+      fh2 += `<td class="${cls}" style="background:${bg};color:${color};font-weight:${Math.abs(val)>0.2?'600':'400'}">${sign}${Math.abs(val).toFixed(2)}</td>`;
+    }
+    fh2 += '</tr>';
+  }
+  document.getElementById('filterGrid').innerHTML = fh2;
+}
+
+function updateStep(step) {
+  currentStep = step;
+  let fh, fw;
+  if (step === 0) { fh = -1; fw = -1; }
+  else if (step <= 25) { fh = Math.floor((step-1)/5); fw = (step-1)%5; }
+  else { fh = -1; fw = -1; }
+
+  renderGrids(fh, fw);
+
+  // Update stats
+  let reads, writes, ops, sum;
+  if (step === 0) {
+    reads = 0; writes = 0; ops = 0; sum = bias;
+  } else if (step <= 25) {
+    reads = 1 + step; // bias + input reads + filter reads (=2*step actually, but keep simple: 1 bias + step inputs + step filters)
+    reads = 1 + step*2; // bias(1) + step inputs + step filters
+    writes = 0;
+    ops = step; // step multiplications + (step-1) additions
+    // Compute actual sum
+    sum = bias;
+    for (let i = 0; i < step; i++) {
+      let r = Math.floor(i/5), c = i%5;
+      sum += inputPatch[r][c] * filterVals[r][c];
+    }
+  } else {
+    reads = 51; // 1 bias + 25 input + 25 filter
+    writes = 1;
+    ops = 49; // 25 mul + 24 add
+    sum = bias;
+    for (let r=0;r<5;r++) for(let c=0;c<5;c++) sum += inputPatch[r][c]*filterVals[r][c];
+  }
+
+  document.getElementById('memReads').textContent = reads;
+  document.getElementById('memWrites').textContent = writes;
+  document.getElementById('arithOps').textContent = ops;
+  document.getElementById('runningSum').textContent = sum.toFixed(4);
+  document.getElementById('runningSum').style.color = Math.abs(sum) > 1 ? 'var(--green)' : Math.abs(sum) < 0.3 ? 'var(--tmut)' : 'var(--amber)';
+
+  // Loop state
+  if (step === 0) document.getElementById('loopState').textContent = 'sum = bias[0] = ' + bias.toFixed(2) + ' (starting point)';
+  else if (step <= 25) document.getElementById('loopState').innerHTML = 'fh=<span style="color:var(--cyan);">' + fh + '</span>, fw=<span style="color:var(--cyan);">' + fw + '</span> &nbsp;|&nbsp; sum += ' + inputPatch[fh][fw].toFixed(2) + ' × ' + (filterVals[fh][fw]>=0?'+':'') + filterVals[fh][fw].toFixed(2);
+  else document.getElementById('loopState').textContent = 'output[row][col] = sum = ' + sum.toFixed(4) + ' ← ONE PIXEL DONE!';
+
+  // Computation box
+  let compHTML = '<div style="font-family:JetBrains Mono,monospace;font-size:0.55rem;line-height:1.8;color:var(--tdim);">';
+  if (step === 0) {
+    compHTML = '<span style="font-family:JetBrains Mono,monospace;font-size:0.6rem;color:var(--tmut);">Press ▶ Step to walk through the inner loops</span>';
+  } else {
+    compHTML += '<div style="font-family:Orbitron,sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.3rem;">sum = bias[0] = ' + bias.toFixed(2) + '</div>';
+    for (let i = 0; i < Math.min(step, 25); i++) {
+      let r=Math.floor(i/5), c=i%5;
+      let prod = inputPatch[r][c] * filterVals[r][c];
+      let isCurrent = (i === step-1);
+      let cls = isCurrent ? 'comp-active' : 'comp-done';
+      let pSign = prod>=0?'+':'';
+      let pColor = prod > 0.3 ? 'var(--green)' : prod < -0.3 ? 'var(--red)' : 'var(--tmut)';
+      compHTML += '<div class="comp-row">';
+      compHTML += `<span class="comp-cell ${cls}">+ (${inputPatch[r][c].toFixed(2)} × ${filterVals[r][c]>=0?'+':''}${filterVals[r][c].toFixed(2)})</span>`;
+      compHTML += `<span style="font-size:0.5rem;color:${pColor};">= ${pSign}${Math.abs(prod).toFixed(3)}</span>`;
+      if (isCurrent) compHTML += '<span style="font-size:0.5rem;color:var(--cyan);">← NOW</span>';
+      compHTML += '</div>';
+    }
+    // Show pending ops count
+    if (step <= 25) {
+      let remaining = 25 - step;
+      compHTML += `<div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">... ${remaining} more multiplications to go ...</div>`;
+    }
+    // Final result
+    if (step > 25) {
+      compHTML += `<div style="margin-top:0.4rem;padding-top:0.4rem;border-top:1px solid var(--border);font-family:Orbitron,sans-serif;font-size:0.65rem;color:var(--green);">FINAL = ${sum.toFixed(4)} | Mem: 51 reads, 1 write | Ops: 25 mul + 24 add = 49</div>`;
+    }
+  }
+  compHTML += '</div>';
+  document.getElementById('compBox').innerHTML = compHTML;
+
+  // Highlight code line
+  let codeHTML = '';
+  codeHTML += '<span style="color:#569cd6;">float</span> <span style="color:#c586c0;">sum</span> = <span style="color:#4ec9b0;">bias</span>[<span style="color:#ce9178;">0</span>];  <span style="color:#6a9955;">// +1 read</span>';
+  if (step === 0) codeHTML += ' <span style="color:var(--cyan);">◀ CURRENT</span>';
+  codeHTML += '\n';
+  codeHTML += '<span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fh = <span style="color:#ce9178;">0</span>; fh &lt; <span style="color:#ce9178;">5</span>; fh++)';
+  if (step >= 1 && step <= 25) codeHTML += ' <span style="color:#6a9955;">// fh=' + Math.floor((step-1)/5) + '</span>';
+  codeHTML += '\n';
+  codeHTML += '    <span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fw = <span style="color:#ce9178;">0</span>; fw &lt; <span style="color:#ce9178;">5</span>; fw++)';
+  if (step >= 1 && step <= 25) codeHTML += ' <span style="color:#6a9955;">// fw=' + ((step-1)%5) + '</span>';
+  codeHTML += '\n';
+  if (step >= 1 && step <= 25) {
+    let r = Math.floor((step-1)/5), c = (step-1)%5;
+    let p = inputPatch[r][c], w = filterVals[r][c];
+    codeHTML += '        <span style="color:#c586c0;">sum</span> += <span style="color:#4ec9b0;">input</span>['+(3+r)+']['+(8+c)+'] * <span style="color:#4ec9b0;">filter</span>['+r+']['+c+']';
+    codeHTML += ' <span style="color:var(--cyan);">◀ CURRENT (' + p.toFixed(2) + ' × ' + (w>=0?'+':'') + w.toFixed(2) + ')</span>';
+  } else if (step > 25) {
+    codeHTML += '        <span style="color:#c586c0;">sum</span> += <span style="color:#4ec9b0;">input</span>[row+fh][col+fw] * <span style="color:#4ec9b0;">filter</span>[fh][fw];';
+    codeHTML += ' <span style="color:#6a9955;">// ×25 done!</span>';
+  } else {
+    codeHTML += '        <span style="color:#c586c0;">sum</span> += <span style="color:#4ec9b0;">input</span>[row+fh][col+fw] * <span style="color:#4ec9b0;">filter</span>[fh][fw];';
+  }
+  codeHTML += '\n';
+  if (step > 25) {
+    codeHTML += '<span style="color:#4ec9b0;">output</span>[row][col] = <span style="color:#c586c0;">sum</span>;           <span style="color:#6a9955;">// +1 write</span>';
+    codeHTML += ' <span style="color:var(--cyan);">◀ DONE!</span>';
+  } else {
+    codeHTML += '<span style="color:#4ec9b0;">output</span>[row][col] = <span style="color:#c586c0;">sum</span>;           <span style="color:#6a9955;">// +1 write (at the end)</span>';
+  }
+  document.getElementById('codeBox').innerHTML = codeHTML;
+
+  document.getElementById('stepLabel').textContent = step + ' / 25';
+  document.getElementById('prevBtn').disabled = step === 0;
+  document.getElementById('stepBtn').disabled = step > 25;
+}
+
+function stepForward() {
+  if (currentStep <= 25) updateStep(currentStep + 1);
+}
+function prevStep() {
+  if (currentStep > 0) updateStep(currentStep - 1);
+}
+function toggleAuto() {
+  if (autoInterval) {
+    clearInterval(autoInterval); autoInterval = null;
+    document.getElementById('autoBtn').textContent = '⏩ Auto';
+    document.getElementById('autoBtn').classList.remove('primary');
+  } else {
+    if (currentStep > 25) resetAll();
+    document.getElementById('autoBtn').textContent = '⏸ Stop';
+    document.getElementById('autoBtn').classList.add('primary');
+    autoInterval = setInterval(() => {
+      if (currentStep < 26) stepForward();
+      else { clearInterval(autoInterval); autoInterval = null; document.getElementById('autoBtn').textContent = '⏩ Auto'; document.getElementById('autoBtn').classList.remove('primary'); }
+    }, speed);
+  }
+}
+function resetAll() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('autoBtn').textContent = '⏩ Auto'; document.getElementById('autoBtn').classList.remove('primary'); }
+  updateStep(0);
+}
+
+// Init
+renderGrids(-1, -1);
+document.getElementById('prevBtn').disabled = true;
+document.getElementById('stepLabel').textContent = '0 / 25';
+</script>
+</body>
+</html>
