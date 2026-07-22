@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CUDA & ML Interactive Learning Modules</title>
+<title>CUDA GPU & Computer Vision — Interactive Learning Modules</title>
 <style>
 :root {
   --bg: #06090f; --surface: #0d1117; --surface2: #161b22;
@@ -53,8 +53,8 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
 <body>
 
 <header>
-  <h1>CUDA & <span>ML</span> Interactive Learning Modules</h1>
-  <p>Click any card to open. All modules run directly in your browser. No install needed.</p>
+  <h1>CUDA GPU & Computer Vision — <span>Interactive Learning</span></h1>
+  <p>7 interactive modules covering CUDA Phases 3/4/6, ML fundamentals, and deep learning. Click to open — no install needed.</p>
   <button id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="position:absolute;top:18px;right:24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:1rem;">🌙</button>
 </header>
 
@@ -79,8 +79,8 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
 
   <a href="phase3_mlp_mnist.html" class="card">
     <span class="tag tag-cuda">CUDA Phase 3</span>
-    <h3>MLP on MNIST -- ReLU, Softmax & The Full Pipeline</h3>
-    <p>15 interactive slides: Architecture 784-128-64-10, Fixed vs Choice hyperparameters, Accuracy & Loss formulas with p_correct visual extractor, R-squared/MAE/RMSE regression metrics, Precision/Recall/F1, ReLU explained (kill negatives), Why ReLU breaks linearity, Softmax (scores to percentages), Full pipeline walkthrough, Detective analogy, CUDA kernels + 30x vs PyTorch benchmark.</p>
+    <h3>MLP on MNIST — Accuracy, Loss, R²/MAE/RMSE, Precision/Recall/F1, ReLU, Softmax & Full Pipeline</h3>
+    <p>15 interactive slides with detailed labeled architecture diagram and per-neuron weight breakdown table. Covers every metric: Accuracy (correct/total), Cross-Entropy Loss (−log(p_correct) with visual extractor), R²/MAE/RMSE regression metrics (formulas + examples), Precision/Recall/F1 (confusion matrix + cancer detector). ReLU (kill negatives + bouncer analogy), Softmax (election analogy). Embedded LR→Epochs simulator with convergence graph. CUDA kernels benchmark: 30× faster than PyTorch.</p>
     <div class="slides">15 slides | Embedded LR estimator | Quizzes | Dark/Light theme | Arrow key nav</div>
   </a>
 
