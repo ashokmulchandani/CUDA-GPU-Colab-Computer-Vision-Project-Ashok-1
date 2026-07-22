@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TensorRT — What It Actually Does</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:850px;margin:0 auto;padding:1.5rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin-bottom:1rem}
+
+/* Tabs */
+.tabs{display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin-bottom:0.8rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.tab:hover{border-color:var(--cyan);color:var(--cyan)}
+.tab.active{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+
+.visual{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;margin:0.6rem 0;min-height:280px;position:relative;overflow:hidden}
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem auto;max-width:700px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.5rem;line-height:1.7;color:#d4d4d4}
+
+/* Layer blocks */
+.layer-row{display:flex;align-items:center;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.3rem 0}
+.layer{font-family:'JetBrains Mono',monospace;font-size:0.5rem;padding:0.4rem 0.6rem;border-radius:6px;text-align:center;transition:0.3s}
+.layer.cv{background:rgba(57,210,255,0.15);border:1px solid var(--cyan);color:var(--cyan)}
+.layer.bn{background:rgba(255,179,71,0.15);border:1px solid var(--amber);color:var(--amber)}
+.layer.relu{background:rgba(63,185,80,0.15);border:1px solid var(--green);color:var(--green)}
+.layer.fused{background:rgba(163,113,247,0.2);border:2px solid var(--violet);color:var(--violet);font-weight:700;font-size:0.55rem}
+
+.stat-box{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center}
+.stat .val{font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700}
+.stat .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+
+.num{font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700}
+.green{color:var(--green)}.red{color:var(--red)}.cyan{color:var(--cyan)}.amber{color:var(--amber)}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>TensorRT — What It Actually Does to Your Model</h1>
+  <p class="subtitle">Think of TensorRT as a <strong style="color:var(--cyan);">compiler</strong> for neural networks. Just like a C compiler optimizes your code for a specific CPU, TensorRT optimizes your model for YOUR specific GPU.</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0,this)">1. Before TRT</button>
+    <button class="tab" onclick="switchTab(1,this)">2. Layer Fusion</button>
+    <button class="tab" onclick="switchTab(2,this)">3. Precision</button>
+    <button class="tab" onclick="switchTab(3,this)">4. Auto-Tune</button>
+    <button class="tab" onclick="switchTab(4,this)">5. Result</button>
+  </div>
+
+  <div class="stat-box">
+    <div class="stat" style="border-top:2px solid var(--red);"><div class="val" style="color:var(--red);">13.8 ms</div><div class="lbl">PyTorch FP32</div></div>
+    <div class="stat" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);">225</div><div class="lbl">Layers Before</div></div>
+    <div class="stat" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);" id="afterTime">???</div><div class="lbl">After TensorRT</div></div>
+    <div class="stat" style="border-top:2px solid var(--violet);"><div class="val" style="color:var(--violet);" id="afterLayers">???</div><div class="lbl">Layers After</div></div>
+  </div>
+
+  <div class="visual" id="visual"></div>
+  <div class="comp" id="compBox"></div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('trt-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('trt-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+let tab=0;
+function switchTab(i,btn){tab=i;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render()}
+
+function render(){
+  let v='',c='',at='???',al='???';
+  if(tab===0){
+    at='13.8 ms';al='225';
+    v=`<div style="text-align:center;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);margin-bottom:1rem;">PyTorch Model — 225 Separate Operations</div>
+      <div class="layer-row"><span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">ReLU</span>→<span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">ReLU</span>→<span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">SiLU</span>→<span class="layer cv">Conv</span><span style="font-size:0.5rem;color:var(--tmut);">...</span></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">Each box = 1 GPU kernel launch (~5μs overhead each)</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);margin-top:0.3rem;">225 launches × 5μs = <strong>1.1ms wasted just on launch overhead!</strong></div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">Also: dropout layers, gradient computation, optimizer state — all still present but useless for inference.</div>
+    </div>`;
+    c='<span class="cm">// PyTorch is a TRAINING framework — not optimized for inference</span>\n<span style="color:var(--red);">Problems:</span>\n<span class="cm">1. Each layer is a separate GPU kernel launch (overhead)</span>\n<span class="cm">2. FP32 precision — Tensor Cores prefer FP16</span>\n<span class="cm">3. Generic kernels — not tuned for YOUR specific GPU</span>\n<span class="cm">4. Training-only ops still present (dropout, loss, gradients)</span>';
+  }
+  else if(tab===1){
+    at='~9 ms';al='~75';
+    v=`<div style="text-align:center;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);margin-bottom:0.8rem;">TensorRT Fuses Neighboring Layers Into ONE Kernel</div>
+      <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:0.5rem;color:var(--red);">BEFORE (3 kernels)</div>
+          <div class="layer-row"><span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">ReLU</span></div>
+          <div style="font-size:0.45rem;color:var(--tmut);">3 launches, 3 memory writes</div>
+        </div>
+        <div style="font-size:1.5rem;color:var(--violet);">→</div>
+        <div style="text-align:center;">
+          <div style="font-size:0.5rem;color:var(--green);">AFTER (1 kernel)</div>
+          <div class="layer-row"><span class="layer fused">Conv+BN+ReLU</span></div>
+          <div style="font-size:0.45rem;color:var(--green);">1 launch, 1 memory write!</div>
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:1rem;">
+        <strong style="color:var(--amber);">No intermediate tensor written to memory.</strong><br>
+        The output of Conv stays in GPU registers, BN reads from registers,<br>
+        ReLU reads from registers. <strong style="color:var(--green);">3× less memory traffic.</strong>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">
+        Also <strong style="color:var(--red);">removes</strong>: dropout layers, loss functions, gradient computation, optimizer state.<br>
+        These are only needed for TRAINING — dead weight during inference.
+      </div>
+    </div>`;
+    c='<span class="cm">// Layer Fusion — the biggest TensorRT optimization</span>\n<span class="hl">Conv + BatchNorm + ReLU = 1 fused kernel</span>\n<span class="cm">// No intermediate tensor writes to global memory</span>\n<span class="cm">// 225 separate layers → ~75 fused operations</span>\n<span class="cm">// Dead code elimination: dropout, loss, gradients removed</span>';
+  }
+  else if(tab===2){
+    at='~9 ms';al='~75';
+    v=`<div style="text-align:center;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);margin-bottom:0.8rem;">FP16 Precision — Half the Bits, Same Accuracy</div>
+      <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+        <div style="text-align:center;background:var(--raised);border:1px solid var(--red);border-radius:8px;padding:0.8rem;">
+          <div style="font-size:0.5rem;color:var(--red);">FP32 (PyTorch)</div>
+          <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">32 bits per number</div>
+          <div style="font-size:0.45rem;color:var(--tmut);">4 bytes per weight</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.4rem;">0.1567392</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">Full precision</div>
+        </div>
+        <div style="font-size:1.2rem;color:var(--green);">→</div>
+        <div style="text-align:center;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.8rem;">
+          <div style="font-size:0.5rem;color:var(--green);">FP16 (TensorRT)</div>
+          <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">16 bits per number</div>
+          <div style="font-size:0.45rem;color:var(--green);">2 bytes per weight</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);margin-top:0.4rem;">0.1567</div>
+          <div style="font-size:0.4rem;color:var(--green);">Same for 99.9% of weights</div>
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">
+        <strong style="color:var(--green);">2× less memory bandwidth.</strong> Tensor Cores on T4 are OPTIMIZED for FP16.<br>
+        Accuracy loss: <strong style="color:var(--green);">< 0.1%</strong> — you cannot tell the difference in detection quality.
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">
+        Also available: <strong style="color:var(--amber);">INT8</strong> (8-bit, 4× smaller, needs calibration data for < 0.5% accuracy loss)
+      </div>
+    </div>`;
+    c='<span class="cm">// TensorRT supports FP32, FP16, and INT8</span>\n<span class="hl">FP16: 2× smaller tensors = 2× memory bandwidth</span>\n<span class="cm">// NVIDIA Tensor Cores accelerate FP16 natively</span>\n<span class="cm">// 99.9% of weights are unchanged at FP16 precision</span>\n<span class="cm">// Model size: 6.3MB (FP32) -> ~3.2MB (FP16 effective)</span>';
+  }
+  else if(tab===3){
+    at='~11.3 ms';al='~75';
+    v=`<div style="text-align:center;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);margin-bottom:0.8rem;">Kernel Auto-Tuning — Picks the Best Code for YOUR GPU</div>
+      <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+        <div style="text-align:center;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+          <div style="font-size:0.5rem;color:var(--tdim);">For ONE Conv3x3 layer, TensorRT tests:</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.4rem;line-height:1.8;">
+            Kernel variant A: 2.3 ms<br>
+            Kernel variant B: 1.8 ms<br>
+            Kernel variant C: 1.5 ms<br>
+            <span style="color:var(--green);">Kernel variant D: 1.1 ms ✅</span><br>
+            Kernel variant E: 1.9 ms<br>
+            <span style="color:var(--tmut);">... 50+ variants tested</span>
+          </div>
+        </div>
+        <div style="font-size:1.2rem;color:var(--green);">→</div>
+        <div style="text-align:center;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+          <div style="font-size:0.5rem;color:var(--green);">Picks variant D</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);margin-top:0.3rem;">1.1 ms</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">Fastest for YOUR GPU</div>
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">
+        <strong style="color:var(--amber);">Different GPUs get DIFFERENT kernels.</strong> T4 gets one set, A100 gets another.<br>
+        This is why TensorRT engines are <strong style="color:var(--red);">NOT portable</strong> across GPU models.<br>
+        <strong style="color:var(--green);">418 seconds of build time → 11.3 ms per inference forever.</strong>
+      </div>
+    </div>`;
+    c='<span class="cm">// TensorRT tests 50+ kernel implementations per layer</span>\n<span class="cm">// Measures each on YOUR specific GPU</span>\n<span class="hl">Picks the fastest one for YOUR exact hardware</span>\n<span class="cm">// T4, A100, H100 all get different kernels</span>\n<span class="cm">// Build time: ~7 minutes. Inference time: 11.3 ms forever.</span>';
+  }
+  else if(tab===4){
+    at='11.3 ms';al='~75 fused';
+    v=`<div style="text-align:center;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--green);margin-bottom:0.8rem;">TensorRT Engine — Ready for Production</div>
+
+      <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin-bottom:1rem;">
+        <div style="background:var(--card);border:2px solid var(--red);border-radius:8px;padding:0.8rem;text-align:center;min-width:140px;">
+          <div style="font-size:0.55rem;color:var(--red);">PyTorch</div>
+          <div class="num red" style="font-size:1rem;">13.8 ms</div>
+          <div style="font-size:0.45rem;color:var(--tmut);">225 layers</div>
+          <div style="font-size:0.45rem;color:var(--tmut);">FP32</div>
+          <div style="font-size:0.45rem;color:var(--tmut);">6.3 MB</div>
+        </div>
+        <div style="font-size:1.2rem;color:var(--cyan);display:flex;align-items:center;">→</div>
+        <div style="background:var(--card);border:3px solid var(--green);border-radius:8px;padding:0.8rem;text-align:center;min-width:140px;">
+          <div style="font-size:0.55rem;color:var(--green);">TensorRT</div>
+          <div class="num green" style="font-size:1rem;">11.3 ms</div>
+          <div style="font-size:0.45rem;color:var(--green);">~75 fused ops</div>
+          <div style="font-size:0.45rem;color:var(--green);">FP16</div>
+          <div style="font-size:0.45rem;color:var(--green);">7.9 MB</div>
+        </div>
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+        <span style="color:var(--green);">✓</span> Layers fused: 225 → ~75 operations<br>
+        <span style="color:var(--green);">✓</span> Precision: FP32 → FP16 (2× memory bandwidth)<br>
+        <span style="color:var(--green);">✓</span> Kernels: auto-tuned for YOUR exact GPU<br>
+        <span style="color:var(--green);">✓</span> Dead code: dropout, loss, gradients removed<br>
+        <span style="color:var(--green);">✓</span> Serialized to file: <strong>7.9 MB engine, loads in milliseconds</strong>
+      </div>
+
+      <div style="margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--amber);">
+        <strong>1.2× faster than PyTorch. But for LARGER models (ResNet-50, BERT), TensorRT gives 3-10× speedup.</strong><br>
+        <span style="font-size:0.45rem;color:var(--tmut);">YOLOv8n is already tiny (3.15M params) — less room for optimization.</span>
+      </div>
+    </div>`;
+    c='<span class="hl">Final TensorRT Engine: 11.3 ms, 7.9 MB, FP16</span>\n<span class="cm">Built once, deployed everywhere. Loads in milliseconds.</span>\n<span class="cm">Most important: you understand WHY each optimization works.</span>\n<span class="gr">PyTorch → ONNX → TensorRT Engine → Production inference</span>';
+  }
+  document.getElementById('visual').innerHTML=v;
+  document.getElementById('compBox').innerHTML=c;
+  document.getElementById('afterTime').textContent=at;
+  document.getElementById('afterLayers').textContent=al;
+}
+render();
+</script>
+</body>
+</html>

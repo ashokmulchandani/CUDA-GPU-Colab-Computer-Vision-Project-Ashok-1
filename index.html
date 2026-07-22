@@ -70,7 +70,7 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
   <div class="stat-card"><div class="num">3</div><div class="lbl">CUDA Phases</div></div>
   <div class="stat-card"><div class="num">2</div><div class="lbl">ML/DL Modules</div></div>
   <div class="stat-card"><div class="num">1</div><div class="lbl">Tool</div></div>
-  <div class="stat-card"><div class="num">18</div><div class="lbl">Total HTMLs</div></div>
+  <div class="stat-card"><div class="num">19</div><div class="lbl">Total HTMLs</div></div>
 </div>
 
 <div class="grid">
@@ -140,6 +140,13 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
     <h3>Flatten -> FC -> Softmax -- The Final Pipeline</h3>
     <p>5-step visual walkthrough: 8 feature maps (12x12) to flattened 1152, FC layer computing 10 scores with 11,530 weights, and Softmax converting scores to probabilities. See how the winner dominates.</p>
     <div class="slides">5 steps | Bar charts | Dark/Light theme</div>
+  </a>
+
+  <a href="tensorrt_explainer.html" class="card">
+    <span class="tag tag-tool">Animation</span>
+    <h3>TensorRT Explainer — What It Actually Does</h3>
+    <p>5-tab interactive: Before TRT (225 layers, FP32), Layer Fusion (Conv+BN+ReLU→1 kernel), FP16 Precision (2x faster), Kernel Auto-Tuning (50+ variants tested per GPU), Final Result (11.3ms, 7.9MB engine).</p>
+    <div class="slides">5 tabs | Stats counters | Dark/Light theme</div>
   </a>
 
   <a href="cnn_backbone_visualizer.html" class="card">
