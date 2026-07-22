@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real CNN — 5×5 Filter on 28×28 MNIST</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background 0.3s,color 0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:1100px;margin:0 auto;padding:1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin:0.2rem 0 0.6rem}
+
+/* Main layout: input | filter | output */
+.main{display:flex;gap:1rem;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.8rem}
+.panel-label{font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);letter-spacing:0.04em;margin-bottom:0.4rem}
+
+/* 28x28 input grid */
+.ig{border-collapse:collapse;margin:0 auto}
+.ig td{width:14px;height:14px;border:1px solid rgba(72,79,88,0.2);font-size:0.35rem;text-align:center;transition:0.15s}
+.ig td.bright{background:rgba(57,210,255,0.5);color:var(--cyan)}
+.ig td.medium{background:rgba(57,210,255,0.2);color:var(--text)}
+.ig td.dark{background:transparent;color:var(--tmut)}
+.ig td.in-patch{border:2px solid var(--amber)!important;background:rgba(255,179,71,0.3)!important;z-index:2}
+.ig td.patch-center{border:2px solid var(--green)!important;background:rgba(63,185,80,0.4)!important}
+.row-label{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);padding-right:4px;text-align:right}
+
+/* Filter 5x5 */
+.ft2{border-collapse:collapse;margin:0 auto;border:3px solid var(--amber);border-radius:4px;overflow:hidden}
+.ft2 td{width:34px;height:34px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;border:1px solid rgba(255,179,71,0.3)}
+.ft2 td.pos{background:rgba(63,185,80,0.3);color:var(--amber)}
+.ft2 td.neg{background:rgba(248,81,73,0.3);color:var(--red)}
+.ft2 td.neut{background:rgba(255,179,71,0.08);color:var(--tmut)}
+
+/* Output heatmap */
+.oh{border-collapse:collapse;margin:0 auto}
+.oh td{width:8px;height:8px;border:1px solid rgba(72,79,88,0.15);transition:0.2s}
+.oh td.computed{border-color:var(--green)}
+.oh td.strong-pos{background:rgba(63,185,80,0.8)}
+.oh td.weak-pos{background:rgba(63,185,80,0.3)}
+.oh td.neutral{background:transparent}
+.oh td.weak-neg{background:rgba(248,81,73,0.3)}
+.oh td.strong-neg{background:rgba(248,81,73,0.8)}
+
+/* Computation */
+.comp2{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.7rem 1rem;margin:0.6rem auto;max-width:750px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.58rem;line-height:1.8;color:#d4d4d4;overflow-x:auto}
+.comp2 .hl{color:var(--cyan);font-weight:700}
+.comp2 .gr{color:var(--green)}
+.comp2 .cm{color:#6a9955}
+
+/* Controls */
+.ctrls{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.5rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:0.4rem 1rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+.btn:disabled{opacity:0.3;cursor:not-allowed}
+
+.stats2{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0}
+.st2{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center}
+.st2 .val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700}
+.st2 .lbl{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut)}
+
+@media(max-width:800px){.ig td{width:10px;height:10px}.oh td{width:6px;height:6px}.ft2 td{width:28px;height:28px;font-size:0.5rem}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Real CNN — 5×5 Filter Sliding Across 28×28 MNIST Input</h1>
+  <p class="subtitle">24×24 = <strong>576 positions</strong>. Each position: 25 multiplications + 24 adds = 1 output pixel. The feature map reveals where edges appear.</p>
+
+  <!-- STATS -->
+  <div class="stats2">
+    <div class="st2" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);" id="posLbl">0/576</div><div class="lbl">Position</div></div>
+    <div class="st2" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);" id="mulLbl">0</div><div class="lbl">Multiplies</div></div>
+    <div class="st2" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);" id="outLbl">0.00</div><div class="lbl">Output Value</div></div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main">
+    <!-- 28x28 INPUT -->
+    <div class="panel" style="border-top:3px solid var(--cyan);">
+      <div class="panel-label">📥 INPUT (28×28) — 5×5 patch sliding</div>
+      <table class="ig" id="inputGrid"></table>
+    </div>
+
+    <!-- FILTER + OUTPUT -->
+    <div style="display:flex;flex-direction:column;gap:0.8rem;">
+      <div class="panel" style="border-top:3px solid var(--amber);">
+        <div class="panel-label">🔍 5×5 FILTER 1 (edge detector)</div>
+        <table class="ft2" id="filterGrid"></table>
+      </div>
+      <div class="panel" style="border-top:3px solid var(--green);">
+        <div class="panel-label">📤 OUTPUT (24×24 feature map)</div>
+        <table class="oh" id="outputGrid"></table>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">🟢=edge 🔴=reverse ⬛=flat</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPUTATION -->
+  <div class="comp2" id="compBox">Press ▶ Play to see the filter slide across all 576 positions</div>
+
+  <!-- CONTROLS -->
+  <div class="ctrls">
+    <button class="btn" onclick="moveBy(-1)">◀ Prev</button>
+    <button class="btn primary" onclick="toggleAuto()" id="autoBtn">▶ Play</button>
+    <button class="btn" onclick="moveBy(1)">Next ▶</button>
+    <button class="btn" onclick="moveBy(24)">⏭ Row</button>
+    <button class="btn" onclick="resetAll()">↺ Reset</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);">Speed:</span>
+    <input type="range" min="20" max="300" value="60" oninput="spd=parseInt(this.value)" style="width:80px;accent-color:var(--cyan);">
+  </div>
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.3rem;">
+    output size = 28 − 5 + 1 = <strong style="color:var(--cyan);">24×24</strong> = 576 positions | Real CNN: 8 filters × 576 = 4,608 output pixels per image
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('cnn28-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('cnn28-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+// Generate a realistic MNIST-like 28x28 input (a handwritten "7" shape with some noise)
+const img=[];
+for(let r=0;r<28;r++){img[r]=[];for(let c=0;c<28;c++){
+  // "7" shape: diagonal from top-left to bottom, plus horizontal top bar
+  let val=0;
+  // Top horizontal bar
+  if(r<5&&c>=4&&c<24) val=0.7+Math.random()*0.3;
+  // Diagonal stroke from top-right going down-left
+  let diagC=24-(r-5)*0.7;
+  if(r>=5&&c>=diagC-2&&c<=diagC+2&&c>=4) val=0.6+Math.random()*0.4;
+  // Background noise
+  if(val<0.1) val=Math.random()*0.08;
+  img[r][c]=Math.min(1,val);
+}}
+
+// Filter: vertical edge detector
+const filt=[
+  [ 0.15, 0.30, 0.10,-0.20,-0.12],
+  [ 0.22, 0.40, 0.08,-0.18,-0.18],
+  [ 0.08, 0.25, 0.05,-0.22,-0.10],
+  [-0.06,-0.12,-0.25,-0.35,-0.30],
+  [-0.10,-0.18,-0.22,-0.32,-0.28]
+];
+
+const outputs=Array(24).fill().map(()=>Array(24).fill(null));
+let curR=0,curC=0,autoTimer=null,spd=60;
+
+function renderInput() {
+  let h='';
+  for(let r=0;r<28;r++){
+    h+='<tr><td class="row-label">'+(r<10?'0':'')+r+'</td>';
+    for(let c=0;c<28;c++){
+      let v=img[r][c];
+      let inPatch=(r>=curR&&r<curR+5&&c>=curC&&c<curC+5);
+      let isCtr=(r===curR+2&&c===curC+2);
+      let cls='';
+      if(v>0.5) cls='bright';
+      else if(v>0.15) cls='medium';
+      else cls='dark';
+      if(isCtr) cls+=' patch-center';
+      else if(inPatch) cls+=' in-patch';
+      h+=`<td class="${cls}">${v>0.4?Math.round(v*10):''}</td>`;
+    }
+    h+='</tr>';
+  }
+  document.getElementById('inputGrid').innerHTML=h;
+}
+
+function renderFilter() {
+  let h='';
+  for(let r=0;r<5;r++){h+='<tr>';
+    for(let c=0;c<5;c++){
+      let v=filt[r][c],s=v>=0?'+':'−',a=Math.abs(v).toFixed(2);
+      let cls=v>0.15?'pos':v<-0.15?'neg':'neut';
+      h+=`<td class="${cls}">${s}${a}</td>`;
+    }h+='</tr>';}
+  document.getElementById('filterGrid').innerHTML=h;
+}
+
+function renderOutput() {
+  let h='';
+  for(let r=0;r<24;r++){h+='<tr>';
+    for(let c=0;c<24;c++){
+      let v=outputs[r][c],cls='';
+      if(v!==null){
+        cls=' computed';
+        if(v>1.5) cls+=' strong-pos';
+        else if(v>0.5) cls+=' weak-pos';
+        else if(v<-1.5) cls+=' strong-neg';
+        else if(v<-0.5) cls+=' weak-neg';
+        else cls+=' neutral';
+      }
+      h+=`<td class="${cls}"></td>`;
+    }h+='</tr>';}
+  document.getElementById('outputGrid').innerHTML=h;
+}
+
+function compute(r,c) {
+  let sum=0,calc='';
+  for(let fr=0;fr<5;fr++){
+    for(let fc=0;fc<5;fc++){
+      let p=img[r+fr][c+fc],w=filt[fr][fc],prod=p*w;
+      sum+=prod;
+      let ps=prod>=0?'+':'−';
+      calc+=` (${p.toFixed(2)}×${w>=0?'+':'−'}${Math.abs(w).toFixed(2)}=${ps}${Math.abs(prod).toFixed(3)})`;
+      if(fc<4) calc+=' +';
+    }
+    calc+='\n';
+  }
+  return {sum,calc};
+}
+
+function update() {
+  if(outputs[curR][curC]===null){
+    let r=compute(curR,curC);
+    outputs[curR][curC]=r.sum;
+  }
+  renderInput();renderOutput();
+
+  let r=compute(curR,curC);
+  let comp=r.calc;
+  let absV=Math.abs(r.sum);
+  let emoji=absV>1.5?'🔥 STRONG':absV>0.5?'✅ edge':absV<0.2?'😴 flat':'~ mild';
+  comp+=`\n<span class="hl">output[${curR}][${curC}] = ${r.sum>=0?'+':''}${r.sum.toFixed(3)} — ${emoji}</span>`;
+
+  document.getElementById('compBox').innerHTML=comp;
+  document.getElementById('posLbl').textContent=(curR*24+curC+1)+'/576';
+  document.getElementById('mulLbl').textContent=(curR*24+curC+1)*25;
+  document.getElementById('outLbl').textContent=r.sum.toFixed(3);
+  document.getElementById('outLbl').style.color=absV>1?'var(--green)':absV<0.3?'var(--tmut)':'var(--amber)';
+}
+
+function moveBy(d) {
+  let idx=curR*24+curC+d;
+  if(idx<0||idx>=576) return;
+  curR=Math.floor(idx/24);curC=idx%24;
+  update();
+}
+
+function toggleAuto() {
+  if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary');return;}
+  document.getElementById('autoBtn').textContent='⏸ Stop';document.getElementById('autoBtn').classList.add('primary');
+  function step(){if(curR*24+curC<575){curC++;if(curC>=24){curC=0;curR++;}update();}else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary');}}
+  autoTimer=setInterval(step,spd);
+}
+
+function resetAll(){
+  if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary');}
+  for(let r=0;r<24;r++)for(let c=0;c<24;c++)outputs[r][c]=null;
+  curR=0;curC=0;renderInput();renderOutput();
+  document.getElementById('compBox').innerHTML='Press ▶ Play to see the filter slide across all 576 positions';
+  document.getElementById('posLbl').textContent='0/576';
+  document.getElementById('mulLbl').textContent='0';
+  document.getElementById('outLbl').textContent='0.00';
+}
+
+renderInput();renderFilter();renderOutput();
+</script>
+</body>
+</html>
