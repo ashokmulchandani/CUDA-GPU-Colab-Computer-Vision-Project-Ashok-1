@@ -155,8 +155,117 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 </table>
 </div>
 
-<!-- ZOOM-IN: One neuron -->
-<div class="section-title">🔬 Zoom In: ONE "Neuron" in gate_proj (Llama FFN)</div>
+<!-- TRANSFORMER BLOCK DIAGRAM -->
+<div class="section-title">🏗️ Visual: ONE Llama Transformer Block — Where the 7 Matrices Live</div>
+<p style="font-size:0.85rem;color:var(--text-dim);text-align:center;margin-bottom:0.8rem;">This is what happens inside <strong style="color:var(--violet);">one</strong> transformer block. The 7 weight matrices (Q,K,V,O,gate,up,down) are the <strong style="color:var(--amber);">learnable parameters</strong> — everything else is just math operations. This block repeats <strong style="color:var(--cyan);">32 times</strong> in Llama 7B.</p>
+
+<div style="background:var(--bg-raised);border:2px solid var(--violet);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:0.62rem;line-height:1.6;">
+
+<pre style="color:var(--text-dim);white-space:pre;overflow-x:auto;">
+
+    INPUT VECTOR (4096 numbers — the token embedding)
+    ┌─────────────────────────────────────────────────────┐
+    │                                                     │
+    │   ╔══════════ ATTENTION SUB-BLOCK ══════════╗       │
+    │   ║                                         ║       │
+    │   ║  ┌─────────────┐                        ║       │
+    │   ║  │ <span style="color:var(--amber);">Q matrix</span>      │  4096 inputs →     ║       │
+    │   ║  │ <span style="color:var(--amber);">(4096×4096)</span>   │  4096 outputs       ║  Each row = 1 "neuron"
+    │   ║  │ <span style="color:var(--red);">16.8M params</span>  │  "What am I         ║  Each neuron: 4096 weights
+    │   ║  └──────┬──────┘   looking for?"       ║       │
+    │   ║         │                                ║       │
+    │   ║  ┌──────┴──────┐                        ║       │
+    │   ║  │ <span style="color:var(--amber);">K matrix</span>      │  4096 inputs →     ║       │
+    │   ║  │ <span style="color:var(--amber);">(4096×4096)</span>   │  4096 outputs       ║  SAME shape as Q
+    │   ║  │ <span style="color:var(--red);">16.8M params</span>  │  "What do I         ║  but DIFFERENT weights
+    │   ║  └──────┬──────┘   contain?"           ║       │
+    │   ║         │                                ║       │
+    │   ║  ┌──────┴──────┐                        ║       │
+    │   ║  │ <span style="color:var(--amber);">V matrix</span>      │  4096 inputs →     ║       │
+    │   ║  │ <span style="color:var(--amber);">(4096×4096)</span>   │  4096 outputs       ║  Q,K,V all same shape
+    │   ║  │ <span style="color:var(--red);">16.8M params</span>  │  "What info do      ║  All learn different things
+    │   ║  └──────┬──────┘   I pass?"            ║       │
+    │   ║         │                                ║       │
+    │   ║         └──→ <span style="color:var(--cyan);">Attention(Q,K,V)</span> ──→               ║
+    │   ║                    (math, no params)      ║       │
+    │   ║                         │                 ║       │
+    │   ║  ┌──────────────────────┴──┐              ║       │
+    │   ║  │ <span style="color:var(--amber);">O matrix</span>               │  4096 →   ║       │
+    │   ║  │ <span style="color:var(--amber);">(4096×4096)</span>            │  4096     ║  Mixes info from
+    │   ║  │ <span style="color:var(--red);">16.8M params</span>           │  outputs  ║  all 32 heads
+    │   ║  └──────────────────────┬──┘              ║       │
+    │   ║                         │                 ║       │
+    │   ╚═════════════════════════╪═════════════════╝       │
+    │                              │                         │
+    │   ┌──────────────────────────┴──┐                      │
+    │   │  <span style="color:var(--green);">(+) RESIDUAL CONNECTION</span>   │  ADD input back     │
+    │   │  <span style="color:var(--green);">(0 params — just addition)</span> │  to attention output │
+    │   └──────────────────────────┬──┘                      │
+    │                              │                         │
+    │                        RMS Norm                        │
+    │                              │                         │
+    │   ╔══════════ FFN SUB-BLOCK (THE MLP!) ═══════╗       │
+    │   ║                              │            ║       │
+    │   ║  ┌─────────────┐             │            ║       │
+    │   ║  │ <span style="color:var(--amber);">gate_proj</span>    │  4096 inputs →    ║  11,008 neurons
+    │   ║  │ <span style="color:var(--amber);">(4096×11008)</span> │  11,008 outputs    ║  each with 4096 weights
+    │   ║  │ <span style="color:var(--red);">45.1M params</span> │  "Which features   ║  = 45.1M params
+    │   ║  └──────┬──────┘   matter?"          ║       │
+    │   ║         │                             ║       │
+    │   ║    ┌────┴────┐                        ║       │
+    │   ║    │ <span style="color:var(--green);">SiLU</span>    │  Non-linear           ║  Like ReLU but smooth
+    │   ║    │ <span style="color:var(--green);">(0 params)</span>│  activation            ║  (no learnable params)
+    │   ║    └────┬────┘                        ║       │
+    │   ║         │                             ║       │
+    │   ║  ┌──────┴──────┐                      ║       │
+    │   ║  │ <span style="color:var(--amber);">up_proj</span>      │  4096 inputs →    ║  11,008 neurons
+    │   ║  │ <span style="color:var(--amber);">(4096×11008)</span> │  11,008 outputs    ║  each with 4096 weights
+    │   ║  │ <span style="color:var(--red);">45.1M params</span> │  "What values to   ║  = 45.1M params
+    │   ║  └──────┬──────┘   pass?"            ║       │
+    │   ║         │                             ║       │
+    │   ║         └──→ <span style="color:var(--cyan);">[gate_output × up_output]</span>              ║
+    │   ║                    element-wise multiply, 0 params  ║       │
+    │   ║                         │                 ║       │
+    │   ║  ┌──────────────────────┴──┐              ║       │
+    │   ║  │ <span style="color:var(--amber);">down_proj</span>               │  11,008 →  ║  4,096 neurons
+    │   ║  │ <span style="color:var(--amber);">(11008×4096)</span>           │  4,096      ║  each with 11,008 weights
+    │   ║  │ <span style="color:var(--red);">45.1M params</span>           │  outputs    ║  = 45.1M params
+    │   ║  └──────────────────────┬──┘              ║       │
+    │   ║                         │                 ║       │
+    │   ╚═════════════════════════╪═════════════════╝       │
+    │                              │                         │
+    │   ┌──────────────────────────┴──┐                      │
+    │   │  <span style="color:var(--green);">(+) RESIDUAL CONNECTION</span>   │  ADD input back     │
+    │   │  <span style="color:var(--green);">(0 params — just addition)</span> │  to FFN output       │
+    │   └──────────────────────────┬──┘                      │
+    │                              │                         │
+    └──────────────────────────────┼─────────────────────────┘
+                                   │
+                            OUTPUT VECTOR
+                     (4096 numbers — ready for next block)
+</pre>
+
+<div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem;flex-wrap:wrap;">
+  <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.5rem 1rem;text-align:center;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--amber);"><strong>7 weight matrices per block</strong></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-dim);">Q, K, V, O, gate, up, down</div>
+  </div>
+  <div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.5rem 1rem;text-align:center;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--cyan);"><strong>~202M params per block</strong></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-dim);">67.1M attention + 135.3M FFN</div>
+  </div>
+  <div style="background:var(--violet-bg);background:rgba(163,113,247,0.10);border:1px solid var(--violet);border-radius:8px;padding:0.5rem 1rem;text-align:center;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--violet);"><strong>× 32 blocks = 6.5B</strong></div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-dim);">+ embeddings = 6.74B total</div>
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">
+  The 7 matrices ARE the layer. They are learned during training. Everything else (attention math, SiLU, residual add, RMS Norm*) is fixed — no learnable parameters.
+  <br><span style="font-size:0.5rem;">*RMS Norm has a tiny learnable scale: 4096 params, negligible.</span>
+</div>
+
+</div>
 <div class="side-grid">
   <div class="neuron-zoom" style="border-color:var(--cyan);">
     <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);margin-bottom:0.5rem;">MLP Hidden Layer 1 Neuron</div>
