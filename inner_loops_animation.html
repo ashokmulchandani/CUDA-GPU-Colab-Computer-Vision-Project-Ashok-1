@@ -56,6 +56,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
 .btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
 .btn:disabled{opacity:0.3;cursor:not-allowed}
 
+.filter-sel{transition:0.15s}.filter-sel.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
 .sep{width:1px;height:20px;background:var(--border);margin:0 0.3rem}
 .oh{border-collapse:collapse;margin:0 auto}
 .oh td{width:7px;height:7px;border:1px solid rgba(72,79,88,0.12)}
@@ -93,8 +94,17 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
     </div>
 
     <!-- FILTER -->
-    <div class="panel" style="border-top:3px solid var(--amber);">
-      <div class="panel-label">🔍 FILTER (5×5 — 25 weights)</div>
+    <div class="panel" style="border-top:3px solid var(--amber);min-width:220px;">
+      <div class="panel-label">🔍 FILTER — Choose one</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.2rem;justify-content:center;margin-bottom:0.5rem;">
+        <button class="btn filter-sel active" onclick="switchFilter(0,this)" id="fbtn0" style="font-size:0.45rem;padding:0.2rem 0.5rem;">↕Vert</button>
+        <button class="btn filter-sel" onclick="switchFilter(1,this)" id="fbtn1" style="font-size:0.45rem;padding:0.2rem 0.5rem;">↔Horiz</button>
+        <button class="btn filter-sel" onclick="switchFilter(2,this)" id="fbtn2" style="font-size:0.45rem;padding:0.2rem 0.5rem;">↗Diag</button>
+        <button class="btn filter-sel" onclick="switchFilter(3,this)" id="fbtn3" style="font-size:0.45rem;padding:0.2rem 0.5rem;">🔲Blur</button>
+        <button class="btn filter-sel" onclick="switchFilter(4,this)" id="fbtn4" style="font-size:0.45rem;padding:0.2rem 0.5rem;">✨Sharp</button>
+        <button class="btn filter-sel" onclick="switchFilter(5,this)" id="fbtn5" style="font-size:0.45rem;padding:0.2rem 0.5rem;">▦Emboss</button>
+      </div>
+      <div id="filterName" style="font-size:0.45rem;color:var(--amber);">Vertical Edge Detector</div>
       <table class="ft" id="filterGrid"></table>
       <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">🟢positive 🔴negative</div>
     </div>
@@ -151,8 +161,17 @@ if(localStorage.getItem('iloop28-theme')==='light'){document.body.classList.add(
 // 28x28 image data (MNIST-like "7")
 const img28=[];for(let r=0;r<28;r++){img28[r]=[];for(let c=0;c<28;c++){let v=0;if(r<5&&c>=4&&c<24)v=0.6+Math.random()*0.4;let dc=24-(r-5)*0.7;if(r>=5&&c>=dc-2&&c<=dc+2&&c>=4)v=0.6+Math.random()*0.4;if(v<0.05)v=Math.random()*0.06;img28[r][c]=Math.min(1,v)}}
 
-// Filter
-const flt=[[0.15,0.30,0.10,-0.20,-0.12],[0.22,0.40,0.08,-0.18,-0.18],[0.08,0.25,0.05,-0.22,-0.10],[-0.06,-0.12,-0.25,-0.35,-0.30],[-0.10,-0.18,-0.22,-0.32,-0.28]];
+// Multiple filter types
+const filters=[
+  {name:'Vertical Edge',data:[[0.15,0.30,0.10,-0.20,-0.12],[0.22,0.40,0.08,-0.18,-0.18],[0.08,0.25,0.05,-0.22,-0.10],[-0.06,-0.12,-0.25,-0.35,-0.30],[-0.10,-0.18,-0.22,-0.32,-0.28]]},
+  {name:'Horizontal Edge',data:[[0.15,0.22,0.08,-0.06,-0.10],[0.30,0.40,0.25,-0.12,-0.18],[0.10,0.08,0.05,-0.25,-0.22],[-0.20,-0.18,-0.22,-0.35,-0.32],[-0.12,-0.18,-0.10,-0.30,-0.28]]},
+  {name:'Diagonal (TL→BR)',data:[[0.30,0.15,0.05,-0.10,-0.22],[0.15,0.25,0.10,-0.08,-0.18],[0.05,0.10,0.20,-0.15,-0.12],[-0.10,-0.08,-0.15,-0.20,-0.30],[-0.22,-0.18,-0.12,-0.30,-0.32]]},
+  {name:'Box Blur',data:[[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04]]},
+  {name:'Sharpen',data:[[0,0,0,0,0],[0,-0.1,-0.1,-0.1,0],[0,-0.1,2.5,-0.1,0],[0,-0.1,-0.1,-0.1,0],[0,0,0,0,0]]},
+  {name:'Emboss (SE→NW)',data:[[-0.12,-0.10,-0.08,0,0.10],[-0.10,-0.06,0,0.08,0.12],[-0.08,0,0.10,0.15,0.10],[0,0.08,0.15,0.20,0.12],[0.10,0.12,0.10,0.12,0.08]]}
+];
+let fltIdx=0;
+let flt=filters[0].data;
 const bias=0.08;
 
 let pR=3,pC=8,loopStep=0,autoTimer=null,posTimer=null,spd=200;
@@ -272,6 +291,15 @@ function autoLoop(){
   if(loopStep>25){loopStep=0;renderAll();}
   document.getElementById('autoBtn').textContent='⏸ Stop';document.getElementById('autoBtn').classList.add('primary');
   autoTimer=setInterval(function(){if(loopStep<26){loopStep++;if(loopStep>25&&outputs[pR][pC]===null){outputs[pR][pC]=computePosition(pR,pC);}renderAll();renderOutput();}else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}},spd);
+}
+function switchFilter(idx,btn){
+  fltIdx=idx;flt=filters[idx].data;
+  document.querySelectorAll('.filter-sel').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('filterName').textContent=filters[idx].name+' Detector';
+  // Reset outputs and recompute
+  resetOutputs();fillAll();
+  loopStep=0;renderAll();renderOutput();
 }
 function resetLoop(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}if(posTimer){clearInterval(posTimer);posTimer=null;}loopStep=0;renderAll();renderOutput();}
 
