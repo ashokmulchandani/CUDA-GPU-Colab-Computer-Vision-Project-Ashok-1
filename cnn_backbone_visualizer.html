@@ -55,6 +55,45 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
   <h1>CNN Backbone — How 225 Layers See an Image</h1>
   <p class="subtitle"><strong>3.15M params, 8.7 GFLOPs.</strong> Click any level to zoom in. <span style="color:var(--cyan);">Spatial size ↓</span> while <span style="color:var(--amber);">channels ↑</span>. Each block = Conv→BN→SiLU.</p>
 
+  <!-- CHANNELS EXPLAINER -->
+  <div style="background:var(--raised);border:2px solid var(--amber);border-radius:10px;padding:0.8rem 1rem;margin-bottom:0.8rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🔍 What Are "Channels"? — Think of Them as Stacked Feature Maps</div>
+    <div style="display:flex;gap:0.5rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:0.45rem;color:var(--tmut);">Input: 3 channels (RGB)</div>
+        <div style="display:flex;gap:1px;justify-content:center;">
+          <div style="width:50px;height:50px;background:rgba(248,81,73,0.7);border:1px solid var(--red);border-radius:2px;"></div>
+          <div style="width:50px;height:50px;background:rgba(63,185,80,0.7);border:1px solid var(--green);border-radius:2px;"></div>
+          <div style="width:50px;height:50px;background:rgba(57,210,255,0.7);border:1px solid var(--cyan);border-radius:2px;"></div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">3 grids of pixels</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--cyan);">→</div>
+      <div style="text-align:center;">
+        <div style="font-size:0.45rem;color:var(--tmut);">After 16 filters: 16 channels</div>
+        <div style="position:relative;width:50px;height:50px;">
+          ${['red','amber','green','cyan','magenta','violet','red','amber','green','cyan','magenta','violet','red','amber','green','cyan'].map((c,i)=>`<div style="position:absolute;top:${Math.floor(i/4)*12}px;left:${(i%4)*12}px;width:10px;height:10px;background:var(--${c});opacity:0.5;border:0.5px solid var(--${c});border-radius:1px;"></div>`).join('')}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">16 feature maps<br>(edge/curve detectors)</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--cyan);">→</div>
+      <div style="text-align:center;">
+        <div style="font-size:0.45rem;color:var(--tmut);">Deep: 256 channels</div>
+        <div style="position:relative;width:50px;height:50px;background:var(--card);border:1px solid var(--border);border-radius:2px;">
+          <div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);gap:0.5px;padding:1px;">
+            ${Array(64).fill(0).map((_,i)=>`<div style="background:var(--${['cyan','amber','magenta','green','violet','red'][i%6]});opacity:0.3;border-radius:1px;"></div>`).join('')}
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">256 tiny feature maps<br>(object-part detectors)</div>
+      </div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-top:0.5rem;line-height:1.6;">
+      <strong style="color:var(--amber);">Each channel = one 2D grid.</strong> The grid pixels tell you "how much of pattern X appears at this location."<br>
+      Channel 0 = vertical edges. Channel 1 = horizontal edges. ... Channel 255 = "bus-ness" at this location.<br>
+      <strong style="color:var(--green);">More channels = more pattern types detected.</strong> Spatial shrinks (640→20) but channels grow (3→256) — trading location precision for semantic richness.
+    </div>
+  </div>
+
   <div class="stats">
     <div class="st" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);">640³</div><div class="lbl">Input</div></div>
     <div class="st" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);">225</div><div class="lbl">Total Layers</div></div>
@@ -114,7 +153,15 @@ function render(){
     // Visual block
     h+=`<div class="level-box layer-card" style="width:${w}px;min-width:60px;border:2px solid ${l.color};background:${l.color}15;">`;
     h+=`<div style="font-weight:700;font-size:0.65rem;color:${l.color};">${l.size}×${l.size}</div>`;
-    h+=`<div style="font-size:0.45rem;color:var(--tmut);">×${l.ch} channels</div>`;
+    h+=`<div style="font-size:0.45rem;color:var(--tmut);">× ${l.ch} channels</div>`;
+    // Mini channel stack visual
+    let stackH=Math.min(20,Math.max(4,l.ch/4));
+    h+=`<div style="display:flex;justify-content:center;gap:0;margin-top:2px;position:relative;height:${stackH+4}px;">`;
+    for(let s=0;s<Math.min(l.ch,12);s++){
+      h+=`<div style="position:absolute;bottom:${s*1.5}px;left:${10+s*2}px;width:${Math.min(30,w-10)}px;height:2px;background:${l.color};opacity:${0.2+s*0.07};border-radius:1px;" title="Channel ${s}"></div>`;
+    }
+    if(l.ch>12)h+=`<div style="font-size:0.3rem;color:var(--tmut);align-self:flex-end;">+${l.ch-12} more</div>`;
+    h+=`</div>`;
     // Conv blocks indicator
     h+=`<div class="conv-repeat" style="margin-top:0.3rem;">`;
     for(let b=0;b<Math.min(l.blocks,12);b++){
