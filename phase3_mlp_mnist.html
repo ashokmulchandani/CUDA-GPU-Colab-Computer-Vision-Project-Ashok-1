@@ -383,6 +383,36 @@ const slides = [
     <div class="option" data-correct="true" onclick="checkQuiz('quiz2', this)">B. STOP. The plateau means your network has learned everything it can from this architecture. More training wastes time and risks overfitting (memorizing the training set). Try a different learning rate or architecture instead.</div>
     <div class="option" onclick="checkQuiz('quiz2', this)">C. Increase the batch size to 1024</div>
   </div><div class="feedback" id="quiz2-fb"></div></div>
+
+  <div style="background:var(--bg-card);border:1.5px solid var(--violet);border-radius:var(--radius);padding:1.5rem;margin-top:1.5rem;">
+    <h3 style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--violet);margin-bottom:0.75rem;">🧮 Embedded: LR → Epochs Convergence Estimator</h3>
+    <div style="background:var(--bg-raised);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2.2;">
+      <strong>Each epoch shrinks the accuracy gap by:</strong><br>
+      &nbsp;&nbsp;<span style="color:var(--violet);">gap_next ≈ gap_current × |1 − 2 × lr|</span><br>
+      <strong>Epochs to reach target accuracy:</strong><br>
+      &nbsp;&nbsp;<span style="color:var(--violet);">N ≈ log(G_target / G_start) / log(|1 − 2×lr|)</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <label style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--text-muted);">Learning Rate: <strong id="lrVal3" style="color:var(--cyan);">0.01</strong></label>
+        <input type="range" min="0.001" max="0.05" step="0.001" value="0.01" oninput="updateLR3(this.value)" style="width:100%;accent-color:var(--cyan);margin-top:0.3rem;">
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);"><span>0.001 cautious</span><span>0.01 default</span><span>0.05 aggressive</span></div>
+      </div>
+      <div id="lrResult3" style="background:var(--bg-raised);border:2px solid var(--violet);border-radius:10px;padding:1rem 1.5rem;text-align:center;min-width:140px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--text-muted);">ESTIMATED EPOCHS</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:700;color:var(--violet);">20</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">to reach 95% from 11%</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">
+      <span id="lrBadge003" style="background:var(--bg-raised);padding:0.3rem 0.7rem;border-radius:100px;cursor:pointer;" onclick="updateLR3('0.001')">lr=0.001 → ~200 ep</span>
+      <span id="lrBadge005" style="background:var(--bg-raised);padding:0.3rem 0.7rem;border-radius:100px;cursor:pointer;" onclick="updateLR3('0.005')">lr=0.005 → ~40 ep</span>
+      <span id="lrBadge001" style="background:var(--cyan-bg);padding:0.3rem 0.7rem;border-radius:100px;cursor:pointer;border:1px solid var(--cyan-border);" onclick="updateLR3('0.01')">lr=0.01 → ~20 ep ✅</span>
+      <span id="lrBadge002" style="background:var(--bg-raised);padding:0.3rem 0.7rem;border-radius:100px;cursor:pointer;" onclick="updateLR3('0.02')">lr=0.02 → ~10 ep</span>
+      <span id="lrBadge005b" style="background:var(--bg-raised);padding:0.3rem 0.7rem;border-radius:100px;cursor:pointer;" onclick="updateLR3('0.05')">lr=0.05 → ~4 ep ⚠️</span>
+    </div>
+    <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.6rem;">💡 <strong>Why 0.01?</strong> It hits the sweet spot — 20 epochs is fast enough to iterate, slow enough to converge smoothly. 0.05 reaches in just 4 epochs but risks overshooting (accuracy jumps around wildly). 0.001 takes 200 epochs — 10× slower for no accuracy gain.</p>
+  </div>
 </div></div>`; }
   },
 
@@ -1239,6 +1269,47 @@ document.addEventListener('keydown', function(e) {
 });
 
 renderSlide(0);
+
+// ── Embedded LR → Epochs Calculator (Slide 3.3) ──
+function updateLR3(val) {
+  const lr = parseFloat(val);
+  document.getElementById('lrVal3').textContent = lr.toFixed(3);
+  // Sync slider
+  const slider = document.querySelector('#lrVal3').closest('div').querySelector('input[type=range]');
+  if (slider) slider.value = lr;
+  // Calculate
+  const gapStart = 0.89, gapTarget = 0.05;
+  const factor = Math.abs(1 - 2 * lr);
+  let epochs;
+  if (lr <= 0 || lr >= 0.5 || factor >= 1) {
+    epochs = '∞';
+  } else {
+    epochs = Math.ceil(Math.log(gapTarget / gapStart) / Math.log(factor));
+  }
+  document.getElementById('lrResult3').innerHTML =
+    '<div style="font-family:Orbitron,sans-serif;font-size:0.55rem;color:var(--text-muted);">ESTIMATED EPOCHS</div>' +
+    '<div style="font-family:Orbitron,sans-serif;font-size:2rem;font-weight:700;color:' + (epochs==='∞'?'var(--red)':'var(--violet)') + ';">' + epochs + '</div>' +
+    '<div style="font-family:JetBrains Mono,monospace;font-size:0.6rem;color:var(--text-dim);">to reach 95% from 11%</div>';
+  // Update badges
+  ['001','003','005','005b','002','001'].forEach(function(tag){
+    var el = document.getElementById('lrBadge'+tag);
+    if (el) {
+      el.style.background = 'var(--bg-raised)';
+      el.style.border = '1px solid transparent';
+    }
+  });
+  var activeBadge = null;
+  if (lr <= 0.0015) activeBadge = document.getElementById('lrBadge003');
+  else if (lr <= 0.003) activeBadge = document.getElementById('lrBadge003');
+  else if (lr <= 0.007) activeBadge = document.getElementById('lrBadge005');
+  else if (lr <= 0.015) activeBadge = document.getElementById('lrBadge001');
+  else if (lr <= 0.035) activeBadge = document.getElementById('lrBadge002');
+  else activeBadge = document.getElementById('lrBadge005b');
+  if (activeBadge) {
+    activeBadge.style.background = 'var(--cyan-bg)';
+    activeBadge.style.border = '1px solid var(--cyan-border)';
+  }
+}
 </script>
 </body>
 </html>
