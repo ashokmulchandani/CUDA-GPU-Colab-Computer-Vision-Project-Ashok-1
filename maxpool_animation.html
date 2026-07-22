@@ -91,8 +91,24 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
     <input type="range" min="200" max="1500" value="700" oninput="spd=parseInt(this.value)" style="width:100px;accent-color:var(--cyan);">
   </div>
 
+  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:10px;padding:0.8rem 1rem;margin-top:0.6rem;text-align:left;max-width:550px;margin-left:auto;margin-right:auto;font-size:0.55rem;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--violet);margin-bottom:0.4rem;text-align:center;">📐 How Are These Sizes Determined?</div>
+    <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.5rem;">
+      <tr style="border-bottom:1px solid var(--border);"><td style="padding:0.3rem;color:var(--tdim);">Demo input</td><td style="padding:0.3rem;text-align:right;color:var(--cyan);">6×6</td><td style="padding:0.3rem;color:var(--tmut);">(teaching example)</td></tr>
+      <tr style="border-bottom:1px solid var(--border);"><td style="padding:0.3rem;color:var(--tdim);">Pool window</td><td style="padding:0.3rem;text-align:right;color:var(--amber);">2×2</td><td style="padding:0.3rem;color:var(--tmut);">slide 2 pixels at a time (stride 2)</td></tr>
+      <tr style="border-bottom:1px solid var(--border);"><td style="padding:0.3rem;color:var(--tdim);">Demo output</td><td style="padding:0.3rem;text-align:right;color:var(--green);">3×3</td><td style="padding:0.3rem;color:var(--tmut);">6 ÷ 2 = 3</td></tr>
+      <tr style="border-bottom:2px solid var(--violet);"><td colspan="3"></td></tr>
+      <tr style="border-bottom:1px solid var(--border);"><td style="padding:0.3rem;color:var(--tdim);">Real CNN: Conv output</td><td style="padding:0.3rem;text-align:right;color:var(--cyan);">24×24</td><td style="padding:0.3rem;color:var(--tmut);">28 − 5 + 1 = 24</td></tr>
+      <tr style="border-bottom:1px solid var(--border);"><td style="padding:0.3rem;color:var(--tdim);">Real CNN: After MaxPool</td><td style="padding:0.3rem;text-align:right;color:var(--green);">12×12</td><td style="padding:0.3rem;color:var(--tmut);">24 ÷ 2 = 12</td></tr>
+      <tr style="border-bottom:1px solid var(--border);"><td style="padding:0.3rem;color:var(--tdim);">Per filter map</td><td style="padding:0.3rem;text-align:right;color:var(--amber);">12×12 = 144</td><td style="padding:0.3rem;color:var(--tmut);">pixels per feature map</td></tr>
+      <tr><td style="padding:0.3rem;color:var(--tdim);">Total for 8 filters</td><td style="padding:0.3rem;text-align:right;color:var(--green);font-weight:700;">144 × 8 = 1,152</td><td style="padding:0.3rem;color:var(--tmut);">values → flattened → FC layer</td></tr>
+    </table>
+    <div style="text-align:center;margin-top:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">
+      <strong style="color:var(--amber);">Formula:</strong> output = input / pool_size &nbsp;|&nbsp; Compression = pool_size² &nbsp;|&nbsp; <strong style="color:var(--green);">Each 2×2 window = 1 value. Index of max saved for backprop.</strong>
+    </div>
+  </div>
+
   <div class="info">
-    24×24 → 12×12 (4× compression) | Real CNN: 8 filters × 12×12 = <strong style="color:var(--cyan);">1,152 values</strong> for FC layer<br>
     <strong style="color:var(--green);">The index of the max is SAVED</strong> — used in backprop to route gradient to the winning position only
   </div>
 </div>
