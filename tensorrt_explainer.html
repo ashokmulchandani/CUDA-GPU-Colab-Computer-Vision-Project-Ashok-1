@@ -64,6 +64,13 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
   </div>
 
   <div class="visual" id="visual"></div>
+  <!-- SAME MATH CLARIFICATION -->
+  <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem auto;max-width:700px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+    <strong style="color:var(--amber);">💡 TensorRT is still doing INFERENCE — the same forward pass. Same math.</strong><br>
+    PyTorch: 225 separate Conv→BN→ReLU steps. TensorRT: same operations, fused into ~75, in FP16, on optimized kernels.<br>
+    <strong style="color:var(--green);">Same input → Same output → Different speed.</strong> Like driving the same route on a highway vs. local roads.
+  </div>
+
   <div class="comp" id="compBox"></div>
 </div>
 
