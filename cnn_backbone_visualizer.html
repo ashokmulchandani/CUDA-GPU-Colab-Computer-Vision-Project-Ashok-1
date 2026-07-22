@@ -209,7 +209,7 @@ function render(){
 
     // Arrow between levels
     if(i<levels.length-1){
-      h+=`<div style="text-align:center;font-size:0.8rem;color:var(--cyan);padding:0.1rem 0;">⬇ stride-2 convolution halves spatial size</div>`;
+      h+=`<div style="text-align:center;font-size:0.65rem;color:var(--cyan);padding:0.1rem 0;">⬇ stride-2 convolution (learned downsampling — like a "smart" MaxPool with weights)</div>`;
     }
   });
   document.getElementById('pyramid').innerHTML=h;
