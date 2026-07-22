@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNN Backbone — How 225 Layers See an Image</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:900px;margin:0 auto;padding:1.5rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin-bottom:1rem}
+
+/* Pyramid */
+.pyramid{display:flex;flex-direction:column;align-items:center;gap:0;margin:1rem 0}
+.level{display:flex;align-items:center;gap:1rem;width:100%;max-width:700px;cursor:pointer;transition:0.3s;padding:0.4rem}
+.level:hover{transform:scale(1.02)}
+.level.active .level-box{border-color:var(--cyan)!important;box-shadow:0 0 20px var(--cyan-border)}
+.level-box{transition:0.3s;border-radius:12px;padding:0.8rem 1rem;text-align:center}
+.level-info{text-align:left;flex:1;min-width:180px}
+.level-name{font-family:'Orbitron',sans-serif;font-size:0.65rem;margin-bottom:0.2rem}
+.level-desc{font-size:0.55rem;color:var(--tdim);line-height:1.4}
+.level-stats{font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.2rem}
+
+/* Layer card */
+.layer-card{position:relative;overflow:hidden}
+.layer-card .spatial{position:relative;margin:0 auto}
+.layer-card .ch-label{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);margin-top:0.2rem}
+
+/* What each level sees */
+.insight-box{background:var(--card);border:2px solid var(--border);border-radius:10px;padding:0.6rem 1rem;text-align:center;margin-top:0.5rem}
+.insight-box.active{border-color:var(--cyan)}
+
+/* Code */
+.code{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 0.8rem;margin:0.6rem auto;max-width:700px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.5rem;line-height:1.7;color:#d4d4d4;overflow-x:auto}
+
+/* Conv block repeating visual */
+.conv-repeat{display:flex;gap:0.3rem;flex-wrap:wrap;justify-content:center;align-items:center;margin:0.3rem 0}
+.conv-block{width:10px;height:10px;border-radius:2px;border:1px solid;transition:0.2s}
+
+/* Stats bar */
+.stats{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
+.st{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center}
+.st .val{font-family:'Orbitron',sans-serif;font-size:0.8rem;font-weight:700}.st .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>CNN Backbone — How 225 Layers See an Image</h1>
+  <p class="subtitle"><strong>3.15M params, 8.7 GFLOPs.</strong> Click any level to zoom in. <span style="color:var(--cyan);">Spatial size ↓</span> while <span style="color:var(--amber);">channels ↑</span>. Each block = Conv→BN→SiLU.</p>
+
+  <div class="stats">
+    <div class="st" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);">640³</div><div class="lbl">Input</div></div>
+    <div class="st" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);">225</div><div class="lbl">Total Layers</div></div>
+    <div class="st" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);">3.15M</div><div class="lbl">Parameters</div></div>
+    <div class="st" style="border-top:2px solid var(--violet);"><div class="val" style="color:var(--violet);">8.7G</div><div class="lbl">FLOPs</div></div>
+  </div>
+
+  <!-- PYRAMID -->
+  <div class="pyramid" id="pyramid"></div>
+
+  <!-- INSIGHT -->
+  <div class="insight-box" id="insight"></div>
+
+  <!-- CODE -->
+  <div class="code" id="codeBox"></div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('cnnbb-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('cnnbb-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+const levels=[
+  {name:'🟦 STEM — Input',size:640,ch:3,color:'var(--cyan)',blocks:1,
+   desc:'The RGB image after CUDA preprocessing. Each pixel has been resized to 640x640, normalized to [0,1], and reordered to CHW layout.',
+   sees:'Sees: Nothing yet — just raw pixels. This is what the camera captured.',
+   code:'<span class="cm">// Input tensor shape</span>\ninput: <span style="color:var(--cyan);">(1, 3, 640, 640)</span>  <span class="cm">// batch, channels, height, width</span>\n<span class="cm">// 1,228,800 float32 values</span>'},
+  {name:'🟡 Level 1 — 320×320',size:320,ch:16,color:'var(--amber)',blocks:4,
+   desc:'First Conv→BN→SiLU block. Spatial halved (640→320). Channels: 3→16. These are the FIRST learned features.',
+   sees:'Detects: <strong style="color:var(--amber);">Edges and lines</strong> — horizontal, vertical, diagonal. Simple gradients. Like the edge-detection filters in our Phase 3.5 animations!',
+   code:'<span class="cm">// After first conv block (stride 2)</span>\nfeature_map: <span style="color:var(--amber);">(1, 16, 320, 320)</span>\n<span class="cm">// Channels grow: 3 → 16</span>\n<span class="cm">// Equivalent to applying 16 different filters,</span>\n<span class="cm">// each detecting a different edge orientation</span>'},
+  {name:'🟠 Level 2 — 160×160',size:160,ch:32,color:'var(--amber)',blocks:6,
+   desc:'Deeper conv blocks. Spatial: 320→160. Channels: 16→32. Patterns becoming more complex.',
+   sees:'Detects: <strong style="color:var(--amber);">Textures and corners</strong> — combinations of edges. "Striped pattern here." "Right-angle corner there."',
+   code:'<span class="cm">// After multiple conv blocks</span>\nfeature_map: <span style="color:var(--amber);">(1, 32, 160, 160)</span>\n<span class="cm">// 32 different texture detectors</span>\n<span class="cm">// Each filter sees a 3x3 patch but at 2x reduced resolution</span>'},
+  {name:'🩷 Level 3 — 80×80 (P3)',size:80,ch:64,color:'var(--magenta)',blocks:12,
+   desc:'First detection scale. Spatial: 160→80. Channels: 32→64. Features becoming recognizable.',
+   sees:'Detects: <strong style="color:var(--magenta);">Simple shapes</strong> — "circular region here." "Rectangular blob there." Starting to recognize parts of objects. This is the first scale used for detection (small objects: birds, balls).',
+   code:'<span class="cm">// Detection scale P3 (fine)</span>\nfeature_map: <span style="color:var(--magenta);">(1, 64, 80, 80)</span>\n<span class="cm">// 6,400 grid cells at this scale</span>\n<span class="cm">// Best for: small objects (birds, sports balls, traffic signs)</span>'},
+  {name:'🟣 Level 4 — 40×40 (P4)',size:40,ch:128,color:'var(--violet)',blocks:12,
+   desc:'Second detection scale. Spatial: 80→40. Channels: 64→128. Higher-level features.',
+   sees:'Detects: <strong style="color:var(--violet);">Object parts</strong> — "This looks like a wheel." "That is a face region." Parts of objects combining into recognizable patterns. Medium detection scale (people, cars, dogs).',
+   code:'<span class="cm">// Detection scale P4 (medium)</span>\nfeature_map: <span style="color:var(--violet);">(1, 128, 40, 40)</span>\n<span class="cm">// 1,600 grid cells at this scale</span>\n<span class="cm">// Best for: medium objects (people, cars, animals)</span>'},
+  {name:'🔴 Level 5 — 20×20 (P5)',size:20,ch:256,color:'var(--red)',blocks:4,
+   desc:'Final detection scale. Spatial: 40→20. Channels: 128→256. Highest semantic understanding.',
+   sees:'Detects: <strong style="color:var(--red);">Complete objects</strong> — "This entire region is a bus." "That whole area is a building." The most abstract features. Coarse detection scale for large objects.',
+   code:'<span class="cm">// Detection scale P5 (coarse)</span>\nfeature_map: <span style="color:var(--red);">(1, 256, 20, 20)</span>\n<span class="cm">// 400 grid cells at this scale</span>\n<span class="cm">// Best for: large objects (buses, buildings, trains)</span>'}
+];
+
+let active=0;
+
+function render(){
+  let h='';
+  levels.forEach((l,i)=>{
+    let w=Math.max(20,Math.round(l.size*0.4));
+    let isActive=(i===active);
+    h+=`<div class="level ${isActive?'active':''}" onclick="active=${i};render()" style="justify-content:center;">`;
+    // Visual block
+    h+=`<div class="level-box layer-card" style="width:${w}px;min-width:60px;border:2px solid ${l.color};background:${l.color}15;">`;
+    h+=`<div style="font-weight:700;font-size:0.65rem;color:${l.color};">${l.size}×${l.size}</div>`;
+    h+=`<div style="font-size:0.45rem;color:var(--tmut);">×${l.ch} channels</div>`;
+    // Conv blocks indicator
+    h+=`<div class="conv-repeat" style="margin-top:0.3rem;">`;
+    for(let b=0;b<Math.min(l.blocks,12);b++){
+      h+=`<div class="conv-block" style="background:${l.color}33;border-color:${l.color}66;" title="Conv→BN→SiLU"></div>`;
+    }
+    if(l.blocks>12)h+=`<span style="font-size:0.4rem;color:var(--tmut);">+${l.blocks-12} more</span>`;
+    h+=`</div>`;
+    h+=`<div style="font-size:0.4rem;color:var(--tmut);">${l.blocks} Conv→BN→SiLU blocks</div>`;
+    h+=`</div>`;
+
+    // Info
+    h+=`<div class="level-info">`;
+    h+=`<div class="level-name" style="color:${l.color};">${l.name}</div>`;
+    h+=`<div class="level-desc">${l.desc}</div>`;
+    h+=`<div class="level-stats">Spatial: ${l.size}² | Channels: ${l.ch} | Blocks: ${l.blocks}</div>`;
+    h+=`</div></div>`;
+
+    // Arrow between levels
+    if(i<levels.length-1){
+      h+=`<div style="text-align:center;font-size:0.8rem;color:var(--cyan);padding:0.1rem 0;">⬇ stride-2 convolution halves spatial size</div>`;
+    }
+  });
+  document.getElementById('pyramid').innerHTML=h;
+
+  // Insight
+  let l=levels[active];
+  document.getElementById('insight').innerHTML=`
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:${l.color};margin-bottom:0.3rem;">🔍 ${l.name} — What It Sees</div>
+    <div style="font-size:0.6rem;color:var(--tdim);">${l.sees}</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.3rem;">
+      Params at this level: ~${l.blocks*2}K | Output: (1, ${l.ch}, ${l.size}, ${l.size})
+    </div>`;
+
+  document.getElementById('codeBox').innerHTML=levels[active].code;
+}
+
+render();
+</script>
+</body>
+</html>

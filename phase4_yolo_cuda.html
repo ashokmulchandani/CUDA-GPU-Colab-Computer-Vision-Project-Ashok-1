@@ -890,7 +890,7 @@ output[c * out_h * out_w + out_y * out_w + out_x] = (<span style="color:var(--cy
   <div class="card">
     <h2><span class="num">4.4</span> Inside YOLO Inference — What the CNN Actually Does</h2>
 
-    <div class="callout-box"><span style="font-size:1.2rem;">🔬</span><span><strong style="color:var(--cyan);">Interactive Visualizer:</strong> See all 5 backbone stages with dimensions and param counts — <a href="yolo_pipeline_visualizer.html" style="color:var(--cyan);">Pipeline Visualizer</a> → Stage 2 → CNN Backbone.</span></div>
+    <div class="callout-box"><span style="font-size:1.2rem;">🔬</span><span><strong style="color:var(--cyan);">Interactive Visual:</strong> Click through each level of the backbone pyramid — <a href="cnn_backbone_visualizer.html" style="color:var(--cyan);">CNN Backbone Visualizer</a>. See spatial size shrink (640→20), channels grow (3→256), and what each level detects (edges→textures→shapes→parts→objects).</span></div>
 
     <p>The CNN backbone is a series of <strong style="color:var(--cyan)">convolution → batch norm → activation</strong> blocks, progressively extracting higher-level features. Early layers detect edges and textures; deep layers detect "dog face-ness" or "car wheel-ness".</p>
 
