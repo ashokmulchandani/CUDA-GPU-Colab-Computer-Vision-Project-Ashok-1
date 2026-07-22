@@ -637,6 +637,7 @@ Visual, slide-based learning modules following the same pattern as the [MLOPS Sy
 | **6** | [phase6_production_cuda.html](phase6_production_cuda.html) | 10 slides | 6A TensorRT, 6B Triton Server, 6C Nsight Profiling, 6D Multi-Stream 7×, CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment |
 | **ML** | [class_imbalance_visualizer.html](class_imbalance_visualizer.html) | 6 techniques | Undersampling, Oversampling, SMOTE, Class Weights, Focal Loss — interactive visual + real Python code (scikit-learn, XGBoost, TensorFlow, PyTorch) |
 | **DL** | [neuron_weight_visualizer.html](neuron_weight_visualizer.html) | 3 modes | See what 784 weights per neuron actually look like — 28×28 weight grids for Layer 1, trained vs random vs digit detectors, 109K parameter breakdown |
+| **DL** | [one_neuron_explained.html](one_neuron_explained.html) | 1 page | What "each has 785 knobs" means — per-neuron breakdown, bias explained, full Layer 1/2/3 parameter table, pixels→outputs flow |
 
 > **Coming:** Phase 5 (Chicken Disease VGG16 + MLOps Bridge), Phase 8 (Transformer from Scratch in CUDA), Phase 9 (Smart Camera).
 

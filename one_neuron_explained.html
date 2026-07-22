@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What ONE Neuron Actually Looks Like</title>
+<style>
+:root {
+  --bg: #0a0e14; --surface: #141b22; --surface2: #1c2530;
+  --border: #2a3544; --text: #c8d6e5; --text2: #8899aa;
+  --cyan: #39d2ff; --amber: #ffb347; --green: #3fb950;
+  --red: #f85149; --magenta: #ff6ec7; --violet: #a371f7;
+  --heading: #fff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; text-align: center; position: sticky; top: 0; z-index: 10; }
+header h1 { font-size: 1.2rem; color: var(--heading); }
+header h1 span { color: var(--cyan); }
+main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+
+.section { margin-bottom: 28px; }
+.section h3 { color: var(--heading); margin-bottom: 10px; font-size: 1rem; }
+
+.math-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin: 12px 0; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.8rem; line-height: 1.8; overflow-x: auto; white-space: pre; }
+.math-box .hl { color: var(--cyan); }
+.math-box .hl2 { color: var(--amber); }
+.math-box .dim { color: var(--text2); }
+.math-box .grn { color: var(--green); }
+.math-box .mag { color: var(--magenta); }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 16px 0; }
+@media(max-width:750px) { .compare { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+.card h4 { color: var(--heading); font-size: 0.9rem; margin-bottom: 8px; }
+.card .big-num { font-size: 2.2rem; font-weight: 700; color: var(--cyan); }
+.card p { font-size: 0.8rem; color: var(--text2); margin-top: 6px; }
+.card.neuron1 { border-top: 3px solid var(--cyan); }
+.card.neuron2 { border-top: 3px solid var(--amber); }
+.card.neuron128 { border-top: 3px solid var(--magenta); }
+
+.flow { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
+.flow-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; text-align: center; font-size: 0.85rem; }
+.flow-box.big { font-size: 1rem; font-weight: 600; }
+.flow-arrow { font-size: 1.5rem; color: var(--text2); }
+
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.82rem; }
+th { background: var(--surface2); color: var(--cyan); padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text2); }
+tr:hover td { background: var(--surface2); }
+td strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header><h1>🔬 What <span>"Each Has 784 Weights + 1 Bias"</span> Actually Means</h1></header>
+
+<main>
+
+<!-- THE "EACH" -->
+<div class="section">
+  <h3>🎯 "Each" = Each Individual Neuron</h3>
+  <p style="color:var(--text2);font-size:0.9rem;">Layer 1 has 128 neurons. EVERY neuron gets the SAME 784 pixels as input. But each neuron has its OWN 784 weights — so each neuron looks for a DIFFERENT pattern.</p>
+</div>
+
+<!-- SAME INPUT, DIFFERENT WEIGHTS -->
+<div class="compare">
+  <div class="card neuron1">
+    <h4>🧠 Neuron #1</h4>
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">Owns:</div>
+    <div class="big-num">785</div>
+    <p>784 weights + 1 bias<br><span style="color:var(--cyan);">Looks for: diagonal strokes</span></p>
+  </div>
+  <div class="card neuron2">
+    <h4>🧠 Neuron #2</h4>
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">Owns:</div>
+    <div class="big-num">785</div>
+    <p>784 weights + 1 bias<br><span style="color:var(--amber);">Looks for: vertical lines</span></p>
+  </div>
+  <div class="card neuron128">
+    <h4>🧠 Neuron #128</h4>
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">Owns:</div>
+    <div class="big-num">785</div>
+    <p>784 weights + 1 bias<br><span style="color:var(--magenta);">Looks for: curves/blobs</span></p>
+  </div>
+</div>
+
+<!-- THE MATH FOR ONE NEURON -->
+<div class="section">
+  <h3>📐 Inside ONE Neuron: The Full Calculation</h3>
+  <div class="math-box"><span class="dim">// Neuron #1 receives ALL 784 pixels as input</span>
+<span class="dim">// It has its OWN 784 weights (w₁ to w₇₈₄) and 1 bias (b)</span>
+
+<span class="hl">Input (same for ALL 128 neurons):</span>
+  pixel₁  pixel₂  pixel₃  ...  pixel₇₈₄
+   0.0     0.0    0.12    ...    0.0      ← flattened 28×28 image
+
+<span class="hl2">Weights (UNIQUE to Neuron #1):</span>
+   w₁      w₂      w₃     ...    w₇₈₄
+  0.02   -0.15    0.78    ...   -0.03     ← what this neuron "cares about"
+
+<span class="dim">// The computation (same for every neuron):</span>
+<span class="grn">z = (w₁×p₁ + w₂×p₂ + w₃×p₃ + ... + w₇₈₄×p₇₈₄) + bias</span>
+
+<span class="dim">// Example with real numbers:</span>
+z = (0.02×0.0) + (-0.15×0.0) + (0.78×0.12) + ... + (-0.03×0.0) + <span class="mag">0.05</span>
+  = 0.0 + 0.0 + 0.094 + ... + 0.0 + 0.05
+  = <span class="hl">0.52</span>  ← Neuron #1's output (one single number!)
+
+<span class="dim">// Then ReLU activation: if z > 0, keep it; else output 0</span>
+output = <span class="grn">max(0, 0.52) = 0.52</span>  ← passed to Layer 2</div>
+</div>
+
+<!-- WHAT THE BIAS DOES -->
+<div class="section">
+  <h3>⚖️ What the Bias Does (The +1)</h3>
+  <div class="math-box"><span class="dim">// Without bias: neuron can ONLY fire when pixels match its weights</span>
+<span class="dim">// With bias: neuron can fire even when input is all zeros</span>
+
+<span class="grn">z = (w₁×p₁ + ... + w₇₈₄×p₇₈₄) + bias</span>
+                                   <span class="mag">↑</span>
+                                   <span class="mag">This one extra number shifts the threshold</span>
+
+<span class="dim">// Think of bias as the neuron's "default excitement level":</span>
+<span class="hl">bias = +0.5</span>  → neuron fires MORE easily (lower threshold)
+<span class="hl2">bias = -0.5</span>  → neuron fires LESS easily (higher threshold)
+<span class="dim">bias =  0.0</span>  → neuron fires only when weights match perfectly
+
+<span class="dim">// Bias is learned during training, just like weights</span>
+<span class="dim">// Every neuron has exactly ONE bias number</span></div>
+</div>
+
+<!-- FULL LAYER 1 TABLE -->
+<div class="section">
+  <h3>📊 Layer 1: All 128 Neurons at a Glance</h3>
+  <div style="overflow-x:auto;">
+  <table>
+    <tr><th>Neuron</th><th>Weights</th><th>Bias</th><th>Total Knobs</th><th>Computes</th><th>Output</th></tr>
+    <tr><td><strong>#1</strong></td><td>w₁₁...w₁₇₈₄ (784 numbers)</td><td>b₁ (1 number)</td><td><strong>785</strong></td><td>Σ(w×pixel) + b₁</td><td>→ a₁ (1 number)</td></tr>
+    <tr><td><strong>#2</strong></td><td>w₂₁...w₂₇₈₄ (784 numbers)</td><td>b₂ (1 number)</td><td><strong>785</strong></td><td>Σ(w×pixel) + b₂</td><td>→ a₂ (1 number)</td></tr>
+    <tr><td><strong>#3</strong></td><td>w₃₁...w₃₇₈₄ (784 numbers)</td><td>b₃ (1 number)</td><td><strong>785</strong></td><td>Σ(w×pixel) + b₃</td><td>→ a₃ (1 number)</td></tr>
+    <tr><td style="color:var(--text2);">...</td><td style="color:var(--text2);">...</td><td style="color:var(--text2);">...</td><td style="color:var(--text2);">...</td><td style="color:var(--text2);">...</td><td style="color:var(--text2);">...</td></tr>
+    <tr><td><strong>#128</strong></td><td>w₁₂₈₁...w₁₂₈₇₈₄ (784 numbers)</td><td>b₁₂₈ (1 number)</td><td><strong>785</strong></td><td>Σ(w×pixel) + b₁₂₈</td><td>→ a₁₂₈ (1 number)</td></tr>
+    <tr style="border-top:2px solid var(--cyan);"><td colspan="3"><strong>Layer 1 TOTAL</strong></td><td><strong style="color:var(--cyan);">100,480</strong></td><td colspan="2">128 × 785 = 100,480 parameters to learn during training</td></tr>
+  </table>
+  </div>
+</div>
+
+<!-- VISUAL FLOW -->
+<div class="section">
+  <h3>🔄 The Full Flow: Pixels → 128 Neurons → 128 Outputs</h3>
+  <div class="flow">
+    <div class="flow-box big" style="border:2px solid var(--cyan);">784 pixels<br><span style="font-size:0.7rem;color:var(--text2);">(28×28 image)</span></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box" style="border:1px dashed var(--border);">
+      <strong>128 Neurons</strong><br>
+      <span style="font-size:0.75rem;color:var(--text2);">Each does: Σ(w×p) + b</span><br>
+      <span style="font-size:0.7rem;color:var(--cyan);">100,480 knobs total</span>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box big" style="border:2px solid var(--amber);">128 outputs<br><span style="font-size:0.7rem;color:var(--text2);">(goes to Layer 2)</span></div>
+  </div>
+  <p style="text-align:center;color:var(--text2);font-size:0.82rem;margin-top:12px;">Same 784 pixels go to ALL 128 neurons. Different weights → different outputs → different features detected.</p>
+</div>
+
+<!-- LAYER 2 & 3 -->
+<div class="section">
+  <h3>🔗 Layers 2 & 3: Same Pattern, Smaller Numbers</h3>
+  <div class="math-box"><span class="dim">// Layer 2: 64 neurons, each receives 128 inputs (from Layer 1's outputs)</span>
+<span class="dim">// Each neuron: 128 weights + 1 bias = 129 knobs</span>
+<span class="grn">64 × 129 = 8,256 parameters in Layer 2</span>
+
+<span class="dim">// Layer 3: 10 neurons, each receives 64 inputs (from Layer 2's outputs)</span>
+<span class="dim">// Each neuron: 64 weights + 1 bias = 65 knobs</span>
+<span class="grn">10 × 65 = 650 parameters in Layer 3</span>
+
+<span class="hl">═══════════════════════════════════</span>
+<span class="hl">TOTAL: 100,480 + 8,256 + 650 = 109,386 parameters</span>
+<span class="dim">Every single one of these starts random and gets tuned by training.</span></div>
+</div>
+
+</main>
+</body>
+</html>
