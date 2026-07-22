@@ -53,6 +53,9 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient
 .speed-control{display:flex;align-items:center;gap:0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tmut)}
 .speed-control input{width:80px;accent-color:var(--cyan)}
 
+.filter-btn{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.3rem 0.6rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s;white-space:nowrap}
+.filter-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.filter-btn.active{background:var(--cyan-bg, #39d2ff15);border-color:var(--cyan);color:var(--cyan)}
 @media(max-width:600px){.grid-table td{width:36px;height:36px;font-size:0.6rem}.filter-table td{width:34px;height:34px;font-size:0.6rem}}
 </style>
 </head>
@@ -73,25 +76,35 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient
 
     <!-- FILTER -->
     <div style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
-      <div class="section-label">FILTER (3×3)</div>
+      <div class="section-label">FILTER (choose one)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;justify-content:center;max-width:200px;">
+        <button class="filter-btn active" onclick="selectFilter(0,this)" id="fbtn0">↕ Edge</button>
+        <button class="filter-btn" onclick="selectFilter(1,this)" id="fbtn1">↔ Horiz</button>
+        <button class="filter-btn" onclick="selectFilter(2,this)" id="fbtn2">↗ Diag</button>
+        <button class="filter-btn" onclick="selectFilter(3,this)" id="fbtn3">🔲 Blur</button>
+        <button class="filter-btn" onclick="selectFilter(4,this)" id="fbtn4">✨ Sharp</button>
+        <button class="filter-btn" onclick="selectFilter(5,this)" id="fbtn5">▦ Emboss</button>
+      </div>
+      <div id="filterDesc" style="font-size:0.55rem;color:var(--amber);margin-top:0.3rem;text-align:center;max-width:180px;">Detects vertical edges<br>Left=+1, Right=−1</div>
       <div style="display:flex;align-items:center;gap:0.3rem;">
         <table class="filter-table" id="filterGrid"></table>
-      </div>
-      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.3rem;">
-        <span style="color:var(--green);">+1 = reward</span> ·
-        <span style="color:var(--tmut);">0 = ignore</span> ·
-        <span style="color:var(--red);">-1 = penalize</span>
       </div>
     </div>
 
     <!-- OUTPUT GRID -->
     <div class="output-section">
-      <div class="section-label">OUTPUT (3×3)</div>
+      <div class="section-label" id="outputLabel">OUTPUT (3×3) — feature map</div>
       <div class="grid-wrap">
         <table class="grid-table" id="outputGrid"></table>
       </div>
-      <div class="section-label" style="font-size:0.5rem;">feature map</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--cyan);margin-top:0.3rem;" id="sizeFormula">output = 5 − 3 + 1 = 3×3</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">Real CNN: 28 − 5 + 1 = 24×24 (576 positions)</div>
     </div>
+  </div>
+
+  <!-- OUTPUT INTERPRETATION -->
+  <div style="background:var(--raised);border:1px solid var(--violet);border-radius:10px;padding:0.7rem 1rem;margin-top:0.8rem;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:1.6;" id="interpretBox">
+    <span style="color:var(--violet);font-weight:600;">🔍 INTERPRETING THE OUTPUT:</span> High positive values = vertical edge detected (left side brighter than right). High negative values = reverse edge (right brighter than left). Values near zero = flat region with no vertical contrast. This is a <strong style="color:var(--amber);">feature map</strong> — a heatmap of where this pattern appears.
   </div>
 
   <!-- COMPUTATION -->
@@ -127,13 +140,18 @@ const inputData = [
   [0.2, 0.1, 0.3, 0.1, 0.3],
   [0.1, 0.0, 0.1, 0.0, 0.2]
 ];
-const filterData = [
-  [1, 0, -1],
-  [1, 0, -1],
-  [1, 0, -1]
+const filters = [
+  { name: 'Vertical Edge', data: [[1,0,-1],[1,0,-1],[1,0,-1]], desc: 'Detects vertical edges. Left side +1 (reward), Right side −1 (penalize). Bright on left + dark on right = HIGH output.', interp: 'High positive values = vertical edge where LEFT is brighter. High negative = reverse edge (right brighter). Values near zero = flat region with no vertical contrast. This feature map shows where vertical transitions occur.' },
+  { name: 'Horizontal Edge', data: [[1,1,1],[0,0,0],[-1,-1,-1]], desc: 'Detects horizontal edges. Top row +1, Bottom row −1. Bright on top + dark below = HIGH output.', interp: 'High positive = horizontal edge where TOP is brighter. High negative = reverse (bottom brighter). Near zero = no horizontal contrast. Reveals underlines, tops of digits, horizontal strokes.' },
+  { name: 'Diagonal (TL→BR)', data: [[1,0,-1],[0,1,0],[-1,0,1]], desc: 'Detects diagonal edges from top-left to bottom-right. Rewards TL and BR corners.', interp: 'High positive = bright diagonal from top-left to bottom-right. High negative = opposite diagonal (TR→BL). This reveals slanted strokes — critical for distinguishing 1 from 7.' },
+  { name: 'Box Blur (3×3)', data: [[0.11,0.11,0.11],[0.11,0.11,0.11],[0.11,0.11,0.11]], desc: 'Averages every 3×3 neighborhood. Smooths the image, reduces noise. All weights = 1/9 ≈ 0.11.', interp: 'Every output = average of the 9 surrounding pixels. Bright regions stay bright, dark stay dark. Edges get BLURRED — the sharp transition spreads out. Used for noise reduction before edge detection.' },
+  { name: 'Sharpen', data: [[0,-1,0],[-1,5,-1],[0,-1,0]], desc: 'Amplifies the center pixel, penalizes neighbors. Center ×5, surrounding ×−1. Enhances edges and fine details.', interp: 'Where all neighbors are similar → output ≈ original (5×center − 4×neighbor ≈ center). Where center differs from neighbors → output is EXAGGERATED. Edges get sharper, flat regions stay similar. Reveals fine texture.' },
+  { name: 'Emboss (SE→NW)', data: [[-1,-1,0],[-1,0,1],[0,1,1]], desc: 'Creates a 3D embossed effect. Highlights transitions from SE to NW direction.', interp: 'Output ≈ 0 in flat regions. Strong transitions produce high values, creating a raised/indented look. Used in artistic filters — makes images look like stamped metal. Emphasizes diagonal texture.' }
 ];
+let currentFilterIdx = 0;
+let filterData = filters[0].data;
 const outputData = Array(3).fill().map(()=>Array(3).fill(null));
-let currentStep = 0; // 0..8 (3x3 output)
+let currentStep = 0; // 0..8
 let playInterval = null;
 let speed = 700;
 
@@ -164,16 +182,33 @@ function renderFilterGrid() {
     h += '<tr>';
     for (let c = 0; c < 3; c++) {
       let v = filterData[r][c];
-      let sign = v >= 0 ? '+' : '';
+      let sign = v >= 0 ? (v===0?'':'+') : '';
       let bg, color;
-      if (v > 0) { bg = 'rgba(63,185,80,0.3)'; color = 'var(--green)'; }
-      else if (v < 0) { bg = 'rgba(248,81,73,0.3)'; color = 'var(--red)'; }
+      if (v > 0.3) { bg = 'rgba(63,185,80,0.35)'; color = 'var(--green)'; }
+      else if (v > 0) { bg = 'rgba(63,185,80,0.15)'; color = 'var(--green)'; }
+      else if (v < -0.3) { bg = 'rgba(248,81,73,0.35)'; color = 'var(--red)'; }
+      else if (v < 0) { bg = 'rgba(248,81,73,0.15)'; color = 'var(--red)'; }
       else { bg = 'rgba(72,79,88,0.2)'; color = 'var(--tmut)'; }
-      h += `<td style="background:${bg};color:${color}">${sign}${v}</td>`;
+      let display = Number.isInteger(v) ? sign+v : v.toFixed(1);
+      h += `<td style="background:${bg};color:${color}">${display}</td>`;
     }
     h += '</tr>';
   }
   tbl.innerHTML = h;
+}
+
+// Update filter info when selecting
+function selectFilter(idx, btn) {
+  currentFilterIdx = idx;
+  filterData = filters[idx].data;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('filterDesc').innerHTML = '<strong>' + filters[idx].name + '</strong><br>' + filters[idx].desc;
+  document.getElementById('interpretBox').innerHTML = '<span style="color:var(--violet);font-weight:600;">🔍 INTERPRETING THE OUTPUT:</span> ' + filters[idx].interp;
+  document.getElementById('outputLabel').textContent = 'OUTPUT (3×3) — ' + filters[idx].name + ' feature map';
+  stopPlay();
+  resetAll();
+  renderFilterGrid();
 }
 
 function renderOutputGrid() {
@@ -356,6 +391,7 @@ renderInputGrid(-1, -1);
 renderFilterGrid();
 renderOutputGrid();
 document.getElementById('prevBtn').disabled = true;
+document.getElementById('filterDesc').innerHTML = '<strong>Vertical Edge</strong><br>Detects vertical edges. Left side +1 (reward), Right side -1 (penalize). Bright on left + dark on right = HIGH output.';
 </script>
 </body>
 </html>
