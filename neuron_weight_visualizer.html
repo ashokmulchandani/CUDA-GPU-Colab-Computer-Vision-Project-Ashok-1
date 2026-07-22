@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What 784 Weights Per Neuron Actually Look Like</title>
+<style>
+:root {
+  --bg: #0a0e14; --surface: #141b22; --surface2: #1c2530;
+  --border: #2a3544; --text: #c8d6e5; --text2: #8899aa;
+  --cyan: #39d2ff; --amber: #ffb347; --green: #3fb950;
+  --red: #f85149; --magenta: #ff6ec7; --violet: #a371f7;
+  --heading: #fff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; text-align: center; position: sticky; top: 0; z-index: 10; }
+header h1 { font-size: 1.3rem; color: var(--heading); }
+header h1 span { color: var(--cyan); }
+main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+.big-idea { background: var(--surface); border: 1px solid var(--cyan); border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center; }
+.big-idea h2 { color: var(--cyan); font-size: 1rem; margin-bottom: 8px; }
+.big-idea p { color: var(--text2); font-size: 0.9rem; }
+
+.section { margin-bottom: 32px; }
+.section h3 { color: var(--heading); margin-bottom: 12px; font-size: 1rem; }
+
+/* The weight grid — 28x28 pixels */
+.weight-grid-container { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+.neuron-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; transition: 0.2s; }
+.neuron-card:hover { border-color: var(--cyan); transform: translateY(-2px); }
+.neuron-card h4 { font-size: 0.85rem; color: var(--heading); margin-bottom: 8px; }
+.neuron-card .grid-canvas { display: block; border: 1px solid var(--border); border-radius: 4px; image-rendering: pixelated; }
+.neuron-card .label { font-size: 0.7rem; color: var(--text2); margin-top: 6px; }
+
+.compare-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; align-items: center; margin: 16px 0; }
+.arrow-text { font-size: 1.5rem; color: var(--cyan); font-weight: 700; }
+
+.how-it-works { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+.how-it-works h3 { color: var(--amber); margin-bottom: 16px; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.step { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.step .step-num { font-size: 0.7rem; color: var(--cyan); font-weight: 700; margin-bottom: 4px; }
+.step h4 { color: var(--heading); font-size: 0.9rem; margin-bottom: 6px; }
+.step p { color: var(--text2); font-size: 0.8rem; }
+
+.math-box { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 16px 0; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.82rem; color: var(--text); overflow-x: auto; white-space: pre; line-height: 1.8; }
+.math-box .hl { color: var(--cyan); }
+.math-box .hl2 { color: var(--amber); }
+.math-box .dim { color: var(--text2); }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 16px 0; }
+.controls button { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+.controls button:hover { border-color: var(--cyan); }
+.controls button.active { background: #0077b6; border-color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<header><h1>🧠 What <span>784 Weights Per Neuron</span> Actually Look Like</h1></header>
+
+<main>
+
+<!-- BIG IDEA -->
+<div class="big-idea">
+  <h2>💡 Each neuron is a 28×28 image of what it's looking for</h2>
+  <p>Reshape 784 weights → 28×28 grid → you can SEE the pattern. Bright pixel = "I care about ink here." Dark pixel = "I don't care."</p>
+</div>
+
+<!-- THE MATH -->
+<div class="section">
+  <h3>📐 The Connection: 784 Pixels → 1 Neuron</h3>
+  <div class="math-box"><span class="dim">// MNIST image = 28 rows × 28 columns = 784 pixels</span>
+<span class="dim">// Each pixel is a number 0.0 (white) to 1.0 (black)</span>
+
+Input Image (28×28):              Flattened (784 numbers):
+┌──────────────────────┐           [0.0, 0.0, 0.12, 0.85, 0.43, ... 0.0]
+│ ░░░░░░░░░░░░░░░░░░░░ │           │    │    │     │     │          │
+│ ░░░░░░░▓▓▓░░░░░░░░░░ │           p₁   p₂   p₃    p₄    p₅        p₇₈₄
+│ ░░░░░▓▓▓▓▓▓▓░░░░░░░ │           │    │    │     │     │          │
+│ ░░░░▓▓▓░░░░▓▓▓░░░░░ │           w₁   w₂   w₃    w₄    w₅        w₇₈₄
+│ ░░░░▓▓░░░░░░▓▓░░░░░ │           │    │    │     │     │          │
+│   ... 28 rows ...    │           <span class="hl">Each weight × its pixel → sum → add bias → output</span>
+└──────────────────────┘
+
+<span class="hl">output = (w₁×p₁ + w₂×p₂ + w₃×p₃ + ... + w₇₈₄×p₇₈₄) + bias</span>
+
+<span class="dim">// The 784 weights CAN be reshaped back to 28×28</span>
+<span class="dim">// because each weight is paired with a specific pixel position</span>
+<span class="hl2">// weight[0] ↔ pixel(0,0)   weight[1] ↔ pixel(0,1)   ...   weight[783] ↔ pixel(27,27)</span></div>
+</div>
+
+<!-- VISUAL: Neuron weight patterns -->
+<div class="section">
+  <h3>👁️ See It: 4 Neurons from Layer 1, Each Looking for a Different Pattern</h3>
+  <p style="color:var(--text2);font-size:0.85rem;margin-bottom:16px;">These are SIMULATED weights — showing what real neurons typically learn after training on MNIST digits.</p>
+
+  <div class="weight-grid-container" id="neuronGrid"></div>
+
+  <div class="controls" style="margin-top:16px;">
+    <button class="active" onclick="showNeuronType('real')">🧠 Realistic (trained-like)</button>
+    <button onclick="showNeuronType('random')">🎲 Random (untrained)</button>
+    <button onclick="showNeuronType('digit')">🔢 Digit detectors</button>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="how-it-works">
+  <h3>🔬 How The Math Becomes a Picture</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">STEP 1</div>
+      <h4>Start with 784 numbers</h4>
+      <p>Each neuron stores 784 weights in memory. It's just a flat list: [0.02, -0.15, 0.78, ...]. But these aren't random — weight[i] always multiplies pixel[i] from the input image.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">STEP 2</div>
+      <h4>Reshape to 28×28</h4>
+      <p>Since MNIST images are 28×28, we can fold the flat list back into a grid. Weight[0] goes to row 0, col 0. Weight[27] goes to row 0, col 27. Weight[28] wraps to row 1, col 0.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">STEP 3</div>
+      <h4>Color by value</h4>
+      <p>Positive weight → BRIGHT (neuron EXCITES when pixel is dark here). Negative weight → DARK (neuron INHIBITS when pixel is dark here). Zero → gray (neuron ignores this pixel).</p>
+    </div>
+    <div class="step">
+      <div class="step-num">STEP 4</div>
+      <h4>Read the pattern</h4>
+      <p>If the 28×28 image looks like a fuzzy "3" — that neuron fires for digit 3. If it looks like a horizontal bar — it detects horizontal strokes. Each neuron becomes a "feature detector."</p>
+    </div>
+  </div>
+</div>
+
+<!-- LAYER 2 AND 3 -->
+<div class="section" style="margin-top:32px;">
+  <h3>🔗 What About Layer 2 and Layer 3?</h3>
+  <div class="math-box"><span class="dim">// Layer 2: 64 neurons, each with 128 weights</span>
+<span class="dim">// These weights can NOT be reshaped into a nice image</span>
+<span class="dim">// because 128 has no meaningful 2D shape — it's not an image dimension</span>
+
+<span class="hl">Layer 1 weights → reshape to 28×28 → YOU CAN SEE THE PATTERN</span>
+<span class="dim">  (784 = 28×28 = the original image shape)</span>
+
+<span class="hl2">Layer 2 weights → 128 numbers → NO meaningful image to show</span>
+<span class="dim">  (128 ≠ a square. Each weight connects to a Layer-1 neuron's OUTPUT,</span>
+<span class="dim">   not to a pixel. These are abstract features, not visual ones.)</span>
+
+<span class="hl2">Layer 3 weights → 64 numbers → No image, but you CAN see which</span>
+<span class="dim">  Layer-2 features each digit-classifier cares about</span>
+
+<span class="hl">🎯 KEY INSIGHT: Only Layer 1 weights are directly visualizable</span>
+<span class="hl">   because they connect to INPUT pixels. Deeper layers connect</span>
+<span class="hl">   to abstract features — you can't draw a picture of "edginess" or "curvature."</span></div>
+</div>
+
+<!-- TOTAL KNOBS -->
+<div class="section" style="margin-top:32px;">
+  <h3>🧮 Total Knobs to Tune (Parameters)</h3>
+  <div class="math-box"><span class="dim">┌──────────┬─────────────────────┬──────┬──────┬──────────────┐</span>
+<span class="dim">│  LAYER   │  WEIGHTS            │ BIAS │ TOTAL│  AS IMAGE?   │</span>
+<span class="dim">├──────────┼─────────────────────┼──────┼──────┼──────────────┤</span>
+│ <span class="hl">Layer 1</span>  │ 128 × 784 = <span class="hl2">100,352</span>  │ 128  │<span class="hl">100,480</span>│ ✅ 28×28     │
+│ Layer 2  │ 64  × 128 =   8,192  │  64  │  8,256│ ❌ abstract  │
+│ Layer 3  │ 10  × 64  =     640  │  10  │    650│ ❌ abstract  │
+<span class="dim">├──────────┼─────────────────────┼──────┼──────┼──────────────┤</span>
+│ <span class="hl2">TOTAL</span>    │                     │      │<span class="hl">109,386</span>│              │
+<span class="dim">└──────────┴─────────────────────┴──────┴──────┴──────────────┘</span>
+
+<span class="dim">// 109,386 numbers the network tunes during training</span>
+<span class="dim">// Every single one starts random, gets adjusted by backpropagation</span></div>
+</div>
+
+</main>
+
+<script>
+// ==================== WEIGHT GRID DRAWING ====================
+
+function generateWeights(type, neuronIndex) {
+  const weights = new Array(784).fill(0);
+  const w = 28, h = 28;
+
+  if (type === 'random') {
+    // Just noise — what weights look like BEFORE training
+    for (let i = 0; i < 784; i++) weights[i] = (Math.random() - 0.5) * 0.3;
+    return weights;
+  }
+
+  if (type === 'digit') {
+    // Draw actual digit shapes (blurred)
+    const digits = [
+      // 0 — oval/loop
+      (r,c) => { const cx=14,cy=14,rx=10,ry=12; const d=Math.sqrt(((c-cx)/rx)**2+((r-cy)/ry)**2); return d>0.7&&d<1.15?1:(d<0.55?0:0.1); },
+      // 1 — vertical stroke, slight right lean
+      (r,c) => { return (c>10&&c<16&&r>3&&r<24)?0.9:(c>8&&c<10&&r<5?0.4:0); },
+      // 2 — top bar, diagonal, bottom bar
+      (r,c) => { return (r<6&&c>5&&c<22?0.85:(r>18&&r<23&&c>4&&c<22?0.7:(r>6&&r<19&&c>20-r*0.7?0.6:0))); },
+      // 3 — two loops
+      (r,c) => { const top=Math.sqrt(((c-14)/8)**2+((r-8)/6)**2); const bot=Math.sqrt(((c-14)/8)**2+((r-18)/5)**2); return (top<1&&top>0.55)?0.8:(bot<1&&bot>0.6?0.75:0); },
+      // 4 — vertical + horizontal cross
+      (r,c) => { return (c>14&&c<18&&r>2&&r<24?0.8:(r>13&&r<17&&c>4&&c<20?0.7:(c>10&&c<13&&r<12?0.55:0))); },
+      // 5 — top bar, vertical left, bottom loop
+      (r,c) => { return (r<5&&c>5&&c<20?0.8:(c>4&&c<8&&r<14?0.7:(Math.sqrt(((c-13)/7)**2+((r-16)/5)**2)<1&&r>12?0.7:0))); },
+      // 6 — loop with tail
+      (r,c) => { const loop=Math.sqrt(((c-13)/7)**2+((r-17)/6)**2); return (loop<1&&loop>0.5&&r>10?0.8:(c>5&&c<8&&r<10?0.6:(r<5&&c>7&&c<18?0.55:0))); },
+      // 7 — top bar + diagonal down
+      (r,c) => { return (r<5&&c>3&&c<24?0.9:(c>22-r*0.95&&r>4&&c>3?0.65:0)); },
+      // 8 — two loops stacked
+      (r,c) => { const t=Math.sqrt(((c-14)/7)**2+((r-8)/5.5)**2); const b=Math.sqrt(((c-14)/7)**2+((r-20)/5.5)**2); return (t<1&&t>0.5)?0.8:(b<1&&b>0.5?0.8:0); },
+      // 9 — top loop + vertical right
+      (r,c) => { const loop=Math.sqrt(((c-14)/7)**2+((r-10)/6)**2); return (loop<1&&loop>0.5)?0.8:(c>16&&c<20&&r>8&&r<24?0.65:0); },
+    ];
+    const fn = digits[neuronIndex % 10];
+    for (let row = 0; row < h; row++) {
+      for (let col = 0; col < c; col++) {
+        let v = fn(row, col);
+        v += (Math.random() - 0.5) * 0.12; // noise
+        weights[row * 28 + col] = v * 0.9;
+      }
+    }
+    return weights;
+  }
+
+  // 'real' — realistic trained weights
+  // Each neuron learns a different feature
+  const patterns = [
+    // Neuron 1: diagonal stroke detector (like in 2, 7)
+    (r,c) => { const d=Math.abs((c-r*0.8)-6); return Math.exp(-d*d/20)*0.8; },
+    // Neuron 2: vertical stroke detector (like in 1, 4)
+    (r,c) => { const d=Math.abs(c-13); return Math.exp(-d*d/8)*0.7; },
+    // Neuron 3: horizontal stroke detector (like in 2, 5, 7)
+    (r,c) => { const d=Math.abs(r-16); return Math.exp(-d*d/6)*0.65; },
+    // Neuron 4: blob/loop detector (like in 0, 6, 8, 9)
+    (r,c) => { const cx=14,cy=14; const dist=Math.sqrt((c-cx)**2+(r-cy)**2); return Math.exp(-(dist-9)**2/15)*0.75; },
+    // Neuron 5: top-left curve
+    (r,c) => { const d=Math.sqrt((c-9)**2+(r-9)**2); return Math.exp(-(d-6)**2/10)*0.7; },
+    // Neuron 6: bottom-right curve
+    (r,c) => { const d=Math.sqrt((c-19)**2+(r-19)**2); return Math.exp(-(d-6)**2/10)*0.7; },
+    // Neuron 7: center-heavy blob
+    (r,c) => { const d=Math.sqrt((c-14)**2+(r-14)**2); return Math.exp(-d*d/80)*0.6; },
+    // Neuron 8: edge detector — left side
+    (r,c) => { return (c<6?0.6:0)+(Math.random()-0.5)*0.05; },
+  ];
+
+  const fn = patterns[neuronIndex % patterns.length];
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      let v = fn(row, col);
+      v += (Math.random() - 0.5) * 0.08;
+      weights[row * 28 + col] = Math.max(-1, Math.min(1, v));
+    }
+  }
+  return weights;
+}
+
+function drawWeightGrid(canvas, weights) {
+  const ctx = canvas.getContext('2d');
+  const size = 28;
+  const cellSize = canvas.width / size;
+
+  // Find min/max for color scaling
+  let min = Infinity, max = -Infinity;
+  weights.forEach(w => { if (w < min) min = w; if (w > max) max = w; });
+  const range = Math.max(Math.abs(min), Math.abs(max), 0.01);
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const w = weights[row * size + col];
+      const normalized = w / range; // -1 to 1
+
+      if (normalized > 0) {
+        // Positive weight: bright (neuron excites here)
+        const intensity = Math.floor(128 + normalized * 127);
+        ctx.fillStyle = `rgb(${intensity},${intensity},${Math.floor(intensity*0.7)})`;
+      } else if (normalized < 0) {
+        // Negative weight: dark (neuron inhibits here)
+        const intensity = Math.floor(128 + normalized * 127);
+        ctx.fillStyle = `rgb(${Math.floor(intensity*0.5)},${Math.floor(intensity*0.3)},${intensity})`;
+      } else {
+        ctx.fillStyle = '#808080';
+      }
+      ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+    }
+  }
+}
+
+// ==================== RENDERING ====================
+
+let currentType = 'real';
+
+function renderNeurons(type) {
+  currentType = type;
+  const container = document.getElementById('neuronGrid');
+  const numNeurons = type === 'digit' ? 10 : 4;
+
+  const labels = {
+    real: ['Stroke detector\n(diagonal / )', 'Stroke detector\n(vertical |)', 'Stroke detector\n(horizontal —)', 'Loop/blob detector\n(curves, circles)'],
+    random: ['Random noise\n(no pattern)', 'Random noise\n(no pattern)', 'Random noise\n(no pattern)', 'Random noise\n(no pattern)'],
+    digit: ['Digit 0', 'Digit 1', 'Digit 2', 'Digit 3', 'Digit 4', 'Digit 5', 'Digit 6', 'Digit 7', 'Digit 8', 'Digit 9'],
+  };
+
+  const desc = {
+    real: 'Each neuron learns a DIFFERENT visual feature. Together they cover strokes, curves, blobs, and edges.',
+    random: 'Before training, weights are random. No neuron "sees" anything meaningful. This is why untrained networks are useless.',
+    digit: 'After training, some neurons become tuned to SPECIFIC digits. This neuron fires hardest when it sees its digit.',
+  };
+
+  let html = `<p style="color:var(--text2);font-size:0.8rem;margin-bottom:12px;text-align:center;">${desc[type]}</p><div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">`;
+
+  const canvasSize = type === 'digit' ? 180 : 200;
+
+  for (let i = 0; i < numNeurons; i++) {
+    const w = generateWeights(type, i);
+    html += `<div class="neuron-card"><h4>${labels[type][i].replace(/\n/g,'<br>')}</h4>`;
+    html += `<canvas class="grid-canvas" id="ncanvas${i}" width="${canvasSize}" height="${canvasSize}"></canvas>`;
+    html += `<div class="label">784 weights → 28×28 image</div></div>`;
+  }
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Draw canvases
+  setTimeout(() => {
+    for (let i = 0; i < numNeurons; i++) {
+      const canvas = document.getElementById('ncanvas' + i);
+      if (canvas) drawWeightGrid(canvas, generateWeights(type, i));
+    }
+  }, 50);
+}
+
+function showNeuronType(type) {
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderNeurons(type);
+}
+
+// Init
+renderNeurons('real');
+</script>
+</body>
+</html>

@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Class Imbalance — Interactive Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06090f; --bg-card: #0d1117; --bg-raised: #161b22;
+  --border: #21262d; --text: #e6edf3; --text-dim: #8b949e;
+  --cyan: #39d2ff; --amber: #ffb347; --green: #3fb950; --red: #f85149;
+  --violet: #a371f7; --magenta: #ff6ec7;
+}
+body.light {
+  --bg: #f6f8fa; --bg-card: #ffffff; --bg-raised: #e8ecf0;
+  --border: #d0d7de; --text: #1f2328; --text-dim: #656d76;
+  --cyan: #0969da; --amber: #9a6700; --green: #1a7f37; --red: #cf222e;
+  --violet: #8250df; --magenta: #bf3989;
+}
+body.light .explanation { background: #e8ecf0; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
+.theme-toggle { position: fixed; top: 1rem; right: 1.5rem; z-index: 999; background: var(--bg-raised); border: 1px solid var(--border); color: var(--text); font-size: 1.1rem; cursor: pointer; padding: 0.35rem 0.6rem; border-radius: 6px; transition: 0.2s; font-family: 'JetBrains Mono', monospace; }
+.theme-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+.app { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+.header { text-align: center; padding: 2rem 0 1rem; }
+.header h1 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.2rem, 3vw, 1.8rem); background: linear-gradient(135deg, var(--cyan), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+.header p { color: var(--text-dim); font-size: 0.9rem; }
+
+.main-layout { display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+@media(max-width:900px) { .main-layout { grid-template-columns: 1fr; } }
+
+/* Controls Panel */
+.controls { display: flex; flex-direction: column; gap: 0.6rem; }
+.control-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+  padding: 0.8rem 1rem; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-dim); cursor: pointer;
+  transition: 0.2s ease; text-align: left; line-height: 1.4;
+}
+.control-btn:hover { border-color: var(--cyan); color: var(--text); transform: translateX(3px); }
+.control-btn.active { border-color: var(--cyan); background: #39d2ff10; color: var(--cyan); box-shadow: 0 0 15px #39d2ff20; }
+.control-btn .btn-title { font-weight: 600; display: block; }
+.control-btn .btn-desc { font-size: 0.62rem; color: var(--text-muted); margin-top: 0.2rem; display: block; }
+.control-btn:nth-child(1):hover { border-color: var(--text-muted); color: var(--text); }
+.control-btn:nth-child(2):hover, .control-btn:nth-child(2).active { border-color: var(--red); background: #f8514910; color: var(--red); box-shadow: 0 0 15px #f8514920; }
+.control-btn:nth-child(3):hover, .control-btn:nth-child(3).active { border-color: var(--amber); background: #ffb34710; color: var(--amber); box-shadow: 0 0 15px #ffb34720; }
+.control-btn:nth-child(4):hover, .control-btn:nth-child(4).active { border-color: var(--magenta); background: #ff6ec710; color: var(--magenta); box-shadow: 0 0 15px #ff6ec720; }
+.control-btn:nth-child(5):hover, .control-btn:nth-child(5).active { border-color: var(--green); background: #3fb95010; color: var(--green); box-shadow: 0 0 15px #3fb95020; }
+.control-btn:nth-child(6):hover, .control-btn:nth-child(6).active { border-color: var(--violet); background: #a371f710; color: var(--violet); box-shadow: 0 0 15px #a371f720; }
+
+.reset-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+  padding: 0.6rem; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim); cursor: pointer; margin-top: 1rem;
+}
+.reset-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* Stats */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem; }
+.stat-mini { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem; text-align: center; }
+.stat-mini .val { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; }
+.stat-mini .lbl { font-family: 'JetBrains Mono', monospace; font-size: 0.55rem; color: var(--text-muted); margin-top: 0.2rem; letter-spacing: 0.05em; }
+.stat-mini.pass { border-top: 2px solid var(--cyan); } .stat-mini.pass .val { color: var(--cyan); }
+.stat-mini.fail { border-top: 2px solid var(--red); } .stat-mini.fail .val { color: var(--red); }
+.stat-mini.acc { border-top: 2px solid var(--amber); } .stat-mini.acc .val { color: var(--amber); }
+.stat-mini.detect { border-top: 2px solid var(--green); } .stat-mini.detect .val { color: var(--green); }
+
+/* Canvas */
+.viz-area { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; position: relative; min-height: 400px; }
+.viz-area canvas { display: block; width: 100%; height: 100%; }
+.legend { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.5rem; font-size: 0.75rem; }
+.legend-item { display: flex; align-items: center; gap: 0.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.pass { background: var(--cyan); }
+.legend-dot.fail { background: var(--red); }
+.legend-dot.synthetic { background: var(--magenta); border: 1px dashed var(--magenta); background: transparent; }
+.legend-dot.dead { background: var(--text-muted); opacity: 0.3; }
+
+.explanation { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; }
+.explanation strong { color: var(--cyan); }
+.explanation .icon { font-size: 1.2rem; }
+
+.code-toggle-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+  padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--green); cursor: pointer;
+  margin-top: 0.6rem; transition: 0.2s;
+}
+.code-toggle-btn:hover { border-color: var(--green); background: var(--green-bg, #3fb95010); }
+.code-panel {
+  display: none; background: #0d1117; border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem; margin-top: 0.6rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+  line-height: 1.7; overflow-x: auto; white-space: pre;
+  color: #e6edf3; max-height: 420px; overflow-y: auto;
+}
+body.light .code-panel { background: #f0f2f5; color: #1f2328; }
+.code-panel.show { display: block; }
+.code-panel .kw { color: #ff7b72; } body.light .code-panel .kw { color: #cf222e; }
+.code-panel .str { color: #a5d6ff; } body.light .code-panel .str { color: #0a3069; }
+.code-panel .cmt { color: #8b949e; font-style: italic; }
+.code-panel .fn { color: #d2a8ff; } body.light .code-panel .fn { color: #8250df; }
+.code-panel .num { color: #ffb347; } body.light .code-panel .num { color: #9a6700; }
+.code-panel .imp { color: #ff7b72; } body.light .code-panel .imp { color: #cf222e; }
+.code-panel .lib { color: #7ee787; } body.light .code-panel .lib { color: #1a7f37; }
+.code-panel .pkg { color: #ffb347; } body.light .code-panel .pkg { color: #9a6700; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light theme">☀️</button>
+
+<div class="app">
+  <header class="header">
+    <h1>Class Imbalance — Interactive Visualizer</h1>
+    <p>See how each technique transforms the SAME dataset. 95 "Normal" vs 5 "Fraud" transactions.</p>
+  </header>
+
+  <div class="main-layout">
+    <!-- Left: Controls -->
+    <div>
+      <div class="controls">
+        <button class="control-btn active" onclick="applyTechnique('original')">
+          <span class="btn-title">📊 Original Data</span>
+          <span class="btn-desc">95 normal, 5 fraud — baseline</span>
+        </button>
+        <button class="control-btn" onclick="applyTechnique('undersample')">
+          <span class="btn-title">✂️ Undersampling</span>
+          <span class="btn-desc">Keep only 10 normal → balance ratio</span>
+        </button>
+        <button class="control-btn" onclick="applyTechnique('oversample')">
+          <span class="btn-title">📋 Oversampling</span>
+          <span class="btn-desc">Copy fraud cases 20× each</span>
+        </button>
+        <button class="control-btn" onclick="applyTechnique('smote')">
+          <span class="btn-title">🧬 SMOTE</span>
+          <span class="btn-desc">Synthesize NEW fraud cases between real ones</span>
+        </button>
+        <button class="control-btn" onclick="applyTechnique('weights')">
+          <span class="btn-title">⚖️ Class Weights</span>
+          <span class="btn-desc">Missing fraud = 20× penalty</span>
+        </button>
+        <button class="control-btn" onclick="applyTechnique('focal')">
+          <span class="btn-title">🎯 Focal Loss</span>
+          <span class="btn-desc">Focus only on uncertain predictions</span>
+        </button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-mini pass"><div class="val" id="statPass">95</div><div class="lbl">NORMAL</div></div>
+        <div class="stat-mini fail"><div class="val" id="statFail">5</div><div class="lbl">FRAUD</div></div>
+        <div class="stat-mini acc"><div class="val" id="statAcc">95%</div><div class="lbl">ACCURACY</div></div>
+        <div class="stat-mini detect"><div class="val" id="statDetect">0%</div><div class="lbl">FRAUD CAUGHT</div></div>
+      </div>
+
+      <button class="reset-btn" onclick="animateReset()">🔄 Reset Animation</button>
+    </div>
+
+    <!-- Right: Visualization -->
+    <div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot pass"></div> Normal</div>
+        <div class="legend-item"><div class="legend-dot fail"></div> Fraud</div>
+        <div class="legend-item"><div class="legend-dot synthetic"></div> Synthetic</div>
+        <div class="legend-item"><div class="legend-dot dead"></div> Removed</div>
+      </div>
+      <div class="viz-area">
+        <canvas id="viz" width="800" height="420"></canvas>
+      </div>
+      <div class="explanation" id="explanation">
+        <span class="icon">📊</span> <strong>Original Data:</strong> The model learns to say "normal" for everything. <strong style="color:var(--amber)">95% accuracy, 0% fraud caught.</strong> Click a technique to see how it changes the data.
+      </div>
+      <button class="code-toggle-btn" id="codeToggleBtn" onclick="toggleCode()">💻 Show Python Code</button>
+      <div class="code-panel" id="codePanel"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  document.getElementById('themeToggle').textContent = document.body.classList.contains('light') ? '🌙' : '☀️';
+  localStorage.setItem('imbalance-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+  setTimeout(draw, 50);
+}
+if (localStorage.getItem('imbalance-theme') === 'light') {
+  document.body.classList.add('light');
+  document.getElementById('themeToggle').textContent = '🌙';
+}
+
+const canvas = document.getElementById('viz');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Seed data: 95 normal (left cluster) + 5 fraud (right cluster)
+const normalPoints = [];
+const fraudPoints = [];
+
+// Generate 95 normal points (clustered, mostly on the left side)
+for (let i = 0; i < 95; i++) {
+  normalPoints.push({
+    x: 100 + Math.random() * 400 + (Math.random() - 0.5) * 80,
+    y: 40 + Math.random() * 340,
+    r: 4 + Math.random() * 3,
+    alive: true,
+    synthetic: false,
+    opacity: 0.7 + Math.random() * 0.3
+  });
+}
+
+// Generate 5 fraud points (right side, separate cluster)
+for (let i = 0; i < 5; i++) {
+  fraudPoints.push({
+    x: 580 + Math.random() * 150,
+    y: 40 + Math.random() * 340,
+    r: 6 + Math.random() * 4,
+    alive: true,
+    synthetic: false,
+    opacity: 0.8 + Math.random() * 0.2
+  });
+}
+
+// Current state
+let currentNormal = normalPoints.map(p => ({...p, alive: true, synthetic: false}));
+let currentFraud = fraudPoints.map(p => ({...p, alive: true, synthetic: false}));
+let extraDeadNormal = [];
+let currentTechnique = 'original';
+
+function resetAll() {
+  currentNormal = normalPoints.map(p => ({...p, alive: true, synthetic: false, opacity: 0.7 + Math.random() * 0.3}));
+  currentFraud = fraudPoints.map(p => ({...p, alive: true, synthetic: false, opacity: 0.8 + Math.random() * 0.2}));
+  extraDeadNormal = [];
+}
+
+function applyTechnique(tech) {
+  resetAll();
+  currentTechnique = tech;
+
+  switch(tech) {
+    case 'original':
+      // No changes
+      updateExplanation('original');
+      break;
+
+    case 'undersample':
+      // Keep only 8 random normal points, kill the rest
+      const keep = new Set();
+      while (keep.size < 8) keep.add(Math.floor(Math.random() * 95));
+      currentNormal.forEach((p, i) => { if (!keep.has(i)) { p.alive = false; p.opacity = 0.15; } });
+      updateExplanation('undersample');
+      break;
+
+    case 'oversample':
+      // Duplicate each fraud point 15 times
+      const dupes = [];
+      currentFraud.forEach((p, i) => {
+        p.alive = true;
+        for (let d = 0; d < 15; d++) {
+          dupes.push({
+            x: p.x + (Math.random() - 0.5) * 30,
+            y: p.y + (Math.random() - 0.5) * 30,
+            r: 5 + Math.random() * 2,
+            alive: true, synthetic: true, opacity: 0.5
+          });
+        }
+      });
+      currentFraud = [...currentFraud, ...dupes];
+      updateExplanation('oversample');
+      break;
+
+    case 'smote':
+      // For each pair of fraud points, create interpolated points
+      const smotePoints = [];
+      for (let i = 0; i < fraudPoints.length; i++) {
+        for (let j = i + 1; j < fraudPoints.length; j++) {
+          // Create 3 points between each pair
+          for (let s = 0; s < 3; s++) {
+            const t = 0.2 + Math.random() * 0.6; // between 0.2 and 0.8
+            smotePoints.push({
+              x: fraudPoints[i].x + (fraudPoints[j].x - fraudPoints[i].x) * t + (Math.random() - 0.5) * 20,
+              y: fraudPoints[i].y + (fraudPoints[j].y - fraudPoints[i].y) * t + (Math.random() - 0.5) * 20,
+              r: 5 + Math.random() * 2,
+              alive: true, synthetic: true, opacity: 0.55
+            });
+          }
+        }
+      }
+      currentFraud = [...currentFraud, ...smotePoints];
+      updateExplanation('smote');
+      break;
+
+    case 'weights':
+      // Data unchanged, but fraud points get visual highlighting
+      currentFraud.forEach(p => { p.r = 10; p.opacity = 1; });
+      currentNormal.forEach(p => { p.r = 3; p.opacity = 0.5; });
+      updateExplanation('weights');
+      break;
+
+    case 'focal':
+      // Show which points the model would focus on: border between clusters
+      currentNormal.forEach(p => {
+        // Points near the fraud cluster get attention (higher opacity, ring)
+        if (p.x > 350) { p.r = 7; p.opacity = 1; p.focal = true; }
+        else { p.r = 2; p.opacity = 0.3; p.focal = false; }
+      });
+      currentFraud.forEach(p => {
+        if (p.x < 650) { p.r = 10; p.opacity = 1; p.focal = true; }
+        else { p.r = 3; p.opacity = 0.4; p.focal = false; }
+      });
+      updateExplanation('focal');
+      break;
+  }
+
+  draw();
+  updateStats();
+}
+
+function updateExplanation(tech) {
+  const el = document.getElementById('explanation');
+  switch(tech) {
+    case 'original':
+      el.innerHTML = '<span class="icon">📊</span> <strong>Original Data:</strong> 95 normal, 5 fraud. A lazy model predicts "normal" for everything. <strong style="color:var(--amber)">95% accuracy — but catches ZERO fraud.</strong> The fraud cluster is invisible to the model.';
+      break;
+    case 'undersample':
+      el.innerHTML = '<span class="icon">✂️</span> <strong>Undersampling:</strong> We threw away 87 normal transactions and kept only 8. Now the ratio is 8:5 — much more balanced. <strong style="color:var(--red)">Tradeoff: We lost 87 real data points.</strong> Works when you have abundant data. The faded dots show discarded data.';
+      break;
+    case 'oversample':
+      el.innerHTML = '<span class="icon">📋</span> <strong>Oversampling:</strong> We copied each fraud case 15 times. Now you see 95 normal vs 80 fraud (5 real + 75 copies). <strong style="color:var(--amber)">Risk: The copies are IDENTICAL to originals</strong> — the model memorizes those 5 specific cases, not the pattern of fraud. Dashed dots are copies.';
+      break;
+    case 'smote':
+      el.innerHTML = '<span class="icon">🧬</span> <strong>SMOTE:</strong> Instead of copying, we create NEW synthetic fraud cases by blending pairs of real ones. Each new point sits on a line between two real fraud cases, slightly jittered. <strong style="color:var(--magenta)">Result: 95 normal vs ~35 fraud</strong> — diverse coverage of the fraud region. Dashed dots = synthetic.';
+      break;
+    case 'weights':
+      el.innerHTML = '<span class="icon">⚖️</span> <strong>Class Weights:</strong> The data is UNCHANGED (still 95 vs 5). But we tell the model: "Missing a fraud case costs 20× more than misclassifying normal." <strong style="color:var(--green)">Fraud points are visually bigger</strong> to show their higher importance. No data modification, no copies, no loss. Cleanest approach.';
+      break;
+    case 'focal':
+      el.innerHTML = '<span class="icon">🎯</span> <strong>Focal Loss:</strong> The model ignores "easy" cases (normal far left, fraud far right) and <strong style="color:var(--violet)">ZOOMS IN on the border</strong> where normal and fraud overlap. Large dots = high focus. Small faded dots = ignored. The model spends its learning budget on the HARD cases only.';
+      break;
+  }
+}
+
+function updateStats() {
+  const nAlive = currentNormal.filter(p => p.alive).length;
+  const fAlive = currentFraud.filter(p => p.alive && !p.synthetic).length;
+  const fSynth = currentFraud.filter(p => p.alive && p.synthetic).length;
+  const total = nAlive + fAlive + fSynth;
+
+  document.getElementById('statPass').textContent = nAlive;
+  document.getElementById('statFail').textContent = fAlive + (fSynth ? `+${fSynth}` : '');
+
+  // Accuracy = always predicting "normal"
+  const acc = Math.round((nAlive / total) * 100);
+  document.getElementById('statAcc').textContent = acc + '%';
+
+  // Fraud caught depends on technique
+  let detect;
+  switch(currentTechnique) {
+    case 'original': detect = 0; break;
+    case 'undersample': detect = Math.round((5 / (8+5)) * 100); break;
+    case 'oversample': detect = 60; break;
+    case 'smote': detect = 70; break;
+    case 'weights': detect = 85; break;
+    case 'focal': detect = 90; break;
+    default: detect = 0;
+  }
+  document.getElementById('statDetect').textContent = detect + '%';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw grid lines
+  ctx.strokeStyle = 'rgba(33,38,45,0.5)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Draw separator zone
+  ctx.fillStyle = 'rgba(57,210,255,0.03)';
+  ctx.fillRect(420, 0, 160, H);
+  ctx.strokeStyle = 'rgba(57,210,255,0.15)';
+  ctx.setLineDash([8, 8]);
+  ctx.beginPath(); ctx.moveTo(500, 0); ctx.lineTo(500, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw normal points
+  currentNormal.forEach(p => {
+    if (!p.alive) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+
+    if (currentTechnique === 'focal' && p.focal) {
+      // Focal: highlighted border
+      ctx.fillStyle = `rgba(57,210,255,${p.opacity})`;
+      ctx.setLineDash([]);
+      ctx.fill();
+      ctx.strokeStyle = '#a371f7';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if (currentTechnique === 'weights') {
+      ctx.fillStyle = `rgba(57,210,255,${p.opacity})`;
+      ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(57,210,255,${p.opacity})`;
+      ctx.fill();
+    }
+  });
+
+  // Draw dead normal points (undersampling)
+  if (currentTechnique === 'undersample') {
+    normalPoints.forEach((p, i) => {
+      if (currentNormal[i].alive) return;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(72,79,88,0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(72,79,88,0.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+
+  // Draw fraud points
+  currentFraud.forEach(p => {
+    if (!p.alive) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+
+    if (p.synthetic) {
+      // Synthetic: dashed border
+      ctx.fillStyle = `rgba(255,110,199,${p.opacity})`;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,110,199,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (currentTechnique === 'focal' && p.focal) {
+      ctx.fillStyle = `rgba(248,81,73,${p.opacity})`;
+      ctx.fill();
+      ctx.strokeStyle = '#a371f7';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = `rgba(248,81,73,${p.opacity})`;
+      ctx.fill();
+    }
+  });
+
+  // Labels
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = 'rgba(139,148,158,0.5)';
+  ctx.fillText('NORMAL', 180, 30);
+  ctx.fillText('DECISION', 445, 30);
+  ctx.fillText('BOUNDARY', 452, 44);
+  ctx.fillText('FRAUD', 630, 30);
+
+  // Technique label
+  ctx.font = '13px "Orbitron"';
+  ctx.fillStyle = 'rgba(57,210,255,0.25)';
+  const labels = { original: 'ORIGINAL', undersample: 'UNDERSAMPLING', oversample: 'OVERSAMPLING', smote: 'SMOTE', weights: 'CLASS WEIGHTS', focal: 'FOCAL LOSS' };
+  ctx.fillText(labels[currentTechnique], 20, H - 20);
+}
+
+function animateReset() {
+  // Brief animation: scatter points outward then back
+  let frame = 0;
+  function anim() {
+    const offset = Math.sin(frame * 0.1) * 15;
+    ctx.clearRect(0, 0, W, H);
+    // redraw grid
+    ctx.strokeStyle = 'rgba(33,38,45,0.3)';
+    ctx.lineWidth = 0.3;
+    for (let x = 0; x < W; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 80) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    currentNormal.forEach(p => {
+      if (!p.alive) return;
+      ctx.beginPath();
+      ctx.arc(p.x + (Math.random()-0.5)*offset, p.y + (Math.random()-0.5)*offset, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(57,210,255,${p.opacity})`; ctx.fill();
+    });
+    currentFraud.forEach(p => {
+      if (!p.alive) return;
+      ctx.beginPath();
+      ctx.arc(p.x + (Math.random()-0.5)*offset, p.y + (Math.random()-0.5)*offset, p.r, 0, Math.PI*2);
+      if (p.synthetic) {
+        ctx.fillStyle = `rgba(255,110,199,${p.opacity})`; ctx.fill();
+      } else {
+        ctx.fillStyle = `rgba(248,81,73,${p.opacity})`; ctx.fill();
+      }
+    });
+
+    frame++;
+    if (frame < 30) requestAnimationFrame(anim);
+    else draw();
+  }
+  requestAnimationFrame(anim);
+}
+
+// Code snippets for each technique
+const codeSnippets = {
+  original: `<span class="cmt"># No code — this is your starting point. Always check the raw ratio first.</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+
+df = pd.read_csv(<span class="str">'transactions.csv'</span>)
+<span class="fn">print</span>(df[<span class="str">'is_fraud'</span>].value_counts())
+<span class="cmt"># 0    95000  ← normal</span>
+<span class="cmt"># 1      500  ← fraud (0.5%!)</span>
+
+<span class="cmt"># The trap: a model predicting "not fraud" gets 99.5% accuracy</span>
+<span class="cmt"># But catches ZERO fraud. Accuracy is a LIE for imbalanced data.</span>
+<span class="cmt"># Always use: precision, recall, F1, or ROC-AUC instead.</span>`,
+
+  undersample: `<span class="cmt"># ⚠️  Only use when you have abundant majority-class data</span>
+<span class="kw">from</span> <span class="pkg">imblearn.under_sampling</span> <span class="kw">import</span> <span class="lib">RandomUnderSampler</span>
+
+X = df.drop(<span class="str">'is_fraud'</span>, axis=<span class="num">1</span>)
+y = df[<span class="str">'is_fraud'</span>]
+
+undersample = <span class="lib">RandomUnderSampler</span>(
+    sampling_strategy=<span class="num">0.3</span>,  <span class="cmt"># 1 fraud : ~3 normal</span>
+    random_state=<span class="num">42</span>
+)
+X_under, y_under = undersample.<span class="fn">fit_resample</span>(X, y)
+
+<span class="fn">print</span>(<span class="str">f"Before: </span><span class="num">{</span>y.value_counts().to_dict()<span class="num">}</span><span class="str">"</span>)
+<span class="fn">print</span>(<span class="str">f"After:  </span><span class="num">{</span>y_under.value_counts().to_dict()<span class="num">}</span><span class="str">"</span>)
+<span class="cmt"># Before: {0: 95000, 1: 500}</span>
+<span class="cmt"># After:  {0: 1666,  1: 500}   ← threw away 93,334 rows!</span>
+
+<span class="cmt"># ⚠️  Tradeoff: You lose real data. Only use with large datasets.</span>`,
+
+  oversample: `<span class="cmt"># ⚠️  Simple copying — high overfitting risk. Prefer SMOTE instead.</span>
+<span class="kw">from</span> <span class="pkg">imblearn.over_sampling</span> <span class="kw">import</span> <span class="lib">RandomOverSampler</span>
+
+X = df.drop(<span class="str">'is_fraud'</span>, axis=<span class="num">1</span>)
+y = df[<span class="str">'is_fraud'</span>]
+
+oversample = <span class="lib">RandomOverSampler</span>(
+    sampling_strategy=<span class="num">0.5</span>,  <span class="cmt"># 1 fraud : 2 normal</span>
+    random_state=<span class="num">42</span>
+)
+X_over, y_over = oversample.<span class="fn">fit_resample</span>(X, y)
+
+<span class="fn">print</span>(<span class="str">f"Fraud count: </span><span class="num">{</span>y_over.value_counts()[<span class="num">1</span>]<span class="num">}</span><span class="str">"</span>)
+<span class="cmt"># Fraud count: 47500  ← each original copied 95 times!</span>
+
+<span class="cmt"># ⚠️  Risk: IDENTICAL copies → model memorizes, does NOT generalize</span>
+<span class="cmt"># ✅ Use only as a quick baseline before trying SMOTE</span>`,
+
+  smote: `<span class="cmt"># 🧬 Creates SYNTHETIC fraud cases — not copies. Much better.</span>
+<span class="kw">from</span> <span class="pkg">imblearn.over_sampling</span> <span class="kw">import</span> <span class="lib">SMOTE</span>
+
+X = df.drop(<span class="str">'is_fraud'</span>, axis=<span class="num">1</span>)
+y = df[<span class="str">'is_fraud'</span>]
+
+smote = <span class="lib">SMOTE</span>(
+    sampling_strategy=<span class="num">0.5</span>,
+    random_state=<span class="num">42</span>,
+    k_neighbors=<span class="num">5</span>       <span class="cmt"># look at 5 nearest fraud neighbours</span>
+)
+X_smote, y_smote = smote.<span class="fn">fit_resample</span>(X, y)
+
+<span class="cmt"># How SMOTE works:</span>
+<span class="cmt"># 1. Pick a real fraud case</span>
+<span class="cmt"># 2. Find its nearest fraud neighbour</span>
+<span class="cmt"># 3. Draw a line between them</span>
+<span class="cmt"># 4. Place a NEW point somewhere on that line</span>
+<span class="cmt"># 5. Repeat → genuinely new, diverse synthetic data</span>
+
+<span class="cmt"># Better variants for edge cases:</span>
+<span class="kw">from</span> <span class="pkg">imblearn.over_sampling</span> <span class="kw">import</span> <span class="lib">BorderlineSMOTE</span>, <span class="lib">ADASYN</span>
+borderline = <span class="lib">BorderlineSMOTE</span>()  <span class="cmt"># only near the decision boundary</span>
+adasyn     = <span class="lib">ADASYN</span>()          <span class="cmt"># more points where minority is sparse</span>
+
+<span class="cmt"># ⚠️  Catch: Doesn't work well with categorical features</span>
+<span class="cmt"># ⚠️  Catch: Can create unrealistic points if fraud cases are scattered</span>`,
+
+  weights: `<span class="cmt"># ⚖️  DATA IS UNCHANGED. Only the LOSS FUNCTION changes.</span>
+<span class="cmt"># Cleanest approach — no data modification, no copies, no loss.</span>
+
+<span class="cmt"># === Scikit-Learn (works with most classifiers) ===</span>
+<span class="kw">from</span> <span class="pkg">sklearn.linear_model</span> <span class="kw">import</span> <span class="lib">LogisticRegression</span>
+<span class="kw">from</span> <span class="pkg">sklearn.ensemble</span> <span class="kw">import</span> <span class="lib">RandomForestClassifier</span>
+
+<span class="cmt"># Option A: Auto-balance (recommended starting point)</span>
+model = <span class="lib">LogisticRegression</span>(class_weight=<span class="str">'balanced'</span>)
+<span class="cmt"># sklearn calculates: weight = n_samples / (n_classes × n_samples_per_class)</span>
+
+<span class="cmt"># Option B: Manual ratio (more control)</span>
+model = <span class="lib">LogisticRegression</span>(class_weight={<span class="num">0</span>: <span class="num">1</span>, <span class="num">1</span>: <span class="num">20</span>})  <span class="cmt"># fraud = 20× penalty</span>
+model = <span class="lib">RandomForestClassifier</span>(class_weight=<span class="str">'balanced'</span>)
+
+<span class="cmt"># === XGBoost ===</span>
+<span class="kw">from</span> <span class="pkg">xgboost</span> <span class="kw">import</span> <span class="lib">XGBClassifier</span>
+ratio = <span class="fn">len</span>(y[y == <span class="num">0</span>]) / <span class="fn">len</span>(y[y == <span class="num">1</span>])  <span class="cmt"># 95000/500 = 190</span>
+model = <span class="lib">XGBClassifier</span>(scale_pos_weight=ratio)
+
+<span class="cmt"># === LightGBM ===</span>
+<span class="kw">from</span> <span class="pkg">lightgbm</span> <span class="kw">import</span> <span class="lib">LGBMClassifier</span>
+model = <span class="lib">LGBMClassifier</span>(class_weight=<span class="str">'balanced'</span>)
+
+<span class="cmt"># ✅ Best for: when you don't want to touch your data at all</span>
+<span class="cmt"># ✅ Best for: categorical features (SMOTE can't handle them)</span>
+<span class="cmt"># ✅ Best for: explainability — real data, no synthetic points</span>`,
+
+  focal: `<span class="cmt"># 🎯 Focuses learning on HARD cases near the decision boundary</span>
+<span class="cmt"># "Easy" cases (far from boundary) are down-weighted</span>
+<span class="cmt"># Not in scikit-learn — use TensorFlow or PyTorch</span>
+
+<span class="cmt"># === TensorFlow / Keras ===</span>
+<span class="kw">import</span> tensorflow <span class="kw">as</span> tf
+
+<span class="kw">def</span> <span class="fn">focal_loss</span>(gamma=<span class="num">2.0</span>, alpha=<span class="num">0.25</span>):
+    <span class="kw">def</span> <span class="fn">loss</span>(y_true, y_pred):
+        ce = tf.keras.losses.<span class="fn">binary_crossentropy</span>(y_true, y_pred)
+        p_t = y_true * y_pred + (<span class="num">1</span> - y_true) * (<span class="num">1</span> - y_pred)
+        <span class="kw">return</span> alpha * (<span class="num">1</span> - p_t) ** gamma * ce
+    <span class="kw">return</span> loss
+
+model.<span class="fn">compile</span>(optimizer=<span class="str">'adam'</span>, loss=<span class="fn">focal_loss</span>(gamma=<span class="num">2.0</span>))
+
+<span class="cmt"># === PyTorch ===</span>
+<span class="kw">import</span> torch
+<span class="kw">import</span> torch.nn.functional <span class="kw">as</span> F
+
+<span class="kw">class</span> <span class="fn">FocalLoss</span>(torch.nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, alpha=<span class="num">0.25</span>, gamma=<span class="num">2.0</span>):
+        <span class="fn">super</span>().<span class="fn">__init__</span>()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, inputs, targets):
+        ce = F.<span class="fn">binary_cross_entropy_with_logits</span>(inputs, targets, reduction=<span class="str">'none'</span>)
+        pt = torch.<span class="fn">exp</span>(-ce)
+        <span class="kw">return</span> (self.alpha * (<span class="num">1</span> - pt) ** self.gamma * ce).<span class="fn">mean</span>()
+
+criterion = <span class="fn">FocalLoss</span>(gamma=<span class="num">2.0</span>)
+
+<span class="cmt"># gamma=0 → plain cross-entropy</span>
+<span class="cmt"># gamma=2 → standard focal (most common)</span>
+<span class="cmt"># gamma=5 → extreme focus on hardest cases only</span>
+<span class="cmt"># ⚠️  Best for: extreme imbalance (1:1000+)</span>
+<span class="cmt"># ⚠️  Best for: object detection, medical imaging, rare event detection</span>`
+};
+
+let codeVisible = false;
+
+function toggleCode() {
+  codeVisible = !codeVisible;
+  const panel = document.getElementById('codePanel');
+  const btn = document.getElementById('codeToggleBtn');
+  if (codeVisible) {
+    panel.classList.add('show');
+    btn.textContent = '🙈 Hide Code';
+    if (!panel.innerHTML.trim()) updateCodePanel();
+  } else {
+    panel.classList.remove('show');
+    btn.textContent = '💻 Show Python Code';
+  }
+}
+
+function updateCodePanel() {
+  const panel = document.getElementById('codePanel');
+  if (codeVisible) {
+    panel.innerHTML = codeSnippets[currentTechnique] || codeSnippets['original'];
+  }
+}
+
+// Override applyTechnique to also update code
+const originalApplyTechnique = applyTechnique;
+applyTechnique = function(tech) {
+  originalApplyTechnique(tech);
+  updateCodePanel();
+};
+
+// Override updateExplanation to also update code
+const originalUpdateExplanation = updateExplanation;
+updateExplanation = function(tech) {
+  originalUpdateExplanation(tech);
+  // Code panel updates happen in applyTechnique
+};
+
+// Init
+draw();
+updateStats();
+
+// Highlight active button
+document.querySelectorAll('.control-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
