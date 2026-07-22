@@ -40,6 +40,7 @@ See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
 | **3** | [🎓 MLP on MNIST — ReLU & Softmax](phase3_mlp_mnist.html) | 15 slides — Architecture, ReLU, Softmax, Accuracy, Loss + p_correct visual, R²/MAE/RMSE, Precision/Recall/F1, pipeline, detective analogy |
 | **3** | [🧮 LR → Epochs Calculator](phase3_lr_convergence_calc.html) | Interactive — adjust learning rate, see epochs needed, accuracy trajectory bars, reference table |
 | **3.5** | [🎓 CNN on MNIST — Convolution Kernels](phase3_5_cnn_mnist.html) | 9 slides — CNN vs FC, 2D convolution, Conv2D CUDA kernel code, Max Pooling, architecture, training loop, benchmarks (96.29%, 7.4×) |
+| **3.5** | [📝 Hands-on Exercises](Phase_3_5_CNN/) | 6 templates — convolution by hand, kernel trace, max pooling, architecture design, Colab training + experiments, benchmarks + reflection |
 | **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 8 slides — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving |
 | **6** | [🎓 Production CUDA (6A-6F)](phase6_production_cuda.html) | 10 slides — TensorRT, Triton, Nsight, Multi-Stream 7×, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s |
 

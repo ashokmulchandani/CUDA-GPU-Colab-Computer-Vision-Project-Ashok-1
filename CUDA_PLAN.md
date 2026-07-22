@@ -53,7 +53,7 @@
 
 ## Phase 3.5: CNN on MNIST (Convolution Kernel in CUDA)
 
-> 🎓 **Interactive Learning Module:** [phase3_5_cnn_mnist.html](phase3_5_cnn_mnist.html) — 9 interactive slides: CNN vs FC, 2D convolution filter sliding, Conv2D CUDA kernel code walkthrough, Max Pooling with index tracking, Full architecture pipeline, Training loop (10 kernels), Benchmarks (96.29%, 7.4× vs PyTorch), How to run the code, Summary. Use ← → arrow keys.
+> 🎓 **Interactive Learning Module:** [phase3_5_cnn_mnist.html](phase3_5_cnn_mnist.html) — 9 interactive slides. **Hands-on Exercises:** [Phase_3_5_CNN/](Phase_3_5_CNN/) — 6 exercise templates: convolution by hand, kernel walkthrough, max pooling, architecture dimension tracking, training loop + experiments, benchmarks + reflection.
 
 | Step | Task |
 |------|------|
