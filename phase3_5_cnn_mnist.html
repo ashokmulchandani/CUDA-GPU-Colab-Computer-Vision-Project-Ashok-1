@@ -661,6 +661,43 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
     </div>
 
   </div>
+
+  <h3>🤔 Who Decides the Filter Size vs Filter Values?</h3>
+  <p>This confuses EVERYONE. Let's settle it:</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0.8rem 0;">
+    <div style="background:var(--bg-card);border:2px solid var(--amber);border-radius:10px;padding:1rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--amber);margin-bottom:0.5rem;">🧑 YOU Decide (Hyperparameter)</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:2;color:var(--amber);">
+        <strong>Filter SIZE</strong> (3×3 vs 5×5 vs 7×7)<br>
+        <strong>Number of filters</strong> (8, 16, 32...)<br>
+        <strong>Stride</strong> (how far to slide)<br>
+        <strong>Padding</strong> (add border or not?)
+      </div>
+      <div style="font-size:0.65rem;color:var(--text-dim);margin-top:0.4rem;">These are architecture choices you make BEFORE training. They determine the shape of the network.</div>
+    </div>
+    <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:10px;padding:1rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--green);margin-bottom:0.5rem;">🤖 The NETWORK Learns (Backprop)</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:2;color:var(--green);">
+        <strong>Filter VALUES</strong> (what numbers are inside)<br>
+        <strong>Which pattern each filter detects</strong><br>
+        <strong>Whether it becomes edge/curve/blob detector</strong>
+      </div>
+      <div style="font-size:0.65rem;color:var(--text-dim);margin-top:0.4rem;">These are LEARNED during training via gradient descent. The +1, 0, −1 values in these examples are what the network DISCOVERS on its own.</div>
+    </div>
+  </div>
+
+  <div style="background:var(--violet-bg);background:rgba(163,113,247,0.08);border:2px solid var(--violet);border-radius:10px;padding:1rem;text-align:center;margin:0.8rem 0;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--text-dim);line-height:1.8;">
+      <strong style="color:var(--violet);">🎯 The TL;DR:</strong><br>
+      Filter <strong style="color:var(--amber);">SIZE</strong> = you choose. "I want 5×5 filters."<br>
+      Filter <strong style="color:var(--green);">VALUES</strong> = the network learns. "During training, filter #3 discovered it should detect diagonal strokes."<br><br>
+      <span style="color:var(--text-muted);">The examples above with +1, 0, −1 are <strong>illustrations</strong> of what a TRAINED filter looks like.<br>
+      In a REAL CNN, you initialize filters with RANDOM numbers (e.g., uniform [-0.5, +0.5]),<br>
+      then backprop updates them until they become edge/curve/blob detectors automatically.</span>
+    </div>
+  </div>
+
   <div class="options">
     <div class="option" onclick="checkQuiz('quiz1', this)">A. 7×7</div>
     <div class="option" data-correct="true" onclick="checkQuiz('quiz1', this)">B. 26×26 — 32−7+1 = 26. The formula is always: input_size − filter_size + 1.</div>
