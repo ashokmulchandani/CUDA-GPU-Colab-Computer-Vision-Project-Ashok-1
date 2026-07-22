@@ -1272,6 +1272,44 @@ to be careful about overconfident wrong answers.</span></div>
     </div>
   </div>
 
+  <h3>🔍 Full View: ALL 128 Neurons of Hidden Layer 1 — Before & After ReLU</h3>
+  <p>Each tiny square is one of the <strong style="color:var(--cyan);">128 neurons</strong> in Hidden Layer 1. <strong style="color:var(--green);">Green = positive</strong> (will survive). <strong style="color:var(--red);">Red = negative</strong> (will be killed). Color intensity = magnitude. This is what <strong style="color:var(--amber);">sparsity</strong> looks like — ReLU silences the irrelevant neurons and only the relevant ones keep firing.</p>
+
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.5rem 0;">
+
+    <!-- BEFORE: 128 grid -->
+    <div style="flex:1;min-width:280px;background:var(--bg-card);border:2px solid var(--border);border-radius:10px;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--text-dim);text-align:center;margin-bottom:0.6rem;">🔴🟢 BEFORE ReLU — Raw matmul outputs</div>
+      <div id="reluBeforeGrid" style="display:grid;grid-template-columns:repeat(16,1fr);gap:2px;"></div>
+      <div style="display:flex;justify-content:center;gap:1rem;margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
+        <span><span style="color:var(--green);">■</span> <span id="reluBeforePos">73</span> positive</span>
+        <span><span style="color:var(--red);">■</span> <span id="reluBeforeNeg">55</span> negative</span>
+        <span style="color:var(--text-dim);"><span id="reluBeforePct">57</span>% firing</span>
+      </div>
+    </div>
+
+    <!-- ARROW -->
+    <div style="display:flex;align-items:center;justify-content:center;min-width:40px;flex-direction:column;">
+      <div style="font-size:1.5rem;color:var(--cyan);">→</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);">ReLU</div>
+    </div>
+
+    <!-- AFTER: 128 grid -->
+    <div style="flex:1;min-width:280px;background:var(--bg-card);border:2px solid var(--border);border-radius:10px;padding:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--text-dim);text-align:center;margin-bottom:0.6rem;">🟢⬛ AFTER ReLU — Negatives turned to zero</div>
+      <div id="reluAfterGrid" style="display:grid;grid-template-columns:repeat(16,1fr);gap:2px;"></div>
+      <div style="display:flex;justify-content:center;gap:1rem;margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
+        <span><span style="color:var(--green);">■</span> <span id="reluAfterPos">73</span> survived</span>
+        <span><span style="color:var(--text-muted);">■</span> <span id="reluAfterZero">55</span> silenced</span>
+        <span style="color:var(--text-dim);"><span id="reluAfterPct">57</span>% still active</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);margin-top:0.3rem;">
+    Each square = 1 neuron. Its value comes from <strong style="color:var(--amber);">Σ(pᵢ×wᵢ) + bias</strong> (784 multiplications). Hover to see the exact value.
+  </div>
+
   <h3>🔢 Where Do These Numbers Come From? — 784 Multiplications Per Neuron</h3>
   <p>The bar chart shows the <strong style="color:var(--cyan)">output</strong> of the matmul. But each bar is the result of <strong style="color:var(--amber);">784 individual pixel×weight multiplications</strong> added together. Let's trace two specific neurons to see why one survives ReLU and one gets killed.</p>
 
@@ -1680,6 +1718,10 @@ function renderSlide(index) {
   if (index === 2 && typeof updateLR3 === 'function') {
     setTimeout(function(){ updateLR3('0.01'); }, 100);
   }
+  // Auto-init ReLU 128-neuron grid if on slide 3.4 (index 3)
+  if (index === 3 && typeof renderReluGrid === 'function') {
+    setTimeout(function(){ renderReluGrid(); }, 100);
+  }
 }
 
 function goTo(index) { if (index >= 0 && index < slides.length) renderSlide(index); }
@@ -1704,6 +1746,80 @@ document.addEventListener('keydown', function(e) {
 });
 
 renderSlide(0);
+
+// ── ReLU 128-Neuron Grid Renderer (Slide 3.4) ──
+var reluValues = null; // cached so it doesn't change on every render
+
+function generateReluValues() {
+  // Generate 128 realistic neuron values (mix of positive and negative)
+  // Use a seeded-ish approach so values are consistent
+  var vals = [];
+  var posCount = 0, negCount = 0;
+  for (var i = 0; i < 128; i++) {
+    // Create a realistic distribution: ~55-60% positive, 40-45% negative
+    // Use a sine-based pseudo-random for consistency
+    var seed = (i * 7 + 3) % 11;
+    var raw = (Math.sin(i * 2.718 + 1.618) * 3.5) + (seed - 5) * 0.4;
+    raw = Math.round(raw * 100) / 100; // 2 decimal places
+    if (raw > 0) posCount++; else negCount++;
+    vals.push(raw);
+  }
+  return {values: vals, pos: posCount, neg: negCount};
+}
+
+function renderReluGrid() {
+  var beforeGrid = document.getElementById('reluBeforeGrid');
+  var afterGrid = document.getElementById('reluAfterGrid');
+  if (!beforeGrid || !afterGrid) return;
+
+  // Use cached values or generate new ones
+  if (!reluValues) reluValues = generateReluValues();
+  var vals = reluValues.values;
+  var posCount = reluValues.pos;
+  var negCount = reluValues.neg;
+  var pct = Math.round((posCount / 128) * 100);
+
+  // Build before grid
+  var beforeHTML = '';
+  for (var i = 0; i < 128; i++) {
+    var v = vals[i];
+    var isPos = v > 0;
+    var absV = Math.abs(v);
+    var intensity = Math.min(1, absV / 3.5); // normalize to 0-1
+    var opacity = 0.25 + intensity * 0.75; // min 25% opacity so zeros are visible
+    var color = isPos ?
+      'rgba(63,185,80,' + opacity + ')' :
+      'rgba(248,81,73,' + opacity + ')';
+    beforeHTML += '<div title="N' + (i+1) + ': ' + (v >= 0 ? '+' : '') + v.toFixed(2) + '" style="width:100%;aspect-ratio:1;background:' + color + ';border-radius:2px;cursor:default;"></div>';
+  }
+  beforeGrid.innerHTML = beforeHTML;
+
+  // Build after grid (negatives become zero/gray)
+  var afterHTML = '';
+  for (var j = 0; j < 128; j++) {
+    var w = vals[j];
+    var isPosAfter = w > 0;
+    var absW = Math.abs(w);
+    var intensityAfter = Math.min(1, absW / 3.5);
+    var opacityAfter = 0.25 + intensityAfter * 0.75;
+    var colorAfter;
+    if (isPosAfter) {
+      colorAfter = 'rgba(63,185,80,' + opacityAfter + ')';
+    } else {
+      colorAfter = 'rgba(72,79,88,0.3)'; // muted gray for killed neurons
+    }
+    afterHTML += '<div title="N' + (j+1) + ': ' + (isPosAfter ? '+' + w.toFixed(2) : '0.00 (was ' + (w >= 0 ? '+' : '') + w.toFixed(2) + ')') + '" style="width:100%;aspect-ratio:1;background:' + colorAfter + ';border-radius:2px;cursor:default;"></div>';
+  }
+  afterGrid.innerHTML = afterHTML;
+
+  // Update counts
+  var bp = document.getElementById('reluBeforePos'); if (bp) bp.textContent = posCount;
+  var bn = document.getElementById('reluBeforeNeg'); if (bn) bn.textContent = negCount;
+  var bpp = document.getElementById('reluBeforePct'); if (bpp) bpp.textContent = pct;
+  var ap = document.getElementById('reluAfterPos'); if (ap) ap.textContent = posCount;
+  var az = document.getElementById('reluAfterZero'); if (az) az.textContent = negCount;
+  var app = document.getElementById('reluAfterPct'); if (app) app.textContent = pct;
+}
 
 // ── Embedded LR → Epochs Calculator (Slide 3.3) ──
 // Calibrated simulation: decayRate = exp(-lr * 25.5) matches real MNIST training:
