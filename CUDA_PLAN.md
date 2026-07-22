@@ -53,6 +53,8 @@
 
 ## Phase 3.5: CNN on MNIST (Convolution Kernel in CUDA)
 
+> 🎓 **Interactive Learning Module:** [phase3_5_cnn_mnist.html](phase3_5_cnn_mnist.html) — 9 interactive slides: CNN vs FC, 2D convolution filter sliding, Conv2D CUDA kernel code walkthrough, Max Pooling with index tracking, Full architecture pipeline, Training loop (10 kernels), Benchmarks (96.29%, 7.4× vs PyTorch), How to run the code, Summary. Use ← → arrow keys.
+
 | Step | Task |
 |------|------|
 | 3.5.1 | Understand 2D convolution — filter sliding over image |
@@ -638,6 +640,7 @@ Visual, slide-based learning modules following the same pattern as the [MLOPS Sy
 | Phase | Module | Slides | Topics |
 |-------|--------|--------|--------|
 | **3** | [phase3_mlp_mnist.html](phase3_mlp_mnist.html) | 15 slides | Architecture, Hyperparameters (embedded LR estimator), Accuracy formula, Cross-Entropy Loss + p_correct visual + good ranges, R²/MAE/RMSE regression metrics + examples, Precision/Recall/F1 + confusion matrix, ReLU + bouncer analogy, Softmax + election analogy, Full pipeline walkthrough, Detective analogy, CUDA kernels (30× vs PyTorch) |
+| **3.5** | [phase3_5_cnn_mnist.html](phase3_5_cnn_mnist.html) | 9 slides | CNN vs FC + weight sharing, 2D convolution sliding filter, Conv2D CUDA kernel code walkthrough, Max Pooling + index tracking, Full architecture pipeline, Training loop (10 kernels), Benchmarks 96.29%/7.4×, How to run, Summary |
 | **3** | [🧮 LR → Epochs Estimator](phase3_lr_convergence_calc.html) | interactive | Adjust learning rate → see estimated epochs, accuracy trajectory bars, 17-row reference table, rules of thumb |
 | **4** | [phase4_yolo_cuda.html](phase4_yolo_cuda.html) | 8 slides | YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS kernel, 137 FPS pipeline, Triton serving |
 | **6** | [phase6_production_cuda.html](phase6_production_cuda.html) | 10 slides | 6A TensorRT, 6B Triton Server, 6C Nsight Profiling, 6D Multi-Stream 7×, CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment |

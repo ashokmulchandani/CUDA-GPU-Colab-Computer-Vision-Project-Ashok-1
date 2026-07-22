@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 3.5: CNN on MNIST — Convolutions, Pooling, Weight Sharing & Full CUDA Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06090f; --bg-card: #0d1117; --bg-raised: #161b22;
+  --border: #21262d; --border-active: #30363d;
+  --text: #e6edf3; --text-dim: #8b949e; --text-muted: #484f58;
+  --cyan: #39d2ff; --cyan-bg: #39d2ff15; --cyan-border: #39d2ff40;
+  --amber: #ffb347; --amber-bg: #ffb34715;
+  --green: #3fb950; --green-bg: #3fb95015;
+  --magenta: #ff6ec7; --magenta-bg: #ff6ec715;
+  --red: #f85149; --violet: #a371f7;
+  --radius: 14px; --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+body.light {
+  --bg: #f6f8fa; --bg-card: #ffffff; --bg-raised: #e8ecf0;
+  --border: #d0d7de; --border-active: #afb8c1;
+  --text: #1f2328; --text-dim: #656d76; --text-muted: #8b949e;
+  --cyan: #0969da; --cyan-bg: #ddf4ff; --cyan-border: #54aeff;
+  --amber: #9a6700; --amber-bg: #fff8c5;
+  --green: #1a7f37; --green-bg: #dafbe1;
+  --magenta: #bf3989; --magenta-bg: #fbefff;
+  --red: #cf222e; --violet: #8250df;
+}
+body.light .topbar { background: rgba(246,248,250,0.9); }
+body.light .eq-box { background: rgba(0,0,0,0.03); }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow-x: hidden; line-height: 1.65;
+  transition: background 0.3s, color 0.3s;
+}
+.bg-canvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.app { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:2rem; }
+
+.theme-toggle {
+  position: fixed; top: 0.7rem; right: 2rem; z-index: 200;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--text); font-size: 1.1rem; cursor: pointer;
+  padding: 0.35rem 0.6rem; border-radius: 6px;
+  transition: var(--transition);
+  font-family: 'JetBrains Mono', monospace;
+}
+.theme-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.topbar {
+  position: sticky; top:0; z-index:100;
+  background: rgba(6,9,15,0.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 2rem; display: flex; align-items: center; gap: 1rem; font-size: 0.8rem;
+}
+.topbar .logo { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; letter-spacing: 0.15em; color: var(--cyan); white-space: nowrap; }
+.topbar .step-dots { display: flex; gap: 0.4rem; flex:1; justify-content: center; }
+.topbar .step-dot { width: 28px; height: 4px; border-radius: 2px; background: var(--border); transition: var(--transition); cursor: pointer; }
+.topbar .step-dot.done { background: var(--green); }
+.topbar .step-dot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.topbar .step-dot:hover { background: var(--text-dim); }
+.topbar .step-label { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; }
+
+.header { text-align: center; padding: 3rem 0 1rem; }
+.header .phase-badge { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.2em; color: var(--green); border: 1px solid var(--green-bg); border-radius: 100px; padding: 0.4em 1.4em; margin-bottom: 1rem; }
+.header h1 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: 700; background: linear-gradient(135deg, var(--cyan), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+.header .tagline { color: var(--text-dim); font-size: 1rem; }
+
+.topic-list { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin: 1.5rem 0 1rem; }
+.topic-chip { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.04em; padding: 0.3rem 0.7rem; border-radius: 100px; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: var(--transition); background: transparent; }
+.topic-chip.visited { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.topic-chip.current { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); box-shadow: 0 0 10px var(--cyan-border); }
+.topic-chip:hover { border-color: var(--text-dim); color: var(--text-dim); }
+
+.fun-fact { background: linear-gradient(135deg, var(--amber-bg), var(--magenta-bg)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 1.2rem; margin-bottom: 1.5rem; font-size: 0.78rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.6rem; }
+.fun-fact .bulb { font-size: 1.2rem; flex-shrink: 0; }
+.fun-fact strong { color: var(--amber); }
+
+.slide { animation: slideIn 0.35s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; }
+.card h2 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text); }
+.card h2 .num { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--cyan); background: var(--cyan-bg); border-radius: 6px; padding: 0.2em 0.6em; }
+.card p { color: var(--text-dim); margin-bottom: 1rem; font-size: 0.95rem; }
+.card h3 { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--cyan); margin: 1.2rem 0 0.5rem; }
+.card ul, .card ol { color: var(--text-dim); padding-left: 1.5rem; margin-bottom: 1rem; font-size: 0.9rem; }
+.card ul li, .card ol li { margin-bottom: 0.4rem; }
+
+.eq-box { background: rgba(0,0,0,0.4); border-left: 3px solid var(--cyan); border-radius: var(--radius-sm); padding: 1.2rem 1.5rem; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.8; color: var(--text); white-space: pre-wrap; overflow-x: auto; }
+
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.compare-grid.two-col { grid-template-columns: 1fr 1fr; }
+.compare-card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; transition: var(--transition); }
+.compare-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.compare-card.pick-a { border-left: 3px solid var(--red); }
+.compare-card.pick-b { border-left: 3px solid var(--cyan); }
+.compare-card.pick-c { border-left: 3px solid var(--green); }
+.compare-card h4 { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; margin-bottom: 0.5rem; }
+.compare-card.pick-a h4 { color: var(--red); }
+.compare-card.pick-b h4 { color: var(--cyan); }
+.compare-card.pick-c h4 { color: var(--green); }
+.compare-card p { font-size: 0.82rem !important; color: var(--text-dim) !important; }
+.compare-card .tag-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.compare-card .tag { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; padding: 0.2em 0.6em; border-radius: 100px; }
+.tag.low { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.tag.med { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.tag.high { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+.pipeline { display: flex; align-items: center; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin: 1.2rem 0; }
+.pipeline-stage { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.8rem 1rem; text-align: center; transition: var(--transition); min-width: 90px; }
+.pipeline-stage.highlight { border-color: var(--cyan); background: var(--cyan-bg); }
+.pipeline-stage .stage-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.pipeline-stage .stage-name { font-family: 'Orbitron', sans-serif; font-size: 0.6rem; color: var(--cyan); line-height: 1.3; }
+.pipeline-stage .stage-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.2rem; }
+.pipeline-arrow { font-size: 1.4rem; color: var(--cyan); animation: arrowPulse 1.5s ease-in-out infinite; }
+@keyframes arrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+.data-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin: 1rem 0; }
+.data-types.two { grid-template-columns: repeat(2, 1fr); }
+.data-type-card { background: var(--bg-raised); border: 1px solid var(--border); border-top: 3px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; transition: var(--transition); cursor: default; }
+.data-type-card:nth-child(1) { border-top-color: var(--cyan); }
+.data-type-card:nth-child(2) { border-top-color: var(--amber); }
+.data-type-card:nth-child(3) { border-top-color: var(--magenta); }
+.data-type-card:nth-child(4) { border-top-color: var(--green); }
+.data-type-card:nth-child(5) { border-top-color: var(--violet); }
+.data-type-card:nth-child(6) { border-top-color: var(--red); }
+.data-type-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.data-type-card .dt-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.data-type-card h4 { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; margin-bottom: 0.3rem; color: var(--cyan); }
+.data-type-card p { font-size: 0.78rem !important; color: var(--text-muted) !important; margin-bottom: 0 !important; }
+
+.ladder { display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
+.ladder-rung { display: flex; align-items: center; gap: 0.8rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 1rem; transition: var(--transition); }
+.ladder-rung:hover { border-color: var(--cyan); }
+.ladder-rung .rung-icon { font-size: 1.3rem; flex-shrink: 0; }
+.ladder-rung .rung-bar { width: 6px; height: 36px; border-radius: 3px; flex-shrink: 0; }
+.ladder-rung .rung-label { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text); min-width: 80px; }
+.ladder-rung .rung-metric { font-family: 'Orbitron', sans-serif; font-size: 0.72rem; color: var(--cyan); flex: 1; }
+.ladder-rung .rung-example { font-size: 0.72rem; color: var(--text-muted); }
+
+.checklist { margin: 1rem 0; }
+.checklist .check-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-dim); }
+.checklist .check-box { font-size: 1rem; flex-shrink: 0; }
+
+.flashcard-wrap { perspective: 800px; margin: 1rem 0; cursor: pointer; }
+.flashcard { position: relative; width: 100%; min-height: 90px; transform-style: preserve-3d; transition: transform 0.5s; }
+.flashcard.flipped { transform: rotateY(180deg); }
+.flashcard .front, .flashcard .back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: var(--radius-sm); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1rem; }
+.flashcard .front { background: var(--bg-raised); border: 1px solid var(--border); font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--cyan); }
+.flashcard .front .hint { font-family: 'DM Sans', sans-serif; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem; }
+.flashcard .back { background: var(--bg-raised); border: 1px solid var(--cyan); transform: rotateY(180deg); color: var(--text-dim); font-size: 0.85rem; text-align: center; }
+
+.big-stat { text-align: center; margin: 1rem 0; }
+.big-stat .number { font-family: 'Orbitron', sans-serif; font-size: 2.8rem; font-weight: 700; background: linear-gradient(135deg, var(--cyan), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.big-stat .label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+.quiz { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; margin-top: 1.5rem; }
+.quiz .question { font-family: 'Orbitron', sans-serif; font-size: 0.82rem; color: var(--text); margin-bottom: 0.8rem; }
+.quiz .options { display: flex; flex-direction: column; gap: 0.4rem; }
+.quiz .option { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 1rem; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; transition: var(--transition); }
+.quiz .option:hover { border-color: var(--cyan); color: var(--cyan); }
+.quiz .option.correct { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.quiz .option.wrong { border-color: var(--red); background: #f8514920; color: var(--red); }
+.quiz .feedback { display: none; margin-top: 0.8rem; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.82rem; }
+.quiz .feedback.show { display: block; }
+.quiz .feedback.correct { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.quiz .feedback.wrong { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+.nav-row { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
+.nav-btn { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; padding: 0.6rem 1.8rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); cursor: pointer; transition: var(--transition); }
+.nav-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-btn.primary { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); }
+
+.code-block {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1.2rem;
+  margin: 1rem 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text-dim);
+}
+.code-block .kw { color: var(--magenta); }
+.code-block .fn { color: var(--cyan); }
+.code-block .tp { color: var(--amber); }
+.code-block .cm { color: var(--text-muted); font-style: italic; }
+.code-block .str { color: var(--green); }
+.code-block .num { color: var(--violet); }
+
+@media (max-width: 768px) {
+  .app { padding: 1rem; } .topbar { padding: 0.5rem 1rem; }
+  .compare-grid { grid-template-columns: 1fr; } .data-types { grid-template-columns: 1fr; }
+  .pipeline { flex-direction: column; } .pipeline-arrow { transform: rotate(90deg); }
+  .header h1 { font-size: 1.3rem; } .card { padding: 1.2rem; }
+  .theme-toggle { right: 0.5rem; top: 0.5rem; font-size: 0.9rem; padding: 0.3rem 0.5rem; }
+  .big-stat .number { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme" onclick="toggleTheme()">☀️</button>
+
+<nav class="topbar">
+  <span class="logo">CUDA — PHASE 3.5</span>
+  <div class="step-dots" id="stepDots"></div>
+  <span class="step-label" id="stepLabel">1/9</span>
+</nav>
+
+<div class="app">
+  <header class="header">
+    <div class="phase-badge">✅ COMPLETED — 96.29% Accuracy, 7.4× vs PyTorch</div>
+    <h1>Phase 3.5: CNN on MNIST — Convolutions, Pooling, Weight Sharing &amp; Full CUDA Pipeline</h1>
+    <p class="tagline">28×28 pixels → Conv2D (5×5, 8 filters) → ReLU → MaxPool (2×2) → Flatten → FC (1152→10) → Softmax. 10 CUDA kernels, 11,738 parameters, 96.29% accuracy in 12.9 seconds.</p>
+  </header>
+
+  <div class="topic-list" id="topicChips"></div>
+
+  <div class="fun-fact" id="funFact">
+    <span class="bulb">💡</span>
+    <span class="fact-text" id="funFactText"></span>
+  </div>
+
+  <div id="slideContainer"></div>
+
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn" onclick="goTo(currentSlide-1)">← Previous</button>
+    <button class="nav-btn primary" id="nextBtn" onclick="goTo(currentSlide+1)">Next →</button>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  document.getElementById('themeToggle').textContent = document.body.classList.contains('light') ? '🌙' : '☀️';
+  localStorage.setItem('cuda-phase35-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+}
+(function() {
+  if (localStorage.getItem('cuda-phase35-theme') === 'light') { document.body.classList.add('light'); document.getElementById('themeToggle').textContent = '🌙'; }
+})();
+
+(function() {
+  const canvas = document.getElementById('bgCanvas'), ctx = canvas.getContext('2d');
+  let particles = [];
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  for (let i = 0; i < 60; i++) particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, r: Math.random() * 2 + 0.5 });
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const isLight = document.body.classList.contains('light');
+    const lineColor = isLight ? 'rgba(9,105,218,0.06)' : 'rgba(57,210,255,0.06)';
+    const dotColor = isLight ? 'rgba(9,105,218,0.3)' : 'rgba(57,210,255,0.3)';
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0; if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0; });
+    for (let i = 0; i < particles.length; i++)
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        if (Math.sqrt(dx*dx+dy*dy) < 100) { ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.strokeStyle = lineColor; ctx.lineWidth = 0.5; ctx.stroke(); }
+      }
+    particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fillStyle = dotColor; ctx.fill(); });
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+const slides = [
+  // ═══════ SLIDE 1 (3.5.1): CNN vs Fully-Connected — Why Convolutions? ═══════
+  {
+    id: '3.5.1',
+    title: 'CNN vs Fully-Connected — Why Convolutions?',
+    fact: '<strong>A single 5×5 conv filter has only 25 weights.</strong> The same 25 weights are REUSED across all 24×24 positions — that is 576× parameter efficiency!',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.1</span> CNN vs Fully-Connected — Why Convolutions?</h2>
+  <p>The MLP in Phase 3 treated every pixel as <strong style="color:var(--red)">independent</strong> — "pixel 5" and "pixel 6" are just separate numbers. But images have <strong style="color:var(--cyan)">spatial structure</strong>: nearby pixels together form edges, curves, and shapes. A CNN exploits this structure.</p>
+
+  <h3>🔴 The FC Problem — Pixels Have No Position</h3>
+  <div style="background:var(--bg-raised);border:2px solid var(--red);border-radius:var(--radius);padding:1.2rem;margin:1rem 0;">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;">
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--red);margin-bottom:0.4rem;">FC LAYER (Phase 3)</div>
+        <div style="background:var(--bg-card);border:1px solid var(--red);border-radius:8px;padding:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.6;">
+          p₁·w₁ + p₂·w₂ + p₃·w₃ + ... + p₇₈₄·w₇₈₄ + bias
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);margin-top:0.3rem;">
+          Each pixel has its OWN weight. 784×128 = <span style="color:var(--red);font-weight:bold;">100K weights</span>
+        </div>
+      </div>
+      <div style="font-size:2rem;color:var(--text-muted);">→</div>
+      <div style="text-align:center;max-width:280px;">
+        <div style="font-size:0.75rem;color:var(--text-dim);">"Pixel 12" and "Pixel 54" are just <strong style="color:var(--red);">index numbers</strong>.<br>The FC layer has NO IDEA they are next to each other.<br>Spatial information is THROWN AWAY.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>🟢 The CNN Solution — Preserve Spatial Structure</h3>
+  <div style="background:var(--bg-raised);border:2px solid var(--green);border-radius:var(--radius);padding:1.2rem;margin:1rem 0;">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;">
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--green);margin-bottom:0.4rem;">CONV LAYER</div>
+        <div style="background:var(--bg-card);border:1px solid var(--green);border-radius:8px;padding:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.6;">
+          Σ(input[5×5] × filter[5×5]) + bias
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);margin-top:0.3rem;">
+          Filter slides across the image. Same 25 weights <span style="color:var(--green);font-weight:bold;">REUSED</span> everywhere!
+        </div>
+      </div>
+      <div style="font-size:2rem;color:var(--text-muted);">→</div>
+      <div style="text-align:center;max-width:280px;">
+        <div style="font-size:0.75rem;color:var(--text-dim);">A filter looks at a <strong style="color:var(--cyan);">local neighborhood</strong> (5×5).<br>Edges, curves, corners — these are LOCAL patterns.<br>A conv layer <strong style="color:var(--green);">sees spatial relationships</strong>.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>⚖️ Parameter Comparison — FC vs Conv</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 Fully-Connected (Phase 3)</h4>
+      <p><strong>784→128:</strong> 784×128 = 100,352 weights<br><strong>Each neuron</strong> has its own 784 weights<br><strong>Total:</strong> ~100K parameters</p>
+      <div class="tag-row"><span class="tag high">100,352 params</span><span class="tag high">Each pixel unique weight</span></div>
+    </div>
+    <div class="compare-card pick-c"><h4>🟢 Convolutional (Phase 3.5)</h4>
+      <p><strong>5×5 filter × 8 filters:</strong> 25×8 = 200 weights (plus 8 biases)<br><strong>Total conv:</strong> 208 parameters<br><strong>Same 25 weights</strong> reused at every position</p>
+      <div class="tag-row"><span class="tag low">208 params</span><span class="tag low">500× fewer than FC!</span></div>
+    </div>
+  </div>
+
+  <h3>🔄 Translation Invariance</h3>
+  <p>A curve in the <strong style="color:var(--cyan)">top-left</strong> is detected the same as a curve in the <strong style="color:var(--green)">bottom-right</strong>. Because the SAME filter slides to all positions, it detects its pattern regardless of WHERE it appears. This is <strong style="color:var(--amber)">translation invariance</strong> — a key property CNNs have that MLPs lack.</p>
+
+  <div style="background:var(--bg-raised);border:1px solid var(--amber);border-radius:8px;padding:1rem;margin:0.8rem 0;text-align:center;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--amber);">
+      💡 <strong>Parameter Efficiency:</strong> FC: 100K weights for 784→128. Conv: 200 weights for a 5×5 filter applied 576 times.<br>
+      That is <strong style="color:var(--green);">500× fewer parameters</strong> for the same spatial coverage — and better accuracy!
+    </div>
+  </div>
+
+  <div class="quiz" id="quiz0"><div class="question">🧪 Why does a fully-connected layer ignore spatial structure?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz0', this)">A. The input is flattened to 1D. "Pixel (row=3, col=5)" and "Pixel (row=14, col=22)" become just "Input[87]" and "Input[374]." The FC layer only sees index numbers — all spatial adjacency is lost.</div>
+    <div class="option" onclick="checkQuiz('quiz0', this)">B. Fully-connected layers CAN see spatial structure — that is why they work on images</div>
+    <div class="option" onclick="checkQuiz('quiz0', this)">C. Spatial structure does not matter for MNIST digits</div>
+  </div><div class="feedback" id="quiz0-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 2 (3.5.2): How 2D Convolution Works — Filter Sliding ═══════
+  {
+    id: '3.5.2',
+    title: 'How 2D Convolution Works — Filter Sliding',
+    fact: '<strong>The first conv layer typically learns edge detectors</strong> (horizontal, vertical, diagonal) — the same filters EVERY CNN learns regardless of the task!',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.2</span> How 2D Convolution Works — Filter Sliding</h2>
+  <p>A convolution slides a small <strong style="color:var(--cyan)">filter</strong> (also called a kernel) across the input image. At each position, it computes the dot product of the filter weights with the pixels underneath. The result is a <strong style="color:var(--amber)">feature map</strong> — a 2D grid showing where the filter\'s pattern appears.</p>
+
+  <h3>🧮 The Dimensions</h3>
+  <div class="eq-box">
+Input:  28 × 28 × 1  (height × width × channels)
+Filter:  5 × 5 × 1   (height × width × input_channels)
+
+Output formula:  output_size = input_size - filter_size + 1
+  28 - 5 + 1 = <strong style="color:var(--green)">24</strong>
+
+Output:  24 × 24 × 8  (8 filters = 8 feature maps)
+
+<span style="color:var(--text-muted)">// Each of the 8 filters learns a DIFFERENT pattern.</span>
+<span style="color:var(--text-muted)">// Filter 0 might detect vertical edges. Filter 1 detects horizontal edges.</span>
+<span style="color:var(--text-muted)">// Filter 2 detects diagonal strokes. And so on.</span></div>
+
+  <h3>🔍 Visual: 3×3 Filter Sliding on a Small Grid</h3>
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;overflow-x:auto;">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;">
+
+      <!-- Input grid (5×5) -->
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--text-dim);margin-bottom:0.4rem;">INPUT (5×5)</div>
+        <div style="display:grid;grid-template-columns:repeat(5,36px);gap:2px;">
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.1</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.2</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.3);border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);font-weight:600;">0.8</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.3);border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);font-weight:600;">0.9</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.0</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.3</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.3);border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);font-weight:600;">0.7</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.3);border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);font-weight:600;">0.5</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.3);border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);font-weight:600;">0.6</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.1</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.0</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.2</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.1</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.0</div>
+          <div style="width:36px;height:36px;background:rgba(57,210,255,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.3</div>
+        </div>
+      </div>
+
+      <!-- Filter (3×3) -->
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--amber);margin-bottom:0.4rem;">FILTER (3×3)</div>
+        <div style="display:grid;grid-template-columns:repeat(3,36px);gap:2px;border:2px solid var(--amber);border-radius:6px;padding:4px;background:var(--bg-card);">
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">+1</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">0</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">-1</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">+1</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">0</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">-1</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">+1</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">0</div>
+          <div style="width:36px;height:36px;background:rgba(255,179,71,0.2);border:1px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">-1</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);margin-top:0.3rem;">Vertical edge detector</div>
+      </div>
+
+      <!-- Computation -->
+      <div style="text-align:left;max-width:260px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--cyan);margin-bottom:0.4rem;">COMPUTATION</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.7;color:var(--text-dim);">
+          0.8×(+1) + 0.9×(0) + 0.0×(−1)<br>
+          + 0.7×(+1) + 0.5×(0) + 0.6×(−1)<br>
+          + 0.2×(+1) + 0.1×(0) + 0.0×(−1)<br>
+          <span style="border-top:1px solid var(--border);display:block;padding-top:0.2rem;margin-top:0.2rem;color:var(--cyan);font-weight:600;">= 0.8 + 0.7 + 0.2 − 0.6 = 1.1</span>
+        </div>
+      </div>
+
+      <!-- Output -->
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--green);margin-bottom:0.4rem;">OUTPUT (3×3)</div>
+        <div style="display:grid;grid-template-columns:repeat(3,36px);gap:2px;">
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.3);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--green);font-weight:600;">1.1</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.3</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">-0.2</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.5</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.3);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--green);font-weight:600;">2.1</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.1</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">-0.1</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.4</div>
+          <div style="width:36px;height:36px;background:rgba(63,185,80,0.15);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">0.7</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);margin-top:0.3rem;">5×5 → 3×3 (5−3+1=3)</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:1rem;padding-top:0.8rem;border-top:1px solid var(--border);">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">
+        The filter looks for a VERTICAL EDGE pattern. Where the image has a strong vertical transition (left dark, right bright), the output is HIGH (1.1, 2.1).<br>
+        <span style="color:var(--amber);">Each output pixel = sum of 9 multiplications (3×3 filter) + bias</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>📐 The Formula</h3>
+  <div class="eq-box">
+<span style="color:var(--cyan);font-weight:bold;">output[row][col] = bias + ΣΣ input[row+fh][col+fw] × filter[fh][fw]</span>
+                                 <span style="color:var(--green)">  fh=0 fw=0</span>
+<span style="color:var(--text-muted)">// For a 5×5 filter on a 28×28 input:</span>
+<span style="color:var(--text-muted)">// output[0][0] uses input[0..4][0..4] — top-left corner</span>
+<span style="color:var(--text-muted)">// output[23][23] uses input[23..27][23..27] — bottom-right corner</span>
+<span style="color:var(--text-muted)">// Each output pixel = 25 multiplications + 24 additions</span></div>
+
+  <div class="quiz" id="quiz1"><div class="question">🧪 A 7×7 filter is applied to a 32×32 input (no padding, stride 1). What is the output size?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz1', this)">A. 7×7</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz1', this)">B. 26×26 — 32−7+1 = 26. The formula is always: input_size − filter_size + 1.</div>
+    <div class="option" onclick="checkQuiz('quiz1', this)">C. 32×32 — the output is always the same size as the input</div>
+  </div><div class="feedback" id="quiz1-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 3 (3.5.3): The Conv2D CUDA Kernel — Code Walkthrough ═══════
+  {
+    id: '3.5.3',
+    title: 'The Conv2D CUDA Kernel — Code Walkthrough',
+    fact: '<strong>This naive kernel achieves only 1.08% DRAM throughput (Nsight).</strong> A tiled version with shared memory could be 10–50× more memory-efficient.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.3</span> The Conv2D CUDA Kernel — Code Walkthrough</h2>
+  <p>Here is the actual CUDA kernel that performs 2D convolution. Every thread computes <strong style="color:var(--cyan)">ONE output pixel</strong> for <strong style="color:var(--amber)">ONE filter</strong> for <strong style="color:var(--green)">ONE image</strong> in the batch.</p>
+
+  <h3>⚡ The Kernel Code</h3>
+  <div class="code-block"><span class="cm">// ── conv2d_forward.cu ──</span>
+<span class="kw">__global__</span> <span class="tp">void</span> <span class="fn">conv2d_forward</span>(<span class="tp">float</span> *input, <span class="tp">float</span> *filters, <span class="tp">float</span> *bias, <span class="tp">float</span> *output, <span class="tp">int</span> batch) {
+    <span class="tp">int</span> col = blockIdx.x * blockDim.x + threadIdx.x;  <span class="cm">// 0..23 (output column)</span>
+    <span class="tp">int</span> row = blockIdx.y * blockDim.y + threadIdx.y;  <span class="cm">// 0..23 (output row)</span>
+    <span class="tp">int</span> idx = blockIdx.z;                              <span class="cm">// which (batch, filter)?</span>
+    <span class="tp">int</span> b = idx / NUM_FILTERS;                          <span class="cm">// which image in batch?</span>
+    <span class="tp">int</span> f = idx % NUM_FILTERS;                          <span class="cm">// which filter?</span>
+
+    <span class="kw">if</span> (row < CONV_H && col < CONV_W && b < batch) {
+        <span class="tp">float</span> sum = bias[f];
+        <span class="kw">for</span> (<span class="tp">int</span> fh = 0; fh < K; fh++)       <span class="cm">// 5 rows of filter</span>
+            <span class="kw">for</span> (<span class="tp">int</span> fw = 0; fw < K; fw++)   <span class="cm">// 5 cols of filter</span>
+                sum += input[b*IN_H*IN_W + (row+fh)*IN_W + (col+fw)] *
+                       filters[f*K*K + fh*K + fw];
+        output[b*NUM_FILTERS*CONV_H*CONV_W + f*CONV_H*CONV_W + row*CONV_W + col] = sum;
+    }
+}</div>
+
+  <h3>🧵 Thread Organization — 3D Grid</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 Grid Dimensions</h4>
+      <p><strong>blockIdx.x</strong> = output column (0..23)<br>
+      <strong>blockIdx.y</strong> = output row (0..23)<br>
+      <strong>blockIdx.z</strong> = (batch × filter) index (0..511)</p>
+      <p style="margin-top:0.5rem;">dim3 threads(16,16)<br>dim3 blocks(2,2,512)<br><span style="color:var(--cyan);">BATCH=64, NUM_FILTERS=8 → 64×8=512</span></p>
+    </div>
+    <div class="compare-card pick-c"><h4>🟢 Total Threads in Flight</h4>
+      <p>24 × 24 × 64 × 8 = <strong style="color:var(--green);font-size:1.1em;">294,912 threads</strong></p>
+      <p style="margin-top:0.5rem;font-size:0.78rem;">Each thread does 25 multiplications + 24 additions = 49 FLOPs.</p>
+      <p style="font-size:0.78rem;">Total: 294,912 × 49 ≈ <strong style="color:var(--amber);">14.5 million FLOPs per forward pass</strong></p>
+    </div>
+  </div>
+
+  <h3>🔬 Inner Loops — 25 Multiplications Per Thread</h3>
+  <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;padding:1rem;margin:0.8rem 0;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.8;color:var(--text-dim);">
+      <span style="color:var(--cyan);">for (fh = 0; fh < 5; fh++)</span>          <span style="color:var(--text-muted);">// slide filter vertically</span>
+      <span style="color:var(--cyan);">  for (fw = 0; fw < 5; fw++)</span>        <span style="color:var(--text-muted);">// slide filter horizontally</span>
+          sum += input[row+fh][col+fw] * filter[fh][fw];
+    </div>
+    <div style="margin-top:0.5rem;display:flex;gap:0.8rem;flex-wrap:wrap;justify-content:center;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Memory reads per thread</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--amber);">25 + 25 + 1</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">(input + filter + bias)</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Memory writes per thread</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--green);">1</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">(one output pixel)</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Arithmetic ops per thread</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--violet);">49</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">(25 mul + 24 add)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz" id="quiz2"><div class="question">🧪 In the conv2d_forward kernel, blockIdx.z ranges from 0 to 511. What does 511 represent?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz2', this)">A. BATCH × NUM_FILTERS = 64 × 8 = 512 combinations (0..511). Each combination is a unique (image, filter) pair. Thread block z handles one pair.</div>
+    <div class="option" onclick="checkQuiz('quiz2', this)">B. The output height (24×24 = 576, minus 65 = 511)</div>
+    <div class="option" onclick="checkQuiz('quiz2', this)">C. It is the total number of threads launched</div>
+  </div><div class="feedback" id="quiz2-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 4 (3.5.4): Max Pooling — Downsampling Feature Maps ═══════
+  {
+    id: '3.5.4',
+    title: 'Max Pooling — Downsampling Feature Maps',
+    fact: '<strong>Max pooling makes the network slightly translation-invariant.</strong> Shift the input by 1 pixel → the max in each 2×2 window probably does not change → output stays similar.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.4</span> Max Pooling — Downsampling Feature Maps</h2>
+  <p>After Conv+ReLU, we have <strong style="color:var(--cyan)">24×24×8 = 4,608 values</strong>. Flattening that directly would give an FC layer with 4,608 inputs — too many! <strong style="color:var(--amber)">MaxPool 2×2 with stride 2</strong> reduces each feature map to 12×12, compressing by <strong style="color:var(--green)">4×</strong>.</p>
+
+  <h3>📏 What MaxPool Does</h3>
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;overflow-x:auto;">
+
+    <!-- 4×4 → 2×2 visual -->
+    <div style="display:flex;align-items:center;gap:2rem;justify-content:center;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--text-dim);margin-bottom:0.4rem;">INPUT (4×4)</div>
+        <div style="display:grid;grid-template-columns:repeat(4,44px);gap:2px;">
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.3</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.1</div>
+          <div style="width:44px;height:44px;background:rgba(63,185,80,0.4);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--green);font-weight:700;">3.2</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.5</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.0</div>
+          <div style="width:44px;height:44px;background:rgba(248,81,73,0.4);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--red);font-weight:700;">-1.5</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.8</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.2</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.6</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.4</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.1</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.9</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.2</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.7</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.3</div>
+          <div style="width:44px;height:44px;background:rgba(57,210,255,0.2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text-dim);">0.1</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);margin-top:0.3rem;">4×4</div>
+      </div>
+
+      <div style="font-size:2rem;color:var(--cyan);">→</div>
+
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--green);margin-bottom:0.4rem;">AFTER MAXPOOL 2×2</div>
+        <div style="display:grid;grid-template-columns:repeat(2,44px);gap:4px;">
+          <div style="width:44px;height:44px;background:rgba(63,185,80,0.5);border:2px solid var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--green);font-weight:700;">3.2</div>
+          <div style="width:44px;height:44px;background:rgba(63,185,80,0.5);border:2px solid var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--green);font-weight:700;">3.2</div>
+          <div style="width:44px;height:44px;background:rgba(63,185,80,0.5);border:2px solid var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--green);font-weight:700;">0.6</div>
+          <div style="width:44px;height:44px;background:rgba(63,185,80,0.5);border:2px solid var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--green);font-weight:700;">0.9</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);margin-top:0.3rem;">2×2 — 4× compression!</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:1rem;padding-top:0.8rem;border-top:1px solid var(--border);">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">
+        Each 2×2 window → keep <strong style="color:var(--green);">ONLY the MAX value</strong>. Discard the other 3.<br>
+        <span style="color:var(--amber);">We also SAVE THE INDEX of which position won</span> — needed for backpropagation!
+      </div>
+    </div>
+  </div>
+
+  <h3>📐 Why MAX (not average)?</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 Max Pooling</h4>
+      <p>"If the edge detector fired strongly at ANY position in this 2×2 window, keep that signal." The max value represents the <strong style="color:var(--green);">STRONGEST activation</strong> — "a vertical edge was <strong style="color:var(--green);">DEFINITELY</strong> here."</p>
+      <div class="tag-row"><span class="tag low">Translation invariance</span></div>
+    </div>
+    <div class="compare-card pick-c"><h4>🟢 Average Pooling (not used here)</h4>
+      <p>"Take the average of all 4 values." This dilutes strong signals with weak ones. If one position has 3.2 and the rest are 0, average = 0.8 — you just <strong style="color:var(--red);">lost the strong signal</strong>.</p>
+      <div class="tag-row"><span class="tag high">Dilutes strong activations</span></div>
+    </div>
+  </div>
+
+  <h3>⚡ CUDA Kernel — MaxPool Forward</h3>
+  <div class="code-block"><span class="cm">// Same 3D grid pattern, but output is 12×12</span>
+<span class="kw">__global__</span> <span class="tp">void</span> <span class="fn">maxpool_forward</span>(<span class="tp">float</span> *input, <span class="tp">float</span> *output, <span class="tp">int</span> *indices, <span class="tp">int</span> batch) {
+    <span class="tp">int</span> col = blockIdx.x * blockDim.x + threadIdx.x;  <span class="cm">// 0..11</span>
+    <span class="tp">int</span> row = blockIdx.y * blockDim.y + threadIdx.y;  <span class="cm">// 0..11</span>
+    <span class="tp">int</span> idx = blockIdx.z;                              <span class="cm">// (batch, filter)</span>
+    <span class="tp">int</span> b = idx / NUM_FILTERS;
+    <span class="tp">int</span> f = idx % NUM_FILTERS;
+
+    <span class="kw">if</span> (row < POOL_H && col < POOL_W && b < batch) {
+        <span class="tp">int</span> base = b*NUM_FILTERS*IN_H*IN_W + f*IN_H*IN_W;
+        <span class="tp">float</span> max_val = -1e10;
+        <span class="tp">int</span> max_idx = 0;
+        <span class="kw">for</span> (<span class="tp">int</span> ph = 0; ph < 2; ph++)
+            <span class="kw">for</span> (<span class="tp">int</span> pw = 0; pw < 2; pw++) {
+                <span class="tp">int</span> i_idx = base + (row*2+ph)*IN_W + (col*2+pw);
+                <span class="kw">if</span> (input[i_idx] > max_val) {
+                    max_val = input[i_idx];
+                    max_idx = i_idx;           <span class="cm">// SAVE INDEX for backprop!</span>
+                }
+            }
+        output[b*NUM_FILTERS*POOL_H*POOL_W + f*POOL_H*POOL_W + row*POOL_W + col] = max_val;
+        indices[b*NUM_FILTERS*POOL_H*POOL_W + f*POOL_H*POOL_W + row*POOL_W + col] = max_idx;
+    }
+}</div>
+
+  <div class="quiz" id="quiz3"><div class="question">🧪 Why does MaxPool save the index of the winning position?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz3', this)">A. It is just for debugging — not used during training</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz3', this)">B. During backpropagation, the gradient must be routed back to ONLY the winning position. The other 3 positions contributed ZERO to the forward pass, so they get ZERO gradient. Without the saved index, we would not know where to send the gradient.</div>
+    <div class="option" onclick="checkQuiz('quiz3', this)">C. The index is used to calculate the accuracy of the pooling layer</div>
+  </div><div class="feedback" id="quiz3-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 5 (3.5.5): The Full CNN Architecture — End to End ═══════
+  {
+    id: '3.5.5',
+    title: 'The Full CNN Architecture — End to End',
+    fact: '<strong>96.29% accuracy with 11,738 params vs MLP\'s 95.55% with 109,386 params</strong> — CNN achieves HIGHER accuracy with 9× FEWER parameters! That is the power of spatial structure.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.5</span> The Full CNN Architecture — End to End</h2>
+  <p>Here is the complete pipeline from raw pixels to class probabilities. Every stage has a specific purpose and the dimensions are tracked precisely.</p>
+
+  <h3>🏗️ Pipeline Diagram</h3>
+  <div class="pipeline">
+    <div class="pipeline-stage highlight"><div class="stage-icon">🖼️</div><div class="stage-name">INPUT</div><div class="stage-desc">28×28×1</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🔲</div><div class="stage-name">CONV 5×5</div><div class="stage-desc">8 filters → 24×24×8</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🚫</div><div class="stage-name">ReLU</div><div class="stage-desc">max(0,x) → 24×24×8</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">📦</div><div class="stage-name">MAXPOOL 2×2</div><div class="stage-desc">→ 12×12×8</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">📋</div><div class="stage-name">FLATTEN</div><div class="stage-desc">1152</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🧮</div><div class="stage-name">FC 1152→10</div><div class="stage-desc">10 scores</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">📊</div><div class="stage-name">SOFTMAX</div><div class="stage-desc">10 probabilities</div></div>
+  </div>
+
+  <h3>📐 Dimension Tracking — Every Stage</h3>
+  <div class="ladder">
+    <div class="ladder-rung"><div class="rung-icon">🖼️</div><div class="rung-bar" style="background:var(--magenta)"></div><div class="rung-label">INPUT</div><div class="rung-metric">28×28×1 = 784</div><div class="rung-example">Raw pixels (grayscale)</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🔲</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">CONV 5×5</div><div class="rung-metric">24×24×8 = 4,608</div><div class="rung-example">8 feature maps (28−5+1=24)</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🚫</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">ReLU</div><div class="rung-metric">24×24×8 = 4,608</div><div class="rung-example">Negatives → 0, no size change</div></div>
+    <div class="ladder-rung"><div class="rung-icon">📦</div><div class="rung-bar" style="background:var(--amber)"></div><div class="rung-label">MAXPOOL 2×2</div><div class="rung-metric">12×12×8 = 1,152</div><div class="rung-example">4× compression! (24/2 × 24/2)</div></div>
+    <div class="ladder-rung"><div class="rung-icon">📋</div><div class="rung-bar" style="background:var(--violet)"></div><div class="rung-label">FLATTEN</div><div class="rung-metric">1,152</div><div class="rung-example">1D vector → FC layer input</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🧮</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">FC 1152→10</div><div class="rung-metric">10 raw scores</div><div class="rung-example">11,520 weights + 10 biases</div></div>
+    <div class="ladder-rung"><div class="rung-icon">📊</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">SOFTMAX</div><div class="rung-metric">10 probabilities</div><div class="rung-example">"96% it is a 5!"</div></div>
+  </div>
+
+  <h3>🧮 Parameter Breakdown — Only 11,738!</h3>
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;">
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+      <div style="background:var(--bg-card);border:2px solid var(--cyan);border-radius:10px;padding:1rem 1.5rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">CONV LAYER</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--cyan);">208</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">5×5×8 filters + 8 biases</div>
+      </div>
+      <div style="background:var(--bg-card);border:2px solid var(--amber);border-radius:10px;padding:1rem 1.5rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">FC LAYER</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--amber);">11,530</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">1152×10 weights + 10 biases</div>
+      </div>
+      <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:10px;padding:1rem 1.5rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">TOTAL</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:700;color:var(--green);">11,738</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">vs 109,386 for the MLP!</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:1rem;padding-top:0.8rem;border-top:1px solid var(--border);">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--amber);">
+        💡 <strong>9.3× FEWER parameters</strong> than the MLP, yet HIGHER accuracy (96.29% vs 95.55%).<br>
+        Weight sharing is the secret: 25 conv weights are reused 576 times each!
+      </div>
+    </div>
+  </div>
+
+  <div class="quiz" id="quiz4"><div class="question">🧪 Why is the flattened vector 1152 (not 4608)?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz4', this)">A. 4608 / 4 = 1152 because we divided by 4 for the batch size</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz4', this)">B. MaxPool 2×2 with stride 2 divides each spatial dimension by 2: 24→12, so 24×24×8 becomes 12×12×8 = 1152. The 4× compression comes from 2× in height AND 2× in width.</div>
+    <div class="option" onclick="checkQuiz('quiz4', this)">C. 4608 minus the ReLU zeros = 1152, because 75% of neurons are killed</div>
+  </div><div class="feedback" id="quiz4-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 6 (3.5.6): The Training Loop — Forward + Backward + Update ═══════
+  {
+    id: '3.5.6',
+    title: 'The Training Loop — Forward + Backward + Update',
+    fact: '<strong>The backward pass has MORE kernels than the forward pass.</strong> The compute graph is deeper in reverse!',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.6</span> The Training Loop — Forward + Backward + Update</h2>
+  <p>The CNN training loop involves <strong style="color:var(--cyan)">10 distinct CUDA kernels</strong> — 5 for the forward pass, 7 for the backward pass (overlap), and 1 for the weight update. Here is the complete pseudo-code with every step.</p>
+
+  <h3>🔄 Complete Training Loop</h3>
+  <div class="code-block"><span class="kw">for</span> epoch <span class="kw">in</span> 0..9:
+  <span class="kw">for</span> each batch of 64 images:
+
+    <span class="cm">// ── FORWARD PASS (5 kernels) ──</span>
+    <span class="fn">conv2d_forward</span>(input, filters, bias, h1)    <span class="cm">// h1: 64×8×24×24</span>
+    <span class="fn">relu_forward</span>(h1, h1)                            <span class="cm">// h1 = max(0, h1), in-place</span>
+    <span class="fn">maxpool_forward</span>(h1, h2, indices)                 <span class="cm">// h2: 64×8×12×12, saves indices!</span>
+    <span class="fn">fc_forward</span>(flatten(h2), W_fc, b_fc, h3)           <span class="cm">// h3: 64×10</span>
+    <span class="fn">softmax</span>(h3, probs)                               <span class="cm">// probs: 64×10 probabilities</span>
+
+    <span class="cm">// ── BACKWARD PASS (7 kernels) ──</span>
+    <span class="fn">softmax_backward</span>(probs, targets, grad)             <span class="cm">// grad = probs − target (one-hot)</span>
+    <span class="fn">fc_backward_weights</span>(flatten(h2), grad, dW_fc)       <span class="cm">// dW_fc: 1152×10</span>
+    <span class="fn">fc_backward_bias</span>(grad, db_fc)                       <span class="cm">// db_fc: 10</span>
+    <span class="fn">fc_backward_input</span>(W_fc, grad, d_h2)                  <span class="cm">// d_h2: 64×8×12×12</span>
+    <span class="fn">maxpool_backward</span>(d_h2, indices, d_h1)                <span class="cm">// [atomicAdd] routes via indices!</span>
+    <span class="fn">relu_backward</span>(d_h1, h1, d_h1)                       <span class="cm">// zero grad where h1 <= 0</span>
+    <span class="fn">conv2d_backward_filters</span>(input, d_h1, dW_conv)        <span class="cm">// dW_conv: 5×5×8</span>
+    <span class="fn">conv2d_backward_bias</span>(d_h1, db_conv)                 <span class="cm">// db_conv: 8</span>
+
+    <span class="cm">// ── SGD UPDATE (1 kernel × 4 param groups) ──</span>
+    W_fc    -= lr * dW_fc
+    b_fc    -= lr * db_fc
+    filters -= lr * dW_conv
+    bias    -= lr * db_conv</div>
+
+  <h3>🔑 Key Backward Pass Details</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">📍</div><h4>maxpool_backward</h4><p>Uses the <strong style="color:var(--amber);">saved indices</strong> from the forward pass to route each gradient entry to exactly ONE input position. The other 3 positions get zero gradient. Uses <strong style="color:var(--red);">atomicAdd</strong> because multiple output pixels may route gradient to the same input position.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🚫</div><h4>relu_backward</h4><p>Simple: where input was ≤ 0 (during forward), gradient becomes 0. Where input was > 0, gradient passes through unchanged. <strong style="color:var(--green);">Element-wise and fast.</strong></p></div>
+    <div class="data-type-card"><div class="dt-icon">🔲</div><h4>conv2d_backward</h4><p>The filter gradients are computed by <strong style="color:var(--cyan);">convolving the input with the upstream gradient</strong> — a convolution inside the backward pass! This is why CNNs are compute-heavy during training.</p></div>
+  </div>
+
+  <div class="quiz" id="quiz5"><div class="question">🧪 Why does maxpool_backward need atomicAdd?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz5', this)">A. It does not — each thread writes to a unique position</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz5', this)">B. With overlapping pooling windows (or certain input sizes), the same input position could be the maximum for TWO different output positions. Both threads would try to write to the same memory address. atomicAdd ensures the writes are serialized and both contributions are summed.</div>
+    <div class="option" onclick="checkQuiz('quiz5', this)">C. atomicAdd is used for randomness in the backward pass</div>
+  </div><div class="feedback" id="quiz5-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 7 (3.5.7): Benchmarks — CUDA vs PyTorch ═══════
+  {
+    id: '3.5.7',
+    title: 'Benchmarks — CUDA vs PyTorch',
+    fact: '<strong>7.4× faster than PyTorch!</strong> cuDNN has kernel launch overhead for tiny networks. Our hand-written kernels skip the framework overhead entirely.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.7</span> Benchmarks — CUDA vs PyTorch</h2>
+  <p>We benchmarked our CUDA CNN against the <strong style="color:var(--cyan)">exact same architecture</strong> implemented in PyTorch. Both run on the same GPU (Tesla T4 in Google Colab).</p>
+
+  <h3>📈 Accuracy Progression (CUDA)</h3>
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:60px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">EPOCH 1</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--amber);">89.5%</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:60px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">EPOCH 3</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--amber);">91.8%</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:60px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">EPOCH 5</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--cyan);">93.3%</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:60px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">EPOCH 7</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--cyan);">94.7%</div>
+      </div>
+      <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:80px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">EPOCH 10</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--green);">96.29%</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:0.8rem;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">9629 / 10000 test images classified correctly</div>
+    </div>
+  </div>
+
+  <h3>⚡ Speed Comparison — CUDA vs PyTorch</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 PyTorch (same architecture)</h4>
+      <p><strong>Total training time:</strong> 95.3 seconds</p>
+      <p><strong>Per epoch:</strong> ~9.5 seconds</p>
+      <p style="margin-top:0.5rem;font-size:0.78rem;color:var(--text-dim);">Includes Python overhead, cuDNN kernel launch costs, autograd graph construction, and framework-level bookkeeping for a tiny network.</p>
+      <div class="tag-row"><span class="tag high">Framework overhead</span></div>
+    </div>
+    <div class="compare-card pick-c"><h4>🟢 CUDA from Scratch</h4>
+      <p><strong>Total training time:</strong> 12.9 seconds</p>
+      <p><strong>Per epoch:</strong> ~1.3 seconds</p>
+      <p style="margin-top:0.5rem;font-size:0.78rem;color:var(--text-dim);">Custom CUDA kernels with NO framework overhead. Each kernel does exactly the work needed and nothing else.</p>
+      <div class="tag-row"><span class="tag low">7.4× faster</span></div>
+    </div>
+  </div>
+
+  <h3>🔬 Nsight Compute Profiling — conv2d_forward</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">🔲</div><h4>SM Throughput</h4><p><strong style="color:var(--cyan);">61.6%</strong> — The streaming multiprocessors are reasonably utilized. There is room for improvement with tiling and shared memory.</p></div>
+    <div class="data-type-card"><div class="dt-icon">💾</div><h4>DRAM Throughput</h4><p><strong style="color:var(--red);">1.08%</strong> — The bottleneck! Global memory bandwidth is barely used because each thread reads scattered 25 input values. A tiled version with shared memory could achieve 10–50× better memory efficiency.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📊</div><h4>Compute vs Memory</h4><p>The kernel is <strong style="color:var(--amber);">memory-bound</strong>, not compute-bound. Each thread does 49 arithmetic ops but reads 51 floats (25 input + 25 filter + 1 bias). Arithmetic intensity is very low.</p></div>
+  </div>
+
+  <h3>🏆 CNN vs MLP — Both from Scratch</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 MLP (Phase 3)</h4>
+      <p>109,386 parameters<br>
+      <strong>95.55% accuracy</strong><br>
+      3 fully-connected layers</p>
+    </div>
+    <div class="compare-card pick-c"><h4>🟢 CNN (Phase 3.5)</h4>
+      <p><strong>11,738 parameters</strong> (9× fewer!)<br>
+      <strong>96.29% accuracy</strong> (higher!)<br>
+      1 conv layer + 1 FC layer</p>
+    </div>
+  </div>
+  <div style="background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.8rem 1.2rem;margin:0.5rem 0;text-align:center;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--cyan);">
+      💡 <strong>CNN wins on BOTH accuracy AND efficiency.</strong> This is why every modern vision system uses convolutions.
+    </span>
+  </div>
+
+  <div class="quiz" id="quiz6"><div class="question">🧪 Why is the CUDA version 7.4× faster than PyTorch for the SAME architecture?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz6', this)">A. PyTorch intentionally runs slower to make custom CUDA look good</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz6', this)">B. For small networks, cuDNN\'s kernel launch overhead dominates. Each PyTorch operation (conv2d, relu, maxpool) launches a separate cuDNN kernel with Python overhead. Our custom CUDA kernels have zero overhead — they are direct GPU calls without any framework layer in between.</div>
+    <div class="option" onclick="checkQuiz('quiz6', this)">C. Custom CUDA is always exactly 7.4× faster than any framework for any network</div>
+  </div><div class="feedback" id="quiz6-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 8 (3.5.8): How to Run This Code ═══════
+  {
+    id: '3.5.8',
+    title: 'How to Run This Code',
+    fact: '<strong>The entire CNN including training fits in a single .cu file under 300 lines.</strong> That is the beauty of CUDA — no framework needed.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.8</span> How to Run This Code</h2>
+  <p>You can run the entire CNN training pipeline in Google Colab with a free GPU. No installation required — just open the notebook and click "Run All."</p>
+
+  <h3>🚀 Quick Start</h3>
+  <div class="code-block">1. Open in Colab (click badge in README):
+   https://colab.research.google.com/github/ashokmulchandani/
+   CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/1_Ashok_CUDA.ipynb
+
+2. Navigate to the CNN section (cells ~70-110)
+
+3. The key cells:
+   <span class="cm">- Cell with %%writefile cnn_mnist.cu → writes all 10 kernels</span>
+   <span class="cm">- Cell with !nvcc cnn_mnist.cu -o cnn_mnist -lm → compiles</span>
+   <span class="cm">- Cell with !./cnn_mnist → runs training, prints accuracy per epoch</span>
+   <span class="cm">- Cell with PyTorch model → comparison benchmark</span>
+
+4. Expected output:
+   <span style="color:var(--green);">Epoch 10 | Test Accuracy: 96.29% (9629/10000)</span>
+   <span style="color:var(--green);">Training time: 12.9 seconds</span></div>
+
+  <h3>🔬 Profiling (Optional)</h3>
+  <div class="code-block"><span class="cm">// To profile the conv kernel with Nsight Compute:</span>
+<span class="cm">// Uncomment the ncu cell and run:</span>
+!ncu --kernel-name conv2d_forward ./cnn_mnist
+
+<span class="cm">// This will show:</span>
+<span class="cm">// - SM throughput: 61.6%</span>
+<span class="cm">// - DRAM throughput: 1.08% (the bottleneck!)</span>
+<span class="cm">// - Memory bandwidth utilization</span>
+<span class="cm">// - Instruction mix and warp stall reasons</span></div>
+
+  <h3>📋 What You Need</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">🖥️</div><h4>GPU</h4><p><strong>Tesla T4</strong> (free in Colab)<br>CUDA 13.0<br>Any NVIDIA GPU with compute capability 6.0+</p></div>
+    <div class="data-type-card"><div class="dt-icon">📦</div><h4>Software</h4><p>CUDA Toolkit (nvcc)<br>Standard library (math.h, stdio.h, stdlib.h, time.h, string.h)</p></div>
+    <div class="data-type-card"><div class="dt-icon">📄</div><h4>Files</h4><p><strong>cnn_mnist.cu</strong> (~300 lines)<br>Contains ALL 10 kernels in one file — forward, backward, update, and utility functions.</p></div>
+  </div>
+
+  <div class="quiz" id="quiz7"><div class="question">🧪 How many CUDA kernels are in the complete CNN training pipeline?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz7', this)">A. 3 — forward, backward, update</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz7', this)">B. 10 — conv_forward, relu_forward, maxpool_forward, fc_forward, softmax, softmax_backward, fc_backward, maxpool_backward, relu_backward, conv_backward</div>
+    <div class="option" onclick="checkQuiz('quiz7', this)">C. 6 — one for each layer</div>
+  </div><div class="feedback" id="quiz7-fb"></div></div>
+</div></div>`;
+    }
+  },
+
+  // ═══════ SLIDE 9 (3.5.9): Summary — What You Built ═══════
+  {
+    id: '3.5.9',
+    title: 'Summary — What You Built',
+    fact: '<strong>Convolution is the foundation of ALL modern computer vision.</strong> From AlexNet (2012) to ResNets, ViTs, and SAM — every architecture builds on the convolution operation you just implemented from scratch.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5.9</span> Summary — What You Built</h2>
+  <p>You wrote <strong style="color:var(--cyan)">10 CUDA kernels from scratch</strong> implementing a complete CNN training pipeline for MNIST. From convolution to softmax, from forward pass to weight update — everything runs on the GPU.</p>
+
+  <div class="big-stat">
+    <div class="number">96.29%</div>
+    <div class="label">ACCURACY — 7.4× FASTER THAN PYTORCH — 11,738 PARAMETERS</div>
+  </div>
+
+  <h3>🧠 What You Learned</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">🔲</span> <strong>2D Convolution:</strong> Filters slide across input preserving spatial structure. Each filter detects ONE pattern (edge, curve, corner).</div>
+    <div class="check-item"><span class="check-box">📦</span> <strong>Weight Sharing:</strong> Same 25 filter weights reused at all 576 positions. 500× fewer parameters than FC for equivalent spatial coverage.</div>
+    <div class="check-item"><span class="check-box">📉</span> <strong>Max Pooling:</strong> 2×2 → keep MAX value. 4× compression. Saves indices for backprop. Provides slight translation invariance.</div>
+    <div class="check-item"><span class="check-box">🏗️</span> <strong>CNN Architecture:</strong> Conv → ReLU → Pool → Flatten → FC → Softmax. The blueprint for virtually every vision model.</div>
+    <div class="check-item"><span class="check-box">⚡</span> <strong>CUDA Kernels:</strong> 3D grid organization, thread-per-output-pixel, atomicAdd in pooling backward, Nsight profiling insights.</div>
+    <div class="check-item"><span class="check-box">📊</span> <strong>Benchmarks:</strong> 96.29% accuracy at 12.9 seconds. Higher accuracy than MLP (95.55%) with 9× fewer parameters.</div>
+  </div>
+
+  <h3>🔑 Key Takeaways</h3>
+  <div class="data-types" style="margin-bottom:1rem;">
+    <div class="data-type-card"><div class="dt-icon">🌐</div><h4>Spatial Structure Matters</h4><p>Pixels have NEIGHBORS. A convolution exploits this locality. An FC layer treats every pixel as an isolated input. This is the single biggest idea in computer vision.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔄</div><h4>Weight Sharing = Efficiency</h4><p>25 weights reused 576 times. That is why CNNs achieve higher accuracy with far fewer parameters. The same principle applies to modern ViTs (patch embedding) and depthwise convolutions.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔧</div><h4>From Scratch to Production</h4><p>You now understand every line in every kernel. No black boxes. When your model fails, you can debug at the CUDA level — the ultimate debugging depth.</p></div>
+  </div>
+
+  <div style="background:linear-gradient(135deg, var(--cyan-bg), var(--violet));border:2px solid var(--violet);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--text);margin-bottom:0.5rem;">Phase 3.5 Complete</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-dim);">
+      CNN on MNIST — 10 CUDA Kernels — 96.29% Accuracy — 7.4× vs PyTorch<br>
+      <span style="color:var(--cyan);">Next: Phase 4 — YOLO Object Detection</span>
+    </div>
+  </div>
+
+  <div class="quiz" id="quiz8"><div class="question">🧪 Why does the CNN achieve HIGHER accuracy than the MLP despite having 9× FEWER parameters?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz8', this)">A. The CNN is just lucky — the MLP could beat it with more training</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz8', this)">B. The CNN uses its parameters more WISELY. The conv layer learns 8 reusable pattern detectors (edges, curves) that work everywhere on the image. The MLP wastes its 109K parameters learning separate detectors for each position — most are redundant. The CNN\'s inductive bias (locality + weight sharing) perfectly matches the structure of image data.</div>
+    <div class="option" onclick="checkQuiz('quiz8', this)">C. CNNs are always more accurate than MLPs regardless of the problem</div>
+  </div><div class="feedback" id="quiz8-fb"></div></div>
+</div></div>`;
+    }
+  }
+];
+
+window.checkQuiz = function(quizId, clickedEl) {
+  const quiz = document.getElementById(quizId);
+  if (quiz.dataset.answered === 'true') return;
+  const options = quiz.querySelectorAll('.option');
+  const feedback = document.getElementById(quizId + '-fb');
+  const isCorrect = clickedEl.dataset.correct === 'true';
+  options.forEach(o => { if (o.dataset.correct === 'true') o.classList.add('correct'); });
+  if (!isCorrect) clickedEl.classList.add('wrong');
+  feedback.className = 'feedback show ' + (isCorrect ? 'correct' : 'wrong');
+  feedback.textContent = isCorrect ? '✅ Correct! Well done.' : '❌ Not quite. The correct answer is highlighted in green.';
+  quiz.dataset.answered = 'true';
+};
+
+let currentSlide = 0;
+const visitedSlides = new Set([0]);
+
+function renderSlide(index) {
+  currentSlide = index; visitedSlides.add(index);
+  document.getElementById('slideContainer').innerHTML = slides[index].render();
+  updateDots(); updateChips();
+  document.getElementById('funFactText').innerHTML = '<strong>' + slides[index].id + ':</strong> ' + slides[index].fact;
+  document.getElementById('stepLabel').textContent = (index + 1) + '/' + slides.length;
+  document.getElementById('prevBtn').disabled = index === 0;
+  const nextBtn = document.getElementById('nextBtn');
+  if (index === slides.length - 1) {
+    nextBtn.textContent = '✓ Complete'; nextBtn.style.background = 'var(--green-bg)'; nextBtn.style.borderColor = 'var(--green)'; nextBtn.style.color = 'var(--green)';
+  } else {
+    nextBtn.textContent = 'Next →'; nextBtn.style.background = 'var(--cyan-bg)'; nextBtn.style.borderColor = 'var(--cyan)'; nextBtn.style.color = 'var(--cyan)';
+  }
+  document.getElementById('slideContainer').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function goTo(index) { if (index >= 0 && index < slides.length) renderSlide(index); }
+
+function updateDots() {
+  document.getElementById('stepDots').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'active' : visitedSlides.has(i) ? 'done' : '';
+    return '<div class="step-dot ' + cls + '" onclick="goTo(' + i + ')" title="' + s.id + ': ' + s.title + '"></div>';
+  }).join('');
+}
+
+function updateChips() {
+  document.getElementById('topicChips').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'current' : visitedSlides.has(i) ? 'visited' : '';
+    return '<span class="topic-chip ' + cls + '" onclick="goTo(' + i + ')">' + s.id + ' ' + s.title + '</span>';
+  }).join('');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' && currentSlide < slides.length - 1) goTo(currentSlide + 1);
+  if (e.key === 'ArrowLeft' && currentSlide > 0) goTo(currentSlide - 1);
+});
+
+renderSlide(0);
+</script>
+</body>
+</html>
