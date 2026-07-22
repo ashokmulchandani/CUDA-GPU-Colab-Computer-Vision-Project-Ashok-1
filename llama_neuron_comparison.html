@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where Are the Neurons in Llama? — MLP vs Transformer Side-by-Side</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--bg-card:#0d1117;--bg-raised:#161b22;--border:#21262d;--text:#e6edf3;--text-dim:#8b949e;--text-muted:#484f58;--cyan:#39d2ff;--cyan-bg:#39d2ff15;--amber:#ffb347;--amber-bg:#ffb34715;--green:#3fb950;--green-bg:#3fb95015;--magenta:#ff6ec7;--magenta-bg:#ff6ec715;--red:#f85149;--violet:#a371f7;--radius:14px;--radius-sm:8px;--transition:0.3s cubic-bezier(0.4,0,0.2,1)}
+body.light{--bg:#f6f8fa;--bg-card:#fff;--bg-raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--text-dim:#656d76;--text-muted:#8b949e;--cyan:#0969da;--cyan-bg:#ddf4ff;--amber:#9a6700;--amber-bg:#fff8c5;--green:#1a7f37;--green-bg:#dafbe1;--magenta:#bf3989;--magenta-bg:#fbefff;--red:#cf222e;--violet:#8250df}
+body.light .topbar{background:rgba(246,248,250,0.9)}body.light .eq-box{background:rgba(0,0,0,0.03)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;transition:background 0.3s,color 0.3s}
+.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:1.5rem}
+.theme-toggle{position:fixed;top:0.7rem;right:1.5rem;z-index:200;background:var(--bg-raised);border:1px solid var(--border);color:var(--text);font-size:1.1rem;cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;transition:var(--transition);font-family:'JetBrains Mono',monospace}
+.theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.5rem 1.5rem;display:flex;align-items:center;gap:1rem;font-size:0.8rem;border-radius:0 0 10px 10px}
+.topbar .logo{font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:0.15em;color:var(--cyan);white-space:nowrap}
+.topbar a{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);text-decoration:none;margin-left:auto;transition:var(--transition)}
+.topbar a:hover{color:var(--cyan)}
+.header{text-align:center;padding:2rem 0 1rem}
+.header h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.header .tagline{color:var(--text-dim);font-size:0.9rem}
+
+.section-title{font-family:'Orbitron',sans-serif;font-size:0.85rem;color:var(--cyan);margin:1.5rem 0 0.8rem;padding-bottom:0.5rem;border-bottom:2px solid var(--border);text-align:center}
+
+/* Side-by-side */
+.side-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1rem 0}
+@media(max-width:768px){.side-grid{grid-template-columns:1fr}}
+
+.model-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+.model-card.mlp{border-top:3px solid var(--cyan)}
+.model-card.llama{border-top:3px solid var(--violet)}
+.model-card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;margin-bottom:0.8rem}
+.model-card.mlp h3{color:var(--cyan)}
+.model-card.llama h3{color:var(--violet)}
+.model-card .stat-row{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:0.65rem;padding:0.3rem 0;border-bottom:1px solid var(--border)}
+.model-card .stat-row .label{color:var(--text-dim)}
+.model-card .stat-row .val{color:var(--text);font-weight:600}
+
+/* Neuron table */
+.neuron-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.6rem;margin:0.8rem 0}
+.neuron-table th{font-size:0.55rem;letter-spacing:0.04em;text-transform:uppercase;color:var(--text-muted);padding:0.4rem;border-bottom:2px solid var(--border);text-align:center;background:var(--bg-raised)}
+.neuron-table td{padding:0.35rem;border-bottom:1px solid var(--border);text-align:center}
+.neuron-table td.name{text-align:left;color:var(--cyan)}
+.neuron-table .llama-name{color:var(--violet)}
+.neuron-table .total{font-weight:700;color:var(--amber)}
+.neuron-table tr:hover{background:var(--cyan-bg)}
+
+/* Zoom neuron box */
+.neuron-zoom{background:var(--bg-raised);border:2px solid var(--amber);border-radius:10px;padding:1rem;margin:0.8rem 0;text-align:center}
+.neuron-zoom .big-num{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--amber)}
+.neuron-zoom .detail{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);margin-top:0.3rem}
+
+/* Key insight box */
+.insight{background:linear-gradient(135deg,var(--cyan-bg),var(--violet-bg));border:2px solid var(--cyan);border-radius:var(--radius);padding:1.5rem;margin:1.5rem 0;text-align:center}
+.insight h3{font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--cyan);margin-bottom:0.8rem}
+.insight .formula{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text);line-height:2}
+
+.eq-box{background:rgba(0,0,0,0.4);border-left:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:0.8rem 0;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.8;color:var(--text);white-space:pre-wrap;overflow-x:auto}
+
+.data-types{display:grid;grid-template-columns:repeat(3,1fr);gap:0.8rem;margin:1rem 0}
+@media(max-width:768px){.data-types{grid-template-columns:1fr}}
+.data-type-card{background:var(--bg-raised);border:1px solid var(--border);border-top:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem;transition:var(--transition)}
+.data-type-card:nth-child(2){border-top-color:var(--amber)}.data-type-card:nth-child(3){border-top-color:var(--violet)}
+.data-type-card .dt-icon{font-size:1.3rem;margin-bottom:0.3rem}
+.data-type-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.3rem;color:var(--cyan)}.data-type-card:nth-child(2) h4{color:var(--amber)}.data-type-card:nth-child(3) h4{color:var(--violet)}
+.data-type-card p{font-size:0.72rem!important;color:var(--text-dim)!important}
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+<nav class="topbar"><span class="logo">LLAMA NEURONS — MLP vs TRANSFORMER</span><a href="phase3_mlp_mnist.html">← Phase 3 MLP</a><a href="https://ashokmulchandani.github.io/Fine_tuning-ML-Pipleine--Synthetic_Data-Ashok-1/model_memory_lora_calculator.html">Model Memory Calculator →</a></nav>
+<div class="app">
+<header class="header"><h1>Where Are the Neurons in Llama? — MLP vs Transformer</h1><p class="tagline">You understand 128 neurons × 784 weights = 100,480 params. The exact same formula applies to Llama 7B's 11,008 FFN neurons × 4,096 weights. The numbers are bigger — the math is identical.</p></header>
+
+<!-- SIDE-BY-SIDE STATS -->
+<div class="side-grid">
+  <div class="model-card mlp">
+    <h3>🔵 Phase 3 MLP — MNIST Digit Classifier</h3>
+    <div class="stat-row"><span class="label">Total Parameters</span><span class="val">109,386</span></div>
+    <div class="stat-row"><span class="label">Layers</span><span class="val">3 (all linear)</span></div>
+    <div class="stat-row"><span class="label">Hidden neurons</span><span class="val">128 + 64 = 192</span></div>
+    <div class="stat-row"><span class="label">Input size</span><span class="val">784 (28×28 pixels)</span></div>
+    <div class="stat-row"><span class="label">Output size</span><span class="val">10 (digits 0-9)</span></div>
+    <div class="stat-row"><span class="label">Task</span><span class="val">Classification (10 classes)</span></div>
+    <div class="stat-row"><span class="label">Training data</span><span class="val">60,000 images</span></div>
+  </div>
+  <div class="model-card llama">
+    <h3>🟣 Llama 7B — Transformer Language Model</h3>
+    <div class="stat-row"><span class="label">Total Parameters</span><span class="val">6,738,415,616 (~6.7B)</span></div>
+    <div class="stat-row"><span class="label">Layers</span><span class="val">32 transformer blocks</span></div>
+    <div class="stat-row"><span class="label">Hidden size (d_model)</span><span class="val">4,096</span></div>
+    <div class="stat-row"><span class="label">FFN hidden size</span><span class="val">11,008 per block</span></div>
+    <div class="stat-row"><span class="label">Attention heads</span><span class="val">32 heads × 128 dim</span></div>
+    <div class="stat-row"><span class="label">Vocabulary</span><span class="val">32,000 tokens</span></div>
+    <div class="stat-row"><span class="label">Training data</span><span class="val">~1 trillion tokens</span></div>
+  </div>
+</div>
+
+<!-- THE KEY QUESTION -->
+<div class="insight">
+  <h3>🔑 Answer: Llama's Feed-Forward Network (FFN) IS an MLP!</h3>
+  <div class="formula">
+    Every transformer block has an FFN sub-layer that is <strong style="color:var(--cyan);">literally a 2-layer MLP</strong>:
+
+    <span style="color:var(--cyan);">MLP:</span>  input(784) → <span style="color:var(--amber);">W₁(784×128)</span> → <span style="color:var(--green);">ReLU</span> → <span style="color:var(--amber);">W₂(128×64)</span> → <span style="color:var(--green);">ReLU</span> → <span style="color:var(--amber);">W₃(64×10)</span> → output(10)
+
+    <span style="color:var(--violet);">Llama FFN:</span>  input(4096) → <span style="color:var(--amber);">gate_proj(4096×11008)</span> → <span style="color:var(--green);">SiLU</span> → × <span style="color:var(--amber);">up_proj(4096×11008)</span> → <span style="color:var(--amber);">down_proj(11008×4096)</span> → output(4096)
+
+    <span style="color:var(--amber);">SAME PATTERN!</span> Just bigger numbers, SwiGLU instead of ReLU, and repeated 32 times.
+  </div>
+</div>
+
+<!-- PER-NEURON TABLE: MLP -->
+<div class="section-title">🔵 MLP — Per-Neuron Weight Breakdown (You Already Know This)</div>
+<div style="overflow-x:auto;">
+<table class="neuron-table">
+  <thead><tr><th>Layer Name</th><th>Neurons</th><th>Weights PER neuron</th><th>Bias</th><th>Knobs per neuron</th><th>Formula</th><th>TOTAL params</th></tr></thead>
+  <tbody>
+    <tr><td class="name">Hidden 1</td><td>128</td><td>784 (all pixels)</td><td>1</td><td>785</td><td>128×(784+1)</td><td class="total">100,480</td></tr>
+    <tr><td class="name">Hidden 2</td><td>64</td><td>128 (from H1)</td><td>1</td><td>129</td><td>64×(128+1)</td><td class="total">8,256</td></tr>
+    <tr><td class="name">Output</td><td>10</td><td>64 (from H2)</td><td>1</td><td>65</td><td>10×(64+1)</td><td class="total">650</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- PER-NEURON TABLE: Llama FFN (ONE BLOCK) -->
+<div class="section-title">🟣 Llama 7B — Per-"Neuron" Weight Breakdown (ONE Transformer Block)</div>
+<p style="font-size:0.8rem;color:var(--text-dim);text-align:center;margin-bottom:0.5rem;">Every parameter in Llama follows the SAME <strong style="color:var(--amber);">neurons × (inputs + bias)</strong> formula. Here's one block broken down:</p>
+<div style="overflow-x:auto;">
+<table class="neuron-table">
+  <thead><tr><th>Layer Name</th><th>"Neurons" (output dim)</th><th>Weights PER neuron</th><th>Bias?</th><th>Knobs per neuron</th><th>Formula</th><th>TOTAL params</th></tr></thead>
+  <tbody>
+    <tr style="background:rgba(163,113,247,0.05);"><td colspan="7" style="text-align:left;color:var(--violet);font-weight:600;padding:0.4rem;">📌 ATTENTION (Q/K/V/O projections)</td></tr>
+    <tr><td class="llama-name">Q projection</td><td>4,096</td><td>4,096 (from input)</td><td>✗</td><td>4,096</td><td>4096×4096</td><td class="total">16,777,216</td></tr>
+    <tr><td class="llama-name">K projection</td><td>4,096</td><td>4,096 (from input)</td><td>✗</td><td>4,096</td><td>4096×4096</td><td class="total">16,777,216</td></tr>
+    <tr><td class="llama-name">V projection</td><td>4,096</td><td>4,096 (from input)</td><td>✗</td><td>4,096</td><td>4096×4096</td><td class="total">16,777,216</td></tr>
+    <tr><td class="llama-name">O projection</td><td>4,096</td><td>4,096 (from concat)</td><td>✗</td><td>4,096</td><td>4096×4096</td><td class="total">16,777,216</td></tr>
+    <tr><td colspan="7" style="text-align:right;color:var(--amber);font-weight:600;">Attention subtotal: <strong>67,108,864</strong></td></tr>
+
+    <tr style="background:rgba(163,113,247,0.05);"><td colspan="7" style="text-align:left;color:var(--violet);font-weight:600;padding:0.4rem;">📌 FEED-FORWARD NETWORK (SwiGLU — the actual "MLP inside Llama")</td></tr>
+    <tr><td class="llama-name">gate_proj</td><td>11,008</td><td>4,096 (from input)</td><td>✗</td><td>4,096</td><td>11008×4096</td><td class="total">45,088,768</td></tr>
+    <tr><td class="llama-name">up_proj</td><td>11,008</td><td>4,096 (from input)</td><td>✗</td><td>4,096</td><td>11008×4096</td><td class="total">45,088,768</td></tr>
+    <tr><td class="llama-name">down_proj</td><td>4,096</td><td>11,008 (from gate×up)</td><td>✗</td><td>11,008</td><td>4096×11008</td><td class="total">45,088,768</td></tr>
+    <tr><td colspan="7" style="text-align:right;color:var(--amber);font-weight:600;">FFN subtotal: <strong>135,266,304</strong></td></tr>
+
+    <tr style="background:rgba(163,113,247,0.05);"><td colspan="7" style="text-align:left;color:var(--violet);font-weight:600;padding:0.4rem;">📌 NORMALIZATION (RMS Norm — tiny!)</td></tr>
+    <tr><td class="llama-name">RMS Norm × 2</td><td>4,096</td><td>1 (scale only)</td><td>✗</td><td>1</td><td>2×4096</td><td class="total">8,192</td></tr>
+
+    <tr style="background:rgba(255,179,71,0.08);"><td colspan="6" style="text-align:right;font-weight:700;color:var(--amber);">ONE BLOCK TOTAL</td><td class="total">202,383,360</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ZOOM-IN: One neuron -->
+<div class="section-title">🔬 Zoom In: ONE "Neuron" in gate_proj (Llama FFN)</div>
+<div class="side-grid">
+  <div class="neuron-zoom" style="border-color:var(--cyan);">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);margin-bottom:0.5rem;">MLP Hidden Layer 1 Neuron</div>
+    <div class="big-num">784 weights</div>
+    <div class="detail">+ 1 bias = 785 knobs</div>
+    <div class="detail" style="margin-top:0.5rem;">One weight per INPUT PIXEL</div>
+    <div class="detail">w₁×p₁ + w₂×p₂ + ... + w₇₈₄×p₇₈₄ + b</div>
+  </div>
+  <div class="neuron-zoom" style="border-color:var(--violet);">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--violet);margin-bottom:0.5rem;">Llama FFN gate_proj Neuron</div>
+    <div class="big-num">4,096 weights</div>
+    <div class="detail">no bias in Llama = 4,096 knobs</div>
+    <div class="detail" style="margin-top:0.5rem;">One weight per INPUT EMBEDDING DIMENSION</div>
+    <div class="detail">w₁×e₁ + w₂×e₂ + ... + w₄₀₉₆×e₄₀₉₆</div>
+  </div>
+</div>
+
+<!-- THE UNIVERSAL FORMULA -->
+<div class="insight">
+  <h3>🧮 THE UNIVERSAL FORMULA — Same Math, Different Scale</h3>
+  <div class="formula" style="font-size:0.85rem;">
+    <strong style="color:var(--amber);">For ANY linear layer in ANY neural network:</strong>
+
+    params = output_neurons × (input_features + has_bias)
+
+    <span style="color:var(--cyan);">MLP Hidden 1:</span>  128 neurons × (784 inputs + 1 bias) = <strong>100,480</strong>
+    <span style="color:var(--violet);">Llama gate_proj:</span> 11,008 neurons × (4,096 inputs + 0 bias) = <strong>45,088,768</strong>
+
+    <span style="color:var(--amber);">SAME FORMULA. 450× larger numbers. 32× more layers. That's the difference.</span>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="data-types">
+  <div class="data-type-card"><div class="dt-icon">🔵</div><h4>In the MLP...</h4><p>"Neurons" are explicit: 128 neurons in Hidden Layer 1. Each has 784 weights (one per pixel). You can count them: 128 × 785 = 100,480.</p></div>
+  <div class="data-type-card"><div class="dt-icon">🟣</div><h4>In Llama...</h4><p>"Neurons" are the OUTPUT DIMENSION of each linear layer. gate_proj[4096→11008]: 11,008 neurons, 4,096 weights each. Same concept, different name.</p></div>
+  <div class="data-type-card"><div class="dt-icon">💡</div><h4>Why the different language?</h4><p>ML papers say "hidden size" instead of "neurons" because at transformer scale, you think in matrix dimensions, not individual neurons. But the math never changed.</p></div>
+</div>
+
+<!-- LLAMA FULL MODEL -->
+<div class="section-title">📦 Full Llama 7B Parameter Breakdown (32 Blocks)</div>
+<div style="overflow-x:auto;">
+<table class="neuron-table">
+  <thead><tr><th>Component</th><th>Per Block</th><th>× 32 Blocks</th><th>% of Total</th></tr></thead>
+  <tbody>
+    <tr><td class="llama-name">Attention (Q+K+V+O)</td><td>67,108,864</td><td class="total">2,147,483,648</td><td>31.9%</td></tr>
+    <tr><td class="llama-name">FFN (gate+up+down)</td><td>135,266,304</td><td class="total">4,328,521,728</td><td>64.2%</td></tr>
+    <tr><td class="llama-name">RMS Norm</td><td>8,192</td><td class="total">262,144</td><td>0.004%</td></tr>
+    <tr><td class="llama-name">Token Embedding</td><td colspan="2" style="text-align:right;">32000 × 4096</td><td class="total">131,072,000</td></tr>
+    <tr><td class="llama-name">Output (lm_head)</td><td colspan="2" style="text-align:right;">4096 × 32000</td><td class="total">131,072,000</td></tr>
+    <tr style="background:rgba(255,179,71,0.1);"><td colspan="3" style="text-align:right;font-weight:700;color:var(--amber);">GRAND TOTAL</td><td class="total">6,738,415,616</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="eq-box" style="text-align:center;margin-top:1rem;">
+<span style="color:var(--text-muted);">64.2% of Llama 7B's parameters are in the FFN — the "MLP inside each transformer block."</span>
+<span style="color:var(--amber);">If you understand 128 neurons × 784 weights, you understand Llama's 11,008 neurons × 4,096 weights.</span>
+<span style="color:var(--cyan);">Same formula. Different scale. That's all a transformer is — MLPs with attention glued between them.</span>
+</div>
+
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.getElementById('themeToggle').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('llama-neuron-theme',document.body.classList.contains('light')?'light':'dark')}
+(function(){if(localStorage.getItem('llama-neuron-theme')==='light'){document.body.classList.add('light');document.getElementById('themeToggle').textContent='🌙'}})();
+(function(){var c=document.getElementById('bgCanvas'),ctx=c.getContext('2d'),p=[];function rs(){c.width=window.innerWidth;c.height=window.innerHeight}rs();window.addEventListener('resize',rs);for(var i=0;i<50;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,r:Math.random()*2+0.5});function an(){ctx.clearRect(0,0,c.width,c.height);var il=document.body.classList.contains('light');var lc=il?'rgba(9,105,218,0.05)':'rgba(57,210,255,0.05)';var dc=il?'rgba(9,105,218,0.25)':'rgba(57,210,255,0.25)';p.forEach(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;if(pp.x<0)pp.x=c.width;if(pp.x>c.width)pp.x=0;if(pp.y<0)pp.y=c.height;if(pp.y>c.height)pp.y=0});for(var i=0;i<p.length;i++)for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x,dy=p[i].y-p[j].y;if(Math.sqrt(dx*dx+dy*dy)<100){ctx.beginPath();ctx.moveTo(p[i].x,p[i].y);ctx.lineTo(p[j].x,p[j].y);ctx.strokeStyle=lc;ctx.lineWidth=0.5;ctx.stroke()}}p.forEach(function(pp){ctx.beginPath();ctx.arc(pp.x,pp.y,pp.r,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill()});requestAnimationFrame(an)}an()})();
+</script>
+</body>
+</html>

@@ -43,4 +43,6 @@ See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
 | **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 8 slides — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving |
 | **6** | [🎓 Production CUDA (6A-6F)](phase6_production_cuda.html) | 10 slides — TensorRT, Triton, Nsight, Multi-Stream 7×, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s |
 
+| **LLM** | [🧠 Where Are the Neurons in Llama?](llama_neuron_comparison.html) | Side-by-side: MLP neuron math (128×784) vs Llama 7B (11,008×4,096) — same formula, different scale |
+
 > Use ← → arrow keys to navigate. Dark/light theme toggle in top-right. Each slide has a quiz.
