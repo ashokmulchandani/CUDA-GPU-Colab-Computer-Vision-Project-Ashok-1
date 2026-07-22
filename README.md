@@ -41,7 +41,7 @@ See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
 | **3** | [🧮 LR → Epochs Calculator](phase3_lr_convergence_calc.html) | Interactive — adjust learning rate, see epochs needed, accuracy trajectory bars, reference table |
 | **3.5** | [🎓 CNN on MNIST — Convolution Kernels](phase3_5_cnn_mnist.html) | 13 slides — CNN vs FC, 2D convolution, Conv2D CUDA kernel code, Max Pooling, architecture, training loop, benchmarks (96.29%, 7.4×) + 4 hands-on exercise slides with Colab instructions |
 | **3.5** | [📝 Hands-on Exercises](Phase_3_5_CNN/) | 6 templates — convolution by hand, kernel trace, max pooling, architecture design, Colab training + experiments, benchmarks + reflection |
-| **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 8 slides — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving |
+| **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 13 slides (8 concepts + 5 exercises) — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving. HANDS-ON: Colab + YOLO, CUDA kernels, TensorRT export, NMS, Smart Camera |
 | **6** | [🎓 Production CUDA (6A-6F)](phase6_production_cuda.html) | 10 slides — TensorRT, Triton, Nsight, Multi-Stream 7×, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s |
 
 | **LLM** | [🧠 Where Are the Neurons in Llama?](llama_neuron_comparison.html) | Side-by-side: MLP neuron math (128×784) vs Llama 7B (11,008×4,096) — same formula, different scale |

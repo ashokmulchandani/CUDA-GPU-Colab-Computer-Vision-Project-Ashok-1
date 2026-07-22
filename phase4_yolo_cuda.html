@@ -489,6 +489,14 @@ body {
   .theme-toggle { right: 0.5rem; top: 0.5rem; font-size: 0.9rem; padding: 0.3rem 0.5rem; }
   .big-stat .number { font-size: 2rem; }
 }
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.8;white-space:pre-wrap;overflow-x:auto;color:#d4d4d4;position:relative}
+.code-wrapper{position:relative;margin:1rem 0}
+.copy-btn2{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;padding:0.3em 0.7em;border:1px solid #555;border-radius:6px;background:#2d2d2d;color:#ccc;cursor:pointer;transition:0.15s;opacity:0;z-index:5}
+.code-wrapper:hover .copy-btn2{opacity:1}
+.copy-btn2:hover{background:#333;color:var(--violet);border-color:var(--violet)}
+.copy-btn2.copied{background:#2d2d2d;color:var(--green);border-color:var(--green);opacity:1}
+.cell-num{font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:700;color:#fff;background:var(--violet);display:inline-block;padding:0.15em 0.6em;border-radius:4px 4px 0 0;margin-bottom:0.4rem;letter-spacing:0.04em}
+.callout-box{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.8rem 1.2rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.75rem;color:var(--text-dim)}
 </style>
 </head>
 <body>
@@ -1284,7 +1292,213 @@ output[c * out_h * out_w + out_y * out_w + out_x] = (<span style="color:var(--cy
     </div>
   </div>
 </div>`; }
-  }
+  },
+
+  // ═══════ SLIDE 9 (4.9): Hands-On Exercise 1 — Run YOLO in Colab ═══════
+  { id:'4.9', title:'🖐️ Exercise 1: Open Colab + Run YOLO',
+    fact:'<strong>The YOLOv8n model is only 3.15M parameters.</strong> That is smaller than a single fully-connected layer in GPT-2. You can run it on a free Colab T4 at 137 FPS.',
+    render(){return`
+<div class="slide"><div class="card">
+<h2><span class="num">4.9</span> 🖐️ Exercise 1 — Open Colab + Run YOLO Inference</h2>
+
+<h3>💻 Step 1: Open the Notebook</h3>
+<div class="code-box"><span class="cell-num">CELL — Open Colab</span>
+<span style="color:#6a9955;"># Open this notebook in Google Colab (free Tesla T4 GPU)</span>
+<span style="color:#4ec9b0;">https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_YOLO.ipynb</span>
+</div>
+
+<h3>🔨 Step 2: Run Basic YOLO Inference</h3>
+<div class="code-box"><span class="cell-num">CELL — Install + Load Model</span>
+<span style="color:#6a9955;"># Install ultralytics and run inference on a test image</span>
+<span style="color:#569cd6;">!pip install</span> ultralytics
+<span style="color:#569cd6;">from</span> ultralytics <span style="color:#569cd6;">import</span> YOLO
+<span style="color:#c586c0;">model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.pt'</span>)  <span style="color:#6a9955;">// 3.15M params, 8.7 GFLOPs</span>
+<span style="color:#c586c0;">results</span> = <span style="color:#c586c0;">model</span>(<span style="color:#ce9178;">'https://ultralytics.com/images/zidane.jpg'</span>)
+<span style="color:#c586c0;">results</span>[<span style="color:#ce9178;">0</span>].<span style="color:#c586c0;">show</span>()  <span style="color:#6a9955;">// should show person + tie + sports ball</span>
+</div>
+
+<h3>📊 Record Your First Inference</h3>
+<table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0;">
+<tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Metric</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Your Value</th></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Inference time (ms)</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___ ms</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Objects detected</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">GPU Model</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td></tr>
+</table>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Opened Colab notebook and verified Tesla T4 GPU (!nvidia-smi)</div>
+<div class="check-item"><span class="check-box">☐</span> Installed ultralytics and loaded YOLOv8n model</div>
+<div class="check-item"><span class="check-box">☐</span> Ran inference on test image — saw detected objects</div>
+<div class="check-item"><span class="check-box">☐</span> Recorded inference time and GPU model</div>
+</div>
+</div></div>`;}},
+
+  // ═══════ SLIDE 10 (4.10): Exercise 2 — Preprocess Kernel ═══════
+  { id:'4.10', title:'🖐️ Exercise 2: CUDA Preprocess Kernel',
+    fact:'<strong>The preprocess kernel is 3 operations fused into 1.</strong> Resize + Normalize + HWC-to-CHW — three separate NumPy calls — become a single GPU pass at 0.046ms. That is 419× faster than Python.',
+    render(){return`
+<div class="slide"><div class="card">
+<h2><span class="num">4.10</span> 🖐️ Exercise 2 — Understand the Preprocess CUDA Kernel</h2>
+
+<h3>🔍 Step 1: Find the Preprocess Code</h3>
+<p>In the Colab notebook, find the cell with <code style="color:var(--cyan);">%%writefile preprocess.cu</code>. This writes the kernel to a file.</p>
+
+<h3>🧠 Step 2: Trace the Kernel</h3>
+<div class="code-box"><span class="cell-num">preprocess.cu — 3 operations in 1 kernel</span>
+<span style="color:#569cd6;">__global__ void</span> <span style="color:#c586c0;">preprocess_kernel</span>(<span style="color:#569cd6;">unsigned char</span> *input, <span style="color:#569cd6;">float</span> *output,
+                                   <span style="color:#569cd6;">int</span> in_h, <span style="color:#569cd6;">int</span> in_w,
+                                   <span style="color:#569cd6;">int</span> out_h, <span style="color:#569cd6;">int</span> out_w) {
+    <span style="color:#569cd6;">int</span> out_x = blockIdx.x * blockDim.x + threadIdx.x;  <span style="color:#6a9955;">// 0..639</span>
+    <span style="color:#569cd6;">int</span> out_y = blockIdx.y * blockDim.y + threadIdx.y;  <span style="color:#6a9955;">// 0..639</span>
+    <span style="color:#569cd6;">int</span> c     = blockIdx.z;                            <span style="color:#6a9955;">// 0=R, 1=G, 2=B</span>
+
+    <span style="color:#6a9955;">// Step 1: Nearest-neighbor resize</span>
+    <span style="color:#569cd6;">int</span> in_x = (<span style="color:#569cd6;">int</span>)((<span style="color:#569cd6;">float</span>)out_x / <span style="color:#ce9178;">640</span> * in_w);
+    <span style="color:#569cd6;">int</span> in_y = (<span style="color:#569cd6;">int</span>)((<span style="color:#569cd6;">float</span>)out_y / <span style="color:#ce9178;">640</span> * in_h);
+
+    <span style="color:#6a9955;">// Step 2: Read pixel from HWC layout</span>
+    <span style="color:#569cd6;">unsigned char</span> pixel = input[in_y * in_w * <span style="color:#ce9178;">3</span> + in_x * <span style="color:#ce9178;">3</span> + c];
+
+    <span style="color:#6a9955;">// Step 3: Normalize + write to CHW layout</span>
+    output[c * out_h * out_w + out_y * out_w + out_x] = (<span style="color:#569cd6;">float</span>)pixel / <span style="color:#ce9178;">255.0f</span>;
+}
+<span style="color:#6a9955;">// Launch: dim3 threads(16,16), blocks(40,40,3)</span>
+<span style="color:#6a9955;">// 40x40x3 = 4800 blocks x 256 threads = 1,228,800 threads</span></div>
+
+<h3>📏 Step 3: Fill In the Thread Mapping</h3>
+<table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0;">
+<tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Grid Dimension</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Value</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Represents</th></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">blockIdx.x</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);">output column</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">blockIdx.y</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);">output row</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">blockIdx.z</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);">color channel (R,G,B)</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Blocks total</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);">___ × ___ × ___</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Threads total</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);">___ blocks × 256</td></tr>
+</table>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Found the %%writefile preprocess.cu cell and read the kernel</div>
+<div class="check-item"><span class="check-box">☐</span> Traced one thread from (blockIdx, threadIdx) to output pixel</div>
+<div class="check-item"><span class="check-box">☐</span> Verified: 0.046ms per frame (419× faster than 19.3ms NumPy)</div>
+</div>
+</div></div>`;}},
+
+  // ═══════ SLIDE 11 (4.11): Exercise 3 — TensorRT Export + Benchmark ═══════
+  { id:'4.11', title:'🖐️ Exercise 3: TensorRT Export + Benchmark',
+    fact:'<strong>TensorRT rebuilds your model specifically for YOUR GPU.</strong> The 418-second build time is a one-time cost. After that, inference drops from 13.8ms to 11.3ms — and the engine file is only 7.9MB.',
+    render(){return`
+<div class="slide"><div class="card">
+<h2><span class="num">4.11</span> 🖐️ Exercise 3 — Export to TensorRT + Benchmark</h2>
+
+<h3>💻 Step 1: Export to TensorRT</h3>
+<div class="code-box"><span class="cell-num">CELL — Export YOLOv8n to TensorRT</span>
+<span style="color:#6a9955;"># Export PyTorch model to TensorRT FP16 engine</span>
+<span style="color:#569cd6;">from</span> ultralytics <span style="color:#569cd6;">import</span> YOLO
+<span style="color:#c586c0;">model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.pt'</span>)
+<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'engine'</span>, half=<span style="color:#569cd6;">True</span>)  <span style="color:#6a9955;">// FP16, ~7 minutes on T4</span>
+<span style="color:#6a9955;"># Creates: yolov8n.engine (7.9 MB)</span>
+</div>
+
+<h3>📊 Step 2: Run Benchmarks + Fill In</h3>
+<table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0;">
+<tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Backend</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Precision</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Avg Time (ms)</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">FPS</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Model Size</th></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">PyTorch</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">FP32</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">6.3 MB</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">ONNX</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">FP32</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">12.3 MB</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);color:var(--cyan);">TensorRT</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">FP16</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">~11.3 ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">~89 FPS</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">7.9 MB</td></tr>
+</table>
+
+<h3>🎥 Step 3: Run Video Inference</h3>
+<div class="code-box"><span class="cell-num">CELL — Video Inference Benchmark</span>
+<span style="color:#6a9955;"># Run the LOVEACCOUNT notebook for video FPS test</span>
+<span style="color:#4ec9b0;">https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_LOVEACCOUNT_YOLO.ipynb</span>
+<span style="color:#6a9955;"># Expected: ~137 FPS on a 30 FPS video on Tesla T4</span>
+</div>
+<p>Record your video FPS: <strong>___ FPS</strong></p>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to TensorRT FP16 engine</div>
+<div class="check-item"><span class="check-box">☐</span> Ran PyTorch vs TensorRT benchmark — recorded timings</div>
+<div class="check-item"><span class="check-box">☐</span> Ran video inference — got >100 FPS on T4</div>
+</div>
+</div></div>`;}},
+
+  // ═══════ SLIDE 12 (4.12): Exercise 4 — NMS Kernel + Full Pipeline ═══════
+  { id:'4.12', title:'🖐️ Exercise 4: NMS Kernel + Triton Server',
+    fact:'<strong>The NMS kernel filters 8,400 candidate boxes down to ~10 final detections.</strong> It runs on the GPU, computing IoU between bounding boxes and suppressing overlapping ones. Without NMS, every object gets detected 5-10 times.',
+    render(){return`
+<div class="slide"><div class="card">
+<h2><span class="num">4.12</span> 🖐️ Exercise 4 — NMS Kernel + Triton Inference Server</h2>
+
+<h3>🎯 Step 1: Understand the NMS Kernel</h3>
+<div class="code-box"><span class="cell-num">nms.cu — IoU + Box Suppression</span>
+<span style="color:#6a9955;">// Compute Intersection-over-Union between two boxes</span>
+<span style="color:#569cd6;">__device__ float</span> <span style="color:#c586c0;">compute_iou</span>(<span style="color:#569cd6;">float</span> *box1, <span style="color:#569cd6;">float</span> *box2) {
+    <span style="color:#569cd6;">float</span> x1 = <span style="color:#4ec9b0;">fmaxf</span>(box1[<span style="color:#ce9178;">0</span>], box2[<span style="color:#ce9178;">0</span>]);
+    <span style="color:#569cd6;">float</span> y1 = <span style="color:#4ec9b0;">fmaxf</span>(box1[<span style="color:#ce9178;">1</span>], box2[<span style="color:#ce9178;">1</span>]);
+    <span style="color:#569cd6;">float</span> x2 = <span style="color:#4ec9b0;">fminf</span>(box1[<span style="color:#ce9178;">2</span>], box2[<span style="color:#ce9178;">2</span>]);
+    <span style="color:#569cd6;">float</span> y2 = <span style="color:#4ec9b0;">fminf</span>(box1[<span style="color:#ce9178;">3</span>], box2[<span style="color:#ce9178;">3</span>]);
+    <span style="color:#569cd6;">float</span> intersection = <span style="color:#4ec9b0;">fmaxf</span>(<span style="color:#ce9178;">0.0f</span>, x2-x1) * <span style="color:#4ec9b0;">fmaxf</span>(<span style="color:#ce9178;">0.0f</span>, y2-y1);
+    <span style="color:#569cd6;">float</span> area1 = (box1[<span style="color:#ce9178;">2</span>]-box1[<span style="color:#ce9178;">0</span>])*(box1[<span style="color:#ce9178;">3</span>]-box1[<span style="color:#ce9178;">1</span>]);
+    <span style="color:#569cd6;">float</span> area2 = (box2[<span style="color:#ce9178;">2</span>]-box2[<span style="color:#ce9178;">0</span>])*(box2[<span style="color:#ce9178;">3</span>]-box2[<span style="color:#ce9178;">1</span>]);
+    <span style="color:#c586c0;">return</span> (area1+area2 > <span style="color:#ce9178;">0</span>) ? intersection/(area1+area2-intersection) : <span style="color:#ce9178;">0.0f</span>;
+}
+<span style="color:#6a9955;">// Each thread: if my box overlaps a higher-confidence box (IoU > 0.5) → suppress it</span></div>
+
+<h3>🖥️ Step 2: Explore the Triton Inference Server Demo</h3>
+<div class="code-box"><span class="cell-num">Local — Triton Server Demo</span>
+<span style="color:#6a9955;"># Explore the triton_demo/ directory:</span>
+<span style="color:#6a9955;"># - export_model.py: YOLO -> ONNX export for Triton</span>
+<span style="color:#6a9955;"># - inference_server.py: Flask server with phone camera web demo</span>
+<span style="color:#6a9955;"># - triton_client.py: HTTP client example for Triton API</span>
+<span style="color:#6a9955;"># - config.pbtxt: Dynamic batching config (max batch 8)</span>
+</div>
+
+<h3>📊 Step 3: Complete the Pipeline Timing Table</h3>
+<table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0;">
+<tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Stage</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Python Time</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">CUDA/TRT Time</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Speedup</th></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Preprocess</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">19.3 ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">0.046 ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">___×</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Inference</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___ ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">___ ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">___×</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">NMS</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">72.5 ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">~1 ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">___×</td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);font-weight:700;">TOTAL</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">___ ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">~12 ms</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">~21×</td></tr>
+</table>
+</div></div>`;}},
+
+  // ═══════ SLIDE 13 (4.13): Exercise 5 — Reflection + What You Built ═══════
+  { id:'4.13', title:'🖐️ Exercise 5: Reflection + Smart Camera Bonus',
+    fact:'<strong>The smart camera script combines YOLO + ByteTrack + zone logic + Telegram alerts.</strong> It is a production-quality system running at 137 FPS on a single T4. That is 4.5× faster than real-time for 30 FPS video.',
+    render(){return`
+<div class="slide"><div class="card">
+<h2><span class="num">4.13</span> 🖐️ Exercise 5 — Reflection + Smart Camera Bonus</h2>
+
+<h3>🧠 Part 1: Answer These</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> <strong>Why 3D grid for preprocess?</strong> The z-dimension (3) separates R,G,B — each channel gets its own set of blocks. Why is this better than looping over channels inside the kernel?</div>
+<div class="check-item"><span class="check-box">☐</span> <strong>Why does TensorRT help MORE for larger models?</strong> YOLOv8n only gets 1.2× from TensorRT. Larger models (YOLOv8x) get 3-5×. Why?</div>
+<div class="check-item"><span class="check-box">☐</span> <strong>Why does NMS need to sort boxes FIRST?</strong> The kernel checks each box against HIGHER-confidence boxes. What would happen if boxes were unsorted?</div>
+<div class="check-item"><span class="check-box">☐</span> <strong>Where would you use this in production?</strong> List 3 real-world applications for a 137 FPS object detector on a $0.15/hr GPU.</div>
+</div>
+
+<h3>📷 Part 2 (Bonus): Run the Smart Camera</h3>
+<div class="code-box"><span class="cell-num">Local — smart_camera.py</span>
+<span style="color:#6a9955;"># Run the smart camera on your local machine:</span>
+<span style="color:#569cd6;">python</span> smart_camera.py
+
+<span style="color:#6a9955;"># Features: YOLO detection + ByteTrack tracking + line counting</span>
+<span style="color:#6a9955;"># + zone alerts + Telegram notifications + FPS display</span>
+<span style="color:#6a9955;"># Press 'q' to quit</span>
+</div>
+
+<h3>📊 Part 3: Fill In Your Experience</h3>
+<table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0;">
+<tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">What I did</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Status</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">What I learned</th></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Ran YOLO in Colab</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">☐</td><td style="padding:0.4rem;border:1px solid var(--border);"></td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Compiled preprocess.cu</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">☐</td><td style="padding:0.4rem;border:1px solid var(--border);"></td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Exported TensorRT engine</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">☐</td><td style="padding:0.4rem;border:1px solid var(--border);"></td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Ran video benchmark</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">☐</td><td style="padding:0.4rem;border:1px solid var(--border);"></td></tr>
+<tr><td style="padding:0.4rem;border:1px solid var(--border);">Tested smart camera</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">☐</td><td style="padding:0.4rem;border:1px solid var(--border);"></td></tr>
+</table>
+
+<div class="big-stat"><div class="number">Phase 4 ✅</div><div class="label">YOLO + CUDA + TENSORRT — 137 FPS PIPELINE COMPLETE</div></div>
+</div></div>`;}}
 ];
 
 // ── Quiz Logic ──
@@ -1334,6 +1548,19 @@ function renderSlide(index) {
     nextBtn.style.color = 'var(--cyan)';
   }
   document.getElementById('slideContainer').scrollIntoView({behavior:'smooth', block:'start'});
+  // Inject copy buttons into code boxes
+  setTimeout(function(){
+    document.querySelectorAll('.code-box').forEach(function(box){
+      var p=box.parentElement;
+      if(!p.classList.contains('code-wrapper')){
+        var w=document.createElement('div');w.className='code-wrapper';
+        p.insertBefore(w,box);w.appendChild(box);
+        var b=document.createElement('button');b.className='copy-btn2';b.textContent='Copy';
+        b.onclick=function(){var c=box.cloneNode(true);c.querySelectorAll('.cell-num').forEach(function(l){l.remove()});navigator.clipboard.writeText(c.textContent.trim()).then(function(){b.textContent='Copied!';b.classList.add('copied');setTimeout(function(){b.textContent='Copy';b.classList.remove('copied')},2000)})};
+        w.appendChild(b);
+      }
+    });
+  },50);
 }
 
 function goTo(index) {
