@@ -135,6 +135,42 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
     <a href="index.html" style="color:var(--tdim);text-decoration:none;">Dashboard</a>
   </div>
 
+  <!-- HOW MULTI-CHANNEL CONV WORKS -->
+  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:10px;padding:0.8rem 1rem;margin:0.6rem auto;max-width:700px;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--violet);margin-bottom:0.5rem;">🔬 How Does Conv Work With Multiple Channels? — 3D Filters!</div>
+    <div style="display:flex;gap:0.5rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+      <div style="background:var(--bg-card);border:1px solid var(--cyan);border-radius:6px;padding:0.5rem;text-align:center;max-width:200px;">
+        <div style="font-size:0.45rem;color:var(--cyan);">Phase 3.5 (MNIST)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">Input: 28×28×<strong style="color:var(--cyan);">1</strong> (grayscale)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Filter: <strong style="color:var(--cyan);">5×5×1</strong> = 25 weights</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Each filter = 1 plane of weights</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">8 filters → 8×25 = <strong>200 params</strong></div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--amber);">→</div>
+      <div style="background:var(--bg-card);border:2px solid var(--amber);border-radius:6px;padding:0.5rem;text-align:center;max-width:200px;">
+        <div style="font-size:0.45rem;color:var(--amber);">YOLO Layer (3→16ch)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">Input: 640×640×<strong style="color:var(--amber);">3</strong> (RGB)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Filter: <strong style="color:var(--amber);">3×3×3</strong> = 27 weights</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Each filter = 3 planes of weights!</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">16 filters → 16×27 = <strong>448 params</strong></div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--red);">→</div>
+      <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:6px;padding:0.5rem;text-align:center;max-width:200px;">
+        <div style="font-size:0.45rem;color:var(--red);">Deep Layer (128→256ch)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">Input: 40×40×<strong style="color:var(--red);">128</strong></div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Filter: <strong style="color:var(--red);">3×3×128</strong> = 1,152 weights</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Each filter = 128 planes!</div>
+        <div style="font-size:0.4rem;color:var(--red);margin-top:0.3rem;">256 filters → 295K params</div>
+      </div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-top:0.6rem;line-height:1.6;">
+      <strong style="color:var(--amber);">Key insight:</strong> Each output channel = ONE 3D filter (h × w × all_input_channels)<br>
+      <strong style="color:var(--cyan);">The 3D filter slides across the 2D image, reading ALL input channels at each position.</strong><br>
+      → 16 output channels = 16 different 3D filters, each learning a different pattern across all 3 RGB channels.<br>
+      → At deeper layers, each filter sees ALL previous channels — that is why "channels grow" = more patterns being combined.
+    </div>
+  </div>
+
   <!-- CODE -->
   <div class="code" id="codeBox"></div>
 </div>
