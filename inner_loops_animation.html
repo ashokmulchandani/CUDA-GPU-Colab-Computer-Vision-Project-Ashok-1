@@ -152,6 +152,49 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
   <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">
     28×28 input → 5×5 filter → 24×24 output = 576 positions × 25 mult = 14,400 mult per filter × 8 filters = 115,200 mult per image × 64 batch = <strong style="color:var(--amber);">7.37M mult per forward pass</strong>
   </div>
+
+  <!-- HOW FILTERS LEARN -->
+  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:12px;padding:1rem;margin-top:0.8rem;text-align:left;max-width:750px;margin-left:auto;margin-right:auto;font-size:0.55rem;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--violet);margin-bottom:0.6rem;text-align:center;">🧬 How Do Filters "Learn"? — Random → Trained</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.6rem;margin-bottom:0.6rem;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);">🎲 STEP 1: Random Init</div>
+        <div style="font-size:0.5rem;color:var(--tdim);margin-top:0.3rem;line-height:1.5;">
+          Before training, all 25 filter weights are RANDOM.<br>
+          e.g., uniform [-0.5, +0.5]<br><br>
+          <span style="color:var(--tmut);">Filter at epoch 0 is just noise — detects nothing useful.</span>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">📉 STEP 2: Backprop Updates</div>
+        <div style="font-size:0.5rem;color:var(--tdim);margin-top:0.3rem;line-height:1.5;">
+          Each batch: compute loss → backprop finds gradient dW → SGD updates each weight:<br>
+          <code style="color:var(--cyan);">w_new = w_old − lr × dW</code><br><br>
+          <span style="color:var(--tmut);">Weights that reduce loss get stronger. Weights that increase loss get weaker.</span>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);">✅ STEP 3: Trained Filter</div>
+        <div style="font-size:0.5rem;color:var(--tdim);margin-top:0.3rem;line-height:1.5;">
+          After ~10 epochs, the filter has "discovered" a pattern.<br>
+          e.g., left side positive (+0.15..+0.30), right side negative (−0.20..−0.32)<br><br>
+          <span style="color:var(--green);">This filter now detects VERTICAL EDGES — without anyone programming it!</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--card);border:1px solid var(--amber);border-radius:8px;padding:0.6rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">🔑 The values you see (0.15, -0.22, -0.18...) are LEARNED — not hand-coded</div>
+      <div style="font-size:0.5rem;color:var(--tdim);line-height:1.6;">
+        The animations use REALISTIC trained values to illustrate what a filter looks like AFTER learning.<br>
+        In a real CNN, each of the 8 filters starts as random noise, and after 10 epochs of backprop on MNIST,<br>
+        they self-organize into edge detectors, curve detectors, and blob detectors. <strong style="color:var(--cyan);">Nobody wrote "+0.15 here, −0.22 there."</strong><br>
+        The numbers emerged from minimizing cross-entropy loss across 60,000 training images.
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <script>
