@@ -57,7 +57,15 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
 .btn:disabled{opacity:0.3;cursor:not-allowed}
 
 .sep{width:1px;height:20px;background:var(--border);margin:0 0.3rem}
-@media(max-width:750px){.ig28 td{width:8px;height:8px}.ft td{width:30px;height:30px;font-size:0.5rem}}
+.oh{border-collapse:collapse;margin:0 auto}
+.oh td{width:7px;height:7px;border:1px solid rgba(72,79,88,0.12)}
+.oh td.computed{border-color:var(--green)}
+.oh td.strong-pos{background:rgba(63,185,80,0.85)}
+.oh td.weak-pos{background:rgba(63,185,80,0.35)}
+.oh td.neutral{background:transparent}
+.oh td.weak-neg{background:rgba(248,81,73,0.35)}
+.oh td.strong-neg{background:rgba(248,81,73,0.85)}
+@media(max-width:750px){.ig28 td{width:8px;height:8px}.ft td{width:30px;height:30px;font-size:0.5rem}.oh td{width:5px;height:5px}}
 </style>
 </head>
 <body>
@@ -90,6 +98,13 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
       <table class="ft" id="filterGrid"></table>
       <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">🟢positive 🔴negative</div>
     </div>
+
+    <!-- OUTPUT HEATMAP -->
+    <div class="panel" style="border-top:3px solid var(--green);">
+      <div class="panel-label">📤 OUTPUT (24×24) — <span id="outFilled">0</span>/576 computed</div>
+      <table class="oh" id="outputGrid" style="border-collapse:collapse;margin:0 auto;"></table>
+      <div style="font-size:0.35rem;color:var(--tmut);margin-top:0.2rem;">🟢=edge 🔴=reverse ⬛=flat ·=pending</div>
+    </div>
   </div>
 
   <!-- COMPUTATION -->
@@ -114,7 +129,11 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
     <button class="btn" onclick="stepLoop(-1)" id="prevBtn">◀</button>
     <button class="btn primary" onclick="stepLoop(1)" id="stepBtn">▶ Step</button>
     <button class="btn" onclick="autoLoop()" id="autoBtn">⏩ Auto</button>
-    <button class="btn" onclick="resetLoop()">↺</button>
+    <button class="btn" onclick="resetLoop()">↺ Loop</button>
+    <span class="sep"></span>
+    <button class="btn" onclick="autoPositions()" id="posAutoBtn">▶ All 576</button>
+    <button class="btn" onclick="fillAll()">⚡ Fill All</button>
+    <button class="btn" onclick="resetOutputs()">🧹 Clear Out</button>
     <span class="sep"></span>
     <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">Speed:</span>
     <input type="range" min="50" max="500" value="200" oninput="spd=parseInt(this.value)" style="width:70px;accent-color:var(--cyan);">
@@ -136,7 +155,9 @@ const img28=[];for(let r=0;r<28;r++){img28[r]=[];for(let c=0;c<28;c++){let v=0;i
 const flt=[[0.15,0.30,0.10,-0.20,-0.12],[0.22,0.40,0.08,-0.18,-0.18],[0.08,0.25,0.05,-0.22,-0.10],[-0.06,-0.12,-0.25,-0.35,-0.30],[-0.10,-0.18,-0.22,-0.32,-0.28]];
 const bias=0.08;
 
-let pR=3,pC=8,loopStep=0,autoTimer=null,spd=200;
+let pR=3,pC=8,loopStep=0,autoTimer=null,posTimer=null,spd=200;
+const outputs=Array(24).fill().map(()=>Array(24).fill(null));
+let totalComputed=0;
 
 function renderAll() {
   // 28x28 grid
@@ -217,17 +238,57 @@ function renderAll() {
   document.getElementById('stepBtn').disabled=loopStep>25;
 }
 
+function renderOutput(){
+  let h='';let filled=0;
+  for(let r=0;r<24;r++){h+='<tr>';
+    for(let c=0;c<24;c++){
+      let v=outputs[r][c],cls='';
+      if(v!==null){filled++;cls=' computed';
+        if(v>1.5)cls+=' strong-pos';else if(v>0.5)cls+=' weak-pos';
+        else if(v<-1.5)cls+=' strong-neg';else if(v<-0.5)cls+=' weak-neg';
+        else cls+=' neutral';
+      }
+      h+=`<td class="${cls}" title="${v!==null?(v>=0?'+':'')+v.toFixed(2):''}"></td>`;
+    }h+='</tr>';}
+  document.getElementById('outputGrid').innerHTML=h;
+  document.getElementById('outFilled').textContent=filled;
+  totalComputed=filled;
+}
+
+function computePosition(r,c){
+  let sum=bias;
+  for(let fr=0;fr<5;fr++)for(let fc=0;fc<5;fc++)sum+=img28[r+fr][c+fc]*flt[fr][fc];
+  return sum;
+}
+
 function movePatch(dr,dc){let nr=pR+dr,nc=pC+dc;if(nr<0||nr>23||nc<0||nc>23)return;pR=nr;pC=nc;loopStep=0;renderAll()}
-function stepLoop(d){let ns=loopStep+d;if(ns<0||ns>26)return;loopStep=ns;renderAll()}
+function stepLoop(d){let ns=loopStep+d;if(ns<0||ns>26)return;loopStep=ns;
+  // Auto-compute output when loop finishes
+  if(loopStep>25&&outputs[pR][pC]===null){outputs[pR][pC]=computePosition(pR,pC);}
+  renderAll();renderOutput();
+}
 function autoLoop(){
   if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');return;}
   if(loopStep>25){loopStep=0;renderAll();}
   document.getElementById('autoBtn').textContent='⏸ Stop';document.getElementById('autoBtn').classList.add('primary');
-  autoTimer=setInterval(function(){if(loopStep<26){loopStep++;renderAll();}else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}},spd);
+  autoTimer=setInterval(function(){if(loopStep<26){loopStep++;if(loopStep>25&&outputs[pR][pC]===null){outputs[pR][pC]=computePosition(pR,pC);}renderAll();renderOutput();}else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}},spd);
 }
-function resetLoop(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}loopStep=0;renderAll()}
+function resetLoop(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}if(posTimer){clearInterval(posTimer);posTimer=null;}loopStep=0;renderAll();renderOutput();}
 
-renderAll();document.getElementById('prevBtn').disabled=true;
+function autoPositions(){
+  if(posTimer){clearInterval(posTimer);posTimer=null;return;}
+  if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}
+  function nextPos(){let idx=pR*24+pC+1;if(idx>=576){clearInterval(posTimer);posTimer=null;return;}pR=Math.floor(idx/24);pC=idx%24;loopStep=0;
+    // Compute immediately
+    if(outputs[pR][pC]===null){outputs[pR][pC]=computePosition(pR,pC);}
+    renderAll();renderOutput();}
+  nextPos(); // first step immediately
+  posTimer=setInterval(nextPos,Math.max(spd*2,100));
+}
+function resetOutputs(){for(let r=0;r<24;r++)for(let c=0;c<24;c++)outputs[r][c]=null;renderOutput();}
+function fillAll(){for(let r=0;r<24;r++)for(let c=0;c<24;c++)if(outputs[r][c]===null)outputs[r][c]=computePosition(r,c);renderOutput();renderAll();}
+
+renderAll();renderOutput();document.getElementById('prevBtn').disabled=true;
 </script>
 </body>
 </html>
