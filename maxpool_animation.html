@@ -161,11 +161,23 @@ function renderAll(sr,sc){
   else{
     let w=[inp[sr][sc],inp[sr][sc+1],inp[sr+1][sc],inp[sr+1][sc+1]];
     let mx=Math.max(...w),mi=w.indexOf(mx);
-    let pos=[['top-left','top-right','bottom-left','bottom-right'][mi]];
-    let comp=`<span class="cm">Window (${sr},${sc}) — 2×2 → 1 value</span>\n`;
-    comp+=`Values: [<span style="color:${w[0]===mx?'var(--green)':'var(--tdim)'};">${w[0]}</span>, <span style="color:${w[1]===mx?'var(--green)':'var(--tdim)'};">${w[1]}</span>, <span style="color:${w[2]===mx?'var(--green)':'var(--tdim)'};">${w[2]}</span>, <span style="color:${w[3]===mx?'var(--green)':'var(--tdim)'};">${w[3]}</span>]\n`;
-    comp+=`<span class="hl">MAX = ${mx}</span> (${pos}) → output[${sr/2}][${sc/2}] = ${mx}\n`;
-    comp+=`<span class="cm">Index (${mi}) saved for backprop → only this position gets gradient</span>`;
+    let posNames=['top-left','top-right','bottom-left','bottom-right'];
+    let ops=['>','>','>'],ms=[mx,mx,mx,mx];
+    // Build comparison lines
+    let comp=`<span class="cm">Window (${sr},${sc}) — 2×2 → 4 values → keep only the MAX</span>\n\n`;
+    // Show all 4 values with comparison
+    for(let i=0;i<4;i++){
+      let isMax=(i===mi);
+      let arrow=isMax?'<span style="color:var(--green);">← KEPT</span>':'<span style="color:var(--red);">← dropped</span>';
+      let sym=isMax?' ✅':' ❌';
+      comp+=`  ${posNames[i]}: <span style="color:${isMax?'var(--green)':'var(--red)'};font-weight:${isMax?'700':'400'};">${w[i]}</span> ${arrow}${sym}\n`;
+    }
+    comp+=`\n<span class="cm">──────────────────────────────</span>\n`;
+    comp+=`<span class="hl">MAX(${w[0]}, ${w[1]}, ${w[2]}, ${w[3]}) = ${mx}</span>\n`;
+    comp+=`<span style="color:var(--green);font-weight:700;">output[${sr/2}][${sc/2}] = ${mx}</span>\n\n`;
+    comp+=`<span class="cm">📐 Compression: 4 values → 1 value (4× reduction)</span>\n`;
+    comp+=`<span class="cm">📍 Index ${mi} (${posNames[mi]}) saved → backprop routes gradient ONLY here</span>\n`;
+    comp+=`<span class="cm">   The other 3 positions (${posNames.filter((_,i)=>i!==mi).join(', ')}) get <strong>zero</strong> gradient</span>`;
     document.getElementById('compBox').innerHTML=comp;
   }
 
