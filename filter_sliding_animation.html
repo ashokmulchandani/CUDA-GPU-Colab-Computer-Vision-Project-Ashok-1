@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Filter Sliding Animation — How Convolution Works</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;transition:background 0.3s,color 0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:800px;padding:1.5rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.8rem;margin-bottom:1.5rem}
+
+/* Main layout */
+.main-grid{display:flex;align-items:flex-start;justify-content:center;gap:2rem;flex-wrap:wrap}
+.input-section,.output-section{display:flex;flex-direction:column;align-items:center;gap:0.5rem}
+.section-label{font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);letter-spacing:0.1em}
+
+/* GRID */
+.grid-wrap{position:relative;display:inline-block}
+.grid-table{border-collapse:collapse}
+.grid-table td{width:48px;height:48px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;border:1px solid var(--border);transition:all 0.3s;position:relative}
+.grid-table td.highlight{border:2px solid var(--cyan)!important;z-index:2}
+.grid-table td.match-pos{border:2px solid var(--amber)!important}
+.grid-table td.output-filled{background:rgba(63,185,80,0.2)!important;border-color:var(--green)!important;color:var(--green)}
+.grid-table td.output-active{background:rgba(63,185,80,0.4)!important;border-color:var(--green)!important;color:var(--green);font-size:0.85rem;font-weight:700}
+
+/* Filter */
+.filter-table{border-collapse:collapse;border:3px solid var(--amber);border-radius:8px;overflow:hidden}
+.filter-table td{width:44px;height:44px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:700;border:1px solid rgba(255,179,71,0.3)}
+
+/* Controls */
+.controls{margin-top:1.2rem;display:flex;align-items:center;gap:0.8rem;justify-content:center;flex-wrap:wrap}
+.controls button{font-family:'JetBrains Mono',monospace;font-size:0.7rem;padding:0.5rem 1.2rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.controls button:hover{border-color:var(--cyan);color:var(--cyan)}
+.controls button.primary{background:var(--cyan-bg, #39d2ff15);border-color:var(--cyan);color:var(--cyan)}
+.controls button:disabled{opacity:0.3;cursor:not-allowed}
+.step-indicator{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--tdim);min-width:80px;text-align:center}
+
+/* Computation display */
+.comp-box{margin-top:1rem;background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:0.8rem 1.2rem;display:inline-block;text-align:left}
+.comp-box .row{font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.8;color:var(--tdim)}
+.comp-box .result{font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--green);margin-top:0.3rem;padding-top:0.3rem;border-top:1px solid var(--border)}
+.comp-box .result.weak{color:var(--tdim)}
+.comp-box .result.strong{color:var(--green)}
+
+/* Speed control */
+.speed-control{display:flex;align-items:center;gap:0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tmut)}
+.speed-control input{width:80px;accent-color:var(--cyan)}
+
+@media(max-width:600px){.grid-table td{width:36px;height:36px;font-size:0.6rem}.filter-table td{width:34px;height:34px;font-size:0.6rem}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Filter Sliding — How Convolution Works</h1>
+  <p class="subtitle">Watch a 3×3 vertical-edge filter slide across a 5×5 input. Each position computes <strong>9 multiplications → 1 sum → 1 output pixel.</strong></p>
+
+  <div class="main-grid">
+    <!-- INPUT GRID -->
+    <div class="input-section">
+      <div class="section-label">INPUT (5×5)</div>
+      <div class="grid-wrap">
+        <table class="grid-table" id="inputGrid"></table>
+      </div>
+    </div>
+
+    <!-- FILTER -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
+      <div class="section-label">FILTER (3×3)</div>
+      <div style="display:flex;align-items:center;gap:0.3rem;">
+        <table class="filter-table" id="filterGrid"></table>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.3rem;">
+        <span style="color:var(--green);">+1 = reward</span> ·
+        <span style="color:var(--tmut);">0 = ignore</span> ·
+        <span style="color:var(--red);">-1 = penalize</span>
+      </div>
+    </div>
+
+    <!-- OUTPUT GRID -->
+    <div class="output-section">
+      <div class="section-label">OUTPUT (3×3)</div>
+      <div class="grid-wrap">
+        <table class="grid-table" id="outputGrid"></table>
+      </div>
+      <div class="section-label" style="font-size:0.5rem;">feature map</div>
+    </div>
+  </div>
+
+  <!-- COMPUTATION -->
+  <div class="comp-box" id="compBox">
+    <div class="row">Press ▶ Play to start sliding</div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button onclick="prevStep()" id="prevBtn">◀ Prev</button>
+    <button class="primary" onclick="togglePlay()" id="playBtn">▶ Play</button>
+    <button onclick="nextStep()" id="nextBtn">Next ▶</button>
+    <button onclick="resetAll()">↺ Reset</button>
+    <span class="step-indicator" id="stepLabel">0 / 9</span>
+  </div>
+  <div class="speed-control" style="margin-top:0.5rem;">
+    <span>Speed</span>
+    <input type="range" min="200" max="1500" value="700" id="speedSlider" oninput="updateSpeed()">
+    <span id="speedLabel">700ms</span>
+  </div>
+</div>
+
+<script>
+// ── Theme ──
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('filter-slide-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('filter-slide-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+// ── Data ──
+const inputData = [
+  [0.1, 0.2, 0.9, 0.8, 0.1],
+  [0.0, 0.1, 0.8, 0.7, 0.2],
+  [0.0, 0.0, 0.2, 0.3, 0.1],
+  [0.2, 0.1, 0.3, 0.1, 0.3],
+  [0.1, 0.0, 0.1, 0.0, 0.2]
+];
+const filterData = [
+  [1, 0, -1],
+  [1, 0, -1],
+  [1, 0, -1]
+];
+const outputData = Array(3).fill().map(()=>Array(3).fill(null));
+let currentStep = 0; // 0..8 (3x3 output)
+let playInterval = null;
+let speed = 700;
+
+// ── Render grids ──
+function renderInputGrid(highlightRow, highlightCol) {
+  const tbl = document.getElementById('inputGrid');
+  let h = '';
+  for (let r = 0; r < 5; r++) {
+    h += '<tr>';
+    for (let c = 0; c < 5; c++) {
+      let cls = '';
+      if (highlightRow >= 0 && r >= highlightRow && r < highlightRow+3 && c >= highlightCol && c < highlightCol+3) {
+        cls = ' match-pos';
+      }
+      let val = inputData[r][c];
+      let color = val >= 0.8 ? 'var(--cyan)' : (val >= 0.5 ? 'var(--text)' : 'var(--tmut)');
+      h += `<td class="${cls}" style="color:${color};background:${val>=0.8?'rgba(57,210,255,0.2)':val>=0.5?'rgba(57,210,255,0.08)':'transparent'}">${val.toFixed(1)}</td>`;
+    }
+    h += '</tr>';
+  }
+  tbl.innerHTML = h;
+}
+
+function renderFilterGrid() {
+  const tbl = document.getElementById('filterGrid');
+  let h = '';
+  for (let r = 0; r < 3; r++) {
+    h += '<tr>';
+    for (let c = 0; c < 3; c++) {
+      let v = filterData[r][c];
+      let sign = v >= 0 ? '+' : '';
+      let bg, color;
+      if (v > 0) { bg = 'rgba(63,185,80,0.3)'; color = 'var(--green)'; }
+      else if (v < 0) { bg = 'rgba(248,81,73,0.3)'; color = 'var(--red)'; }
+      else { bg = 'rgba(72,79,88,0.2)'; color = 'var(--tmut)'; }
+      h += `<td style="background:${bg};color:${color}">${sign}${v}</td>`;
+    }
+    h += '</tr>';
+  }
+  tbl.innerHTML = h;
+}
+
+function renderOutputGrid() {
+  const tbl = document.getElementById('outputGrid');
+  let h = '';
+  for (let r = 0; r < 3; r++) {
+    h += '<tr>';
+    for (let c = 0; c < 3; c++) {
+      let v = outputData[r][c];
+      let cls = '';
+      let display = '·';
+      if (v !== null) {
+        cls = ' output-filled';
+        if (r*3+c === currentStep && outputData[r][c] !== null) cls = ' output-active';
+        display = v.toFixed(1);
+      }
+      if (r*3+c === currentStep && v === null) cls = ' output-active';
+      h += `<td class="${cls}">${display}</td>`;
+    }
+    h += '</tr>';
+  }
+  tbl.innerHTML = h;
+}
+
+// ── Compute one position ──
+function computePosition(step) {
+  const outR = Math.floor(step / 3);
+  const outC = step % 3;
+  const inR = outR;
+  const inC = outC;
+  let sum = 0;
+  let calcRows = [];
+  for (let fr = 0; fr < 3; fr++) {
+    let terms = [];
+    for (let fc = 0; fc < 3; fc++) {
+      let p = inputData[inR+fr][inC+fc];
+      let w = filterData[fr][fc];
+      let prod = p * w;
+      terms.push({p, w, prod});
+      sum += prod;
+    }
+    calcRows.push(terms);
+  }
+  return {outR, outC, inR, inC, sum, calcRows};
+}
+
+// ── Update display ──
+function updateDisplay(step) {
+  currentStep = step;
+  const {outR, outC, inR, inC, sum, calcRows} = computePosition(step);
+
+  // Update output
+  outputData[outR][outC] = sum;
+
+  renderInputGrid(inR, inC);
+  renderOutputGrid();
+
+  // Computation box
+  let compHTML = '';
+  for (let fr = 0; fr < 3; fr++) {
+    compHTML += '<div class="row">';
+    for (let fc = 0; fc < 3; fc++) {
+      let t = calcRows[fr][fc];
+      let sign = t.w >= 0 ? '+' : '';
+      compHTML += `(${t.p.toFixed(1)}×<span style="color:${t.w>0?'var(--green)':t.w<0?'var(--red)':'var(--tmut)'}">${sign}${t.w}</span>)`;
+      if (fc < 2) compHTML += ' + ';
+    }
+    compHTML += '</div>';
+  }
+  const absV = Math.abs(sum);
+  const resultClass = absV > 1.0 ? 'strong' : (absV < 0.3 ? 'weak' : '');
+  compHTML += `<div class="result ${resultClass}">= ${sum.toFixed(2)} ${absV>1?'🔥 edge!':absV<0.3?'😴 flat':''}</div>`;
+  document.getElementById('compBox').innerHTML = compHTML;
+
+  document.getElementById('stepLabel').textContent = `${step+1} / 9`;
+  document.getElementById('prevBtn').disabled = step === 0;
+  document.getElementById('nextBtn').disabled = step === 8;
+}
+
+// ── Navigation ──
+function nextStep() {
+  if (currentStep < 8) updateDisplay(currentStep + 1);
+  else stopPlay();
+}
+function prevStep() {
+  if (currentStep > 0) {
+    // Need to reset current output cell
+    const outR = Math.floor(currentStep / 3);
+    const outC = currentStep % 3;
+    outputData[outR][outC] = null;
+    updateDisplay(currentStep - 1);
+  }
+}
+function resetAll() {
+  stopPlay();
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) outputData[r][c] = null;
+  currentStep = 0;
+  renderInputGrid(-1, -1);
+  renderOutputGrid();
+  document.getElementById('compBox').innerHTML = '<div class="row">Press ▶ Play to start sliding</div>';
+  document.getElementById('stepLabel').textContent = '0 / 9';
+  document.getElementById('prevBtn').disabled = true;
+  document.getElementById('nextBtn').disabled = false;
+}
+
+// ── Auto play ──
+function togglePlay() {
+  if (playInterval) { stopPlay(); return; }
+  if (currentStep >= 8) {
+    resetAll();
+    setTimeout(()=>startPlay(), 100);
+    return;
+  }
+  startPlay();
+}
+function startPlay() {
+  document.getElementById('playBtn').textContent = '⏸ Pause';
+  document.getElementById('playBtn').classList.add('primary');
+  playInterval = setInterval(() => {
+    if (currentStep < 8) updateDisplay(currentStep + 1);
+    else stopPlay();
+  }, speed);
+}
+function stopPlay() {
+  clearInterval(playInterval);
+  playInterval = null;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  document.getElementById('playBtn').classList.remove('primary');
+}
+function updateSpeed() {
+  speed = parseInt(document.getElementById('speedSlider').value);
+  document.getElementById('speedLabel').textContent = speed + 'ms';
+  if (playInterval) { stopPlay(); startPlay(); }
+}
+
+// ── Init ──
+renderInputGrid(-1, -1);
+renderFilterGrid();
+renderOutputGrid();
+document.getElementById('prevBtn').disabled = true;
+</script>
+</body>
+</html>
