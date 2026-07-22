@@ -282,7 +282,7 @@ function render(){
         </div>
 
       </div>`;
-      c='<span class="cm">// YOLOv8n backbone: CSPDarknet53-like architecture</span>\n<span class="hl">225 layers, 3.15M params, 8.7 GFLOPs</span>\n<span class="cm">// Each Conv block: Conv2D → BatchNorm → SiLU activation</span>\n<span class="cm">// TensorRT fuses these 3 ops into ONE kernel = 1.2× faster</span>\n<span style="color:#4ec9b0;">PyTorch:</span> 13.8 ms / <span style="color:#4ec9b0;">TensorRT:</span> 11.3 ms (FP16)';
+      c='<span class="cm">// YOLOv8n backbone: CSPDarknet53-like architecture</span>\n<span class="hl">225 layers, 3.15M params, 8.7 GFLOPs</span>\n<span class="cm">// Each Conv block: Conv2D → BatchNorm → SiLU activation</span>\n<span class="cm">// TensorRT fuses these 3 ops into ONE kernel = 1.2× faster</span>\n<span style="color:#4ec9b0;">PyTorch:</span> 13.8 ms / <span style="color:#4ec9b0;">TensorRT:</span> 11.3 ms (FP16)\n\n<span style="color:var(--cyan);">🔗 <a href="cnn_backbone_visualizer.html" style="color:var(--cyan);">Open CNN Backbone Visualizer</a> — interactive pyramid with parameter breakdown</span>';
     }
     else if(curSub===1){ // Feature Pyramid
       v=`<div style="text-align:center;">
