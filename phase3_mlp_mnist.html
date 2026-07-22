@@ -1398,42 +1398,127 @@ fires (3.2) when seeing a 1, but stays silent (0.0) for a 0.</span></div>
   {
     id: '3.5',
     title: 'Why We NEED ReLU — Breaking Linearity',
-    fact: '<strong>3 layers without ReLU = 1 layer.</strong> Matrix multiplication is linear. Stacking linear operations just gives you... another linear operation. ReLU breaks the chain — it\'s what makes deep networks actually "deep."',
+    fact: '<strong>3 layers without ReLU = 1 layer.</strong> Matrix multiplication is linear: W2×(W1×x) = (W2×W1)×x. The two matrices multiply into ONE. ReLU breaks this chain — it is what makes deep networks actually "deep."',
     render() { return `
 <div class="slide"><div class="card">
   <h2><span class="num">3.5</span> Why We NEED ReLU — Breaking Linearity</h2>
-  <p>Here's the problem: <strong style="color:var(--red)">matrix multiplication is linear</strong>. If you stack three matmuls without any activation between them, the math collapses into ONE matmul. Your "deep" network is secretly a shallow one.</p>
+  <p><strong style="color:var(--cyan)">Linear</strong> means: you can combine operations. If f and g are both linear, then f(g(x)) can be replaced by a SINGLE linear operation h(x). <strong style="color:var(--red)">Matrix multiplication is linear — so stacking matmuls just gives you one big matmul.</strong> ReLU is non-linear — it breaks the chain.</p>
 
-  <h3>🔴 WITHOUT ReLU (Useless Extra Layers)</h3>
-  <div class="eq-box">
-<span style="color:var(--text-muted)">Layer 1: h1 = W1 × input        (linear)</span>
-<span style="color:var(--text-muted)">Layer 2: h2 = W2 × h1           (linear)</span>
-<span style="color:var(--text-muted)">Layer 3: output = W3 × h2       (linear)</span>
+  <!-- VISUAL PROOF: The Collapse -->
+  <h3>🧮 Concrete Proof — Tiny 2-Layer Network, 2×2 Matrices</h3>
+  <p style="font-size:0.85rem;">Watch what happens with real numbers. Skip the algebra — just follow the <strong style="color:var(--cyan);">circled values</strong>.</p>
 
-<span style="color:var(--red)">Math fact: h2 = W2 × (W1 × input) = (W2 × W1) × input = W_combined × input</span>
-<span style="color:var(--red)">So: output = W3 × W_combined × input = ONE big matmul!</span>
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.2rem;margin:1rem 0;overflow-x:auto;">
 
-<span style="color:var(--red);font-weight:bold;">3 layers without activation = same power as 1 layer. WASTED computation.</span></div>
+    <!-- Step 1 -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--cyan);margin-bottom:0.4rem;">STEP 1: Layer 1 — W₁ × input = h₁</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;">
+        <span>W₁ =</span>
+        <span style="border:1px solid var(--cyan);padding:0.3rem 0.5rem;border-radius:4px;">[2 -1]<br>[1 &nbsp;3]</span>
+        <span>×</span>
+        <span style="border:1px solid var(--amber);padding:0.3rem 0.5rem;border-radius:4px;">input<br>[1]<br>[-2]</span>
+        <span>=</span>
+        <span style="border:2px solid var(--magenta);padding:0.3rem 0.5rem;border-radius:4px;">h₁<br>[<span style="color:var(--green);">4</span>]<br>[<span style="color:var(--red);">-5</span>]</span>
+        <span style="font-size:0.55rem;color:var(--text-muted);">2×1+(-1)×(-2)=<span style="color:var(--green);">4</span><br>1×1+3×(-2)=<span style="color:var(--red);">-5</span></span>
+      </div>
+    </div>
 
-  <h3>🟢 WITH ReLU (Each Layer Learns Different Things)</h3>
-  <div class="eq-box">
-<span style="color:var(--text-muted)">Layer 1: h1 = </span><span style="color:var(--green)">ReLU(</span><span style="color:var(--text-muted)">W1 × input</span><span style="color:var(--green)">)</span>    <span style="color:var(--text-muted)">← ReLU BREAKS linearity here!</span>
-<span style="color:var(--text-muted)">Layer 2: h2 = </span><span style="color:var(--green)">ReLU(</span><span style="color:var(--text-muted)">W2 × h1</span><span style="color:var(--green)">)</span>       <span style="color:var(--text-muted)">← And breaks it again here!</span>
-<span style="color:var(--text-muted)">Layer 3: output = W3 × h2       </span><span style="color:var(--text-muted)">← Softmax for final probabilities</span>
+    <!-- Step 2A: WITHOUT ReLU -->
+    <div style="margin-bottom:1rem;padding:0.8rem;background:rgba(248,81,73,0.08);border:1px dashed var(--red);border-radius:8px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--red);margin-bottom:0.4rem;">🔴 PATH A: WITHOUT ReLU — h₁ passes through unchanged</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;">
+        <span>W₂ =</span>
+        <span style="border:1px solid var(--cyan);padding:0.3rem 0.5rem;border-radius:4px;">[0.5 &nbsp;1]<br>[-1 &nbsp;2]</span>
+        <span>×</span>
+        <span style="border:2px solid var(--magenta);padding:0.3rem 0.5rem;border-radius:4px;">h₁<br>[<span style="color:var(--green);">4</span>]<br>[<span style="color:var(--red);">-5</span>]</span>
+        <span>=</span>
+        <span style="border:2px solid var(--red);padding:0.3rem 0.5rem;border-radius:4px;">h₂<br>[<span style="color:var(--red);">-3</span>]<br>[<span style="color:var(--red);">-14</span>]</span>
+        <span style="font-size:0.55rem;color:var(--text-muted);">0.5×4+1×(-5)=<span style="color:var(--red);">-3</span><br>-1×4+2×(-5)=<span style="color:var(--red);">-14</span></span>
+      </div>
+      <div style="text-align:center;margin-top:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">
+        W_combined = W₂×W₁ = [[2, 2.5], [0, 7]]. Direct: W_combined × [1,-2] = [<span style="color:var(--red);">-3</span>, <span style="color:var(--red);">-14</span>] ← <span style="color:var(--red);">SAME! Proof of collapse.</span>
+      </div>
+    </div>
 
-<span style="color:var(--green);font-weight:bold;">Now each layer CAN learn different patterns. That's what makes it "deep."</span></div>
+    <!-- Step 2B: WITH ReLU -->
+    <div style="padding:0.8rem;background:rgba(63,185,80,0.08);border:1px dashed var(--green);border-radius:8px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--green);margin-bottom:0.4rem;">🟢 PATH B: WITH ReLU — negative value gets KILLED before Layer 2</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;">
+        <span style="border:2px solid var(--magenta);padding:0.3rem 0.5rem;border-radius:4px;">h₁<br>[<span style="color:var(--green);">4</span>]<br>[<span style="color:var(--red);">-5</span>]</span>
+        <span style="font-size:1.5rem;color:var(--green);">→</span>
+        <span style="background:var(--green-bg);border:2px solid var(--green);padding:0.3rem 0.6rem;border-radius:4px;font-weight:bold;">ReLU</span>
+        <span style="font-size:1.5rem;color:var(--green);">→</span>
+        <span style="border:2px solid var(--green);padding:0.3rem 0.5rem;border-radius:4px;">ReLU(h₁)<br>[<span style="color:var(--green);font-weight:bold;">4</span>]<br>[<span style="color:var(--red);font-weight:bold;">0</span>]</span>
+        <span style="color:var(--green);font-size:0.65rem;">-5 → 0!<br>KILLED!</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.7rem;margin-top:0.6rem;">
+        <span>W₂ =</span>
+        <span style="border:1px solid var(--cyan);padding:0.3rem 0.5rem;border-radius:4px;">[0.5 &nbsp;1]<br>[-1 &nbsp;2]</span>
+        <span>×</span>
+        <span style="border:2px solid var(--green);padding:0.3rem 0.5rem;border-radius:4px;">[4]<br>[0]</span>
+        <span>=</span>
+        <span style="border:3px solid var(--green);padding:0.3rem 0.5rem;border-radius:4px;">h₂<br>[<span style="color:var(--green);">2</span>]<br>[<span style="color:var(--green);">-4</span>]</span>
+        <span style="font-size:0.55rem;color:var(--text-muted);">0.5×4+1×0=<span style="color:var(--green);">2</span><br>-1×4+2×0=<span style="color:var(--green);">-4</span></span>
+      </div>
+      <div style="text-align:center;margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--green);">
+        <span style="background:var(--green-bg);border:1px solid var(--green);padding:0.3rem 0.8rem;border-radius:6px;">COMPLETELY DIFFERENT RESULT! Without ReLU: [-3, -14]. With ReLU: [2, -4].</span>
+      </div>
+      <div style="text-align:center;margin-top:0.3rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">
+        The single zero (killed neuron) changed EVERY number in the output. This is the non-linearity at work.
+      </div>
+    </div>
 
-  <h3>🔨 Analogy: ReLU is the Glue That Makes Layers Count</h3>
-  <div class="data-types">
-    <div class="data-type-card"><div class="dt-icon">📏</div><h4>Without ReLU</h4><p>Stacking 3 rulers end-to-end. You just get... one longer ruler. Nothing interesting happened.</p></div>
-    <div class="data-type-card"><div class="dt-icon">🏗️</div><h4>With ReLU</h4><p>Ruler → filter → ruler → filter → ruler. Each filter (ReLU) removes different things. The layers build on each other.</p></div>
-    <div class="data-type-card"><div class="dt-icon">🧱</div><h4>The Key Insight</h4><p>ReLU is what makes a 3-layer network MORE powerful than a 1-layer network. Without it, depth is wasted.</p></div>
   </div>
+
+  <!-- Visual comparison -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0;">
+    <div style="background:rgba(248,81,73,0.08);border:2px solid var(--red);border-radius:10px;padding:1rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--red);margin-bottom:0.5rem;">🔴 WITHOUT ReLU</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-dim);">
+        W₃×(W₂×(W₁×x))<br>= (W₃×W₂×W₁)×x<br>= <span style="color:var(--red);">W_big × x</span>
+      </div>
+      <div style="margin-top:0.5rem;font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--text-muted);">
+        100 layers without activation<br>= <strong style="color:var(--red);">1 effective layer</strong><br>
+        All 100 matrices multiply into ONE.<br>Depth is an illusion.
+      </div>
+    </div>
+    <div style="background:rgba(63,185,80,0.08);border:2px solid var(--green);border-radius:10px;padding:1rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--green);margin-bottom:0.5rem;">🟢 WITH ReLU</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-dim);">
+        W₃×<span style="color:var(--green);">ReLU(</span>W₂×<span style="color:var(--green);">ReLU(</span>W₁×x<span style="color:var(--green);">)</span><span style="color:var(--green);">)</span><br>
+        ≠ anything you can combine<br>
+        = <span style="color:var(--green);">actually 3 layers deep</span>
+      </div>
+      <div style="margin-top:0.5rem;font-family:'DM Sans',sans-serif;font-size:0.7rem;color:var(--text-muted);">
+        3 layers with ReLU<br>= <strong style="color:var(--green);">3 layers of actual learning</strong><br>
+        Each layer can learn DIFFERENT features.<br>Depth is REAL.
+      </div>
+    </div>
+  </div>
+
+  <h3>💡 What "Linear" Actually Means — Visual Intuition</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted);">A function is LINEAR if it satisfies TWO properties:</span>
+
+<span style="color:var(--cyan);">1. Additivity:</span>  f(a + b) = f(a) + f(b)
+   <span style="color:var(--text-dim);">Example: f(x) = 3x → 3(a+b) = 3a + 3b ✅</span>
+   <span style="color:var(--text-dim);">Counter:  f(x) = x² → (a+b)² ≠ a² + b² ❌ (non-linear!)</span>
+
+<span style="color:var(--cyan);">2. Homogeneity:</span> f(c × x) = c × f(x)
+   <span style="color:var(--text-dim);">Example: f(x) = 3x → 3(c×x) = c×(3x) ✅</span>
+   <span style="color:var(--text-dim);">Counter:  f(x) = x+1 → c×x+1 ≠ c×(x+1) ❌ (affine, not linear!)</span>
+
+<span style="color:var(--amber);">Matrix multiplication: W×(A+B) = W×A + W×B ✅ and W×(c×x) = c×(W×x) ✅</span>
+<span style="color:var(--amber);">→ Matmul IS linear → stacking = combining → depth collapses!</span>
+
+<span style="color:var(--green);">ReLU: ReLU(a+b) ≠ ReLU(a) + ReLU(b) ❌ → NON-linear → breaks the chain!</span>
+<span style="color:var(--green);">Example: ReLU(3 + (-5)) = ReLU(-2) = 0, but ReLU(3) + ReLU(-5) = 3 + 0 = 3 ≠ 0</span></div>
 
   <div class="quiz" id="quiz4"><div class="question">🧪 If you remove ALL activation functions from a 10-layer network, what happens to its learning capacity?</div>
   <div class="options">
     <div class="option" onclick="checkQuiz('quiz4', this)">A. It becomes more powerful — 10 layers can learn more than 3</div>
-    <div class="option" data-correct="true" onclick="checkQuiz('quiz4', this)">B. It collapses to the power of a 1-layer network. ALL matmuls multiply together into ONE equivalent matmul. You're wasting 9 layers of computation for zero benefit.</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz4', this)">B. It collapses to the power of a 1-layer network. ALL matmuls multiply together into ONE equivalent matmul. You are wasting 9 layers of computation for zero benefit.</div>
     <div class="option" onclick="checkQuiz('quiz4', this)">C. It stops working entirely and outputs all zeros</div>
   </div><div class="feedback" id="quiz4-fb"></div></div>
 </div></div>`; }
