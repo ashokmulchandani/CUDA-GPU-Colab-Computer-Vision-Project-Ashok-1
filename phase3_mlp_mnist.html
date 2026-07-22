@@ -1272,6 +1272,66 @@ to be careful about overconfident wrong answers.</span></div>
     </div>
   </div>
 
+  <h3>🔢 Where Do These Numbers Come From? — 784 Multiplications Per Neuron</h3>
+  <p>The bar chart shows the <strong style="color:var(--cyan)">output</strong> of the matmul. But each bar is the result of <strong style="color:var(--amber);">784 individual pixel×weight multiplications</strong> added together. Let's trace two specific neurons to see why one survives ReLU and one gets killed.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0;">
+
+    <!-- NEURON THAT SURVIVES -->
+    <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:var(--radius);padding:1.2rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--green);margin-bottom:0.8rem;">🟢 NEURON N4 — "Detects a vertical curve" → SURVIVES</div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.8;color:var(--text-dim);">
+        <span style="color:var(--text-muted);">// This neuron's 784 weights learned to detect a curve on the left side.</span>
+        <span style="color:var(--text-muted);">// When image "5" arrives, the pixels where the curve IS get multiplied</span>
+        <span style="color:var(--text-muted);">// by POSITIVE weights → big positive products → positive sum → SURVIVES!</span>
+
+        <span style="color:var(--amber);">Pixel 12</span>  (bright, part of curve):   p₁₂ = <span style="color:var(--green);">0.95</span>  ×  w₁₂ = <span style="color:var(--green);">+1.8</span>  = <span style="color:var(--green);">+1.71</span>  ✅
+        <span style="color:var(--amber);">Pixel 45</span>  (bright, curve continues):  p₄₅ = <span style="color:var(--green);">0.88</span>  ×  w₄₅ = <span style="color:var(--green);">+0.6</span>  = <span style="color:var(--green);">+0.53</span>  ✅
+        <span style="color:var(--amber);">Pixel 78</span>  (dark, background):         p₇₈ = <span style="color:var(--red);">0.02</span>  ×  w₇₈ = <span style="color:var(--red);">-0.3</span>  = <span style="color:var(--red);">-0.01</span>  (tiny)
+        <span style="color:var(--amber);">Pixel 230</span> (dark, background):         p₂₃₀= <span style="color:var(--red);">0.01</span>  ×  w₂₃₀= <span style="color:var(--red);">-0.1</span>  ≈ <span style="color:var(--red);">0.00</span>
+        <span style="color:var(--text-muted);">... 780 more multiplications ...</span>
+        <span style="color:var(--text-muted);">────────────────────────────────────────────</span>
+        <span style="color:var(--cyan);font-weight:bold;">SUM of all 784 (pᵢ × wᵢ)</span>                      = <span style="color:var(--green);">+2.8</span>
+        <span style="color:var(--cyan);">+ bias (b₄)</span>                                   = <span style="color:var(--green);">+0.4</span>
+        <span style="color:var(--text-muted);">────────────────────────────────────────────</span>
+        <span style="color:var(--green);font-weight:bold;font-size:0.75rem;">RAW OUTPUT (before ReLU) = +3.2</span>  ← POSITIVE!
+
+        <span style="color:var(--cyan);">ReLU(+3.2) = max(0, +3.2) = </span><span style="color:var(--green);font-weight:bold;font-size:0.8rem;">+3.2</span>  ← SURVIVES! 🔥
+      </div>
+    </div>
+
+    <!-- NEURON THAT DIES -->
+    <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:var(--radius);padding:1.2rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--red);margin-bottom:0.8rem;">🔴 NEURON N1 — "Detects a horizontal bar" → GETS KILLED</div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.8;color:var(--text-dim);">
+        <span style="color:var(--text-muted);">// This neuron's weights learned to detect HORIZONTAL features.</span>
+        <span style="color:var(--text-muted);">// Image "5" has curves and vertical lines, NOT horizontals.</span>
+        <span style="color:var(--text-muted);">// Pixels where horizontals SHOULD be are dark → negative products!</span>
+
+        <span style="color:var(--amber);">Pixel 12</span>  (bright, but WRONG shape):    p₁₂ = <span style="color:var(--green);">0.95</span>  ×  w₁₂ = <span style="color:var(--red);">-1.2</span>  = <span style="color:var(--red);">-1.14</span>  ❌
+        <span style="color:var(--amber);">Pixel 45</span>  (bright, WRONG shape):        p₄₅ = <span style="color:var(--green);">0.88</span>  ×  w₄₅ = <span style="color:var(--red);">-0.9</span>  = <span style="color:var(--red);">-0.79</span>  ❌
+        <span style="color:var(--amber);">Pixel 99</span>  (dark, where bar WOULD be):    p₉₉ = <span style="color:var(--red);">0.01</span>  ×  w₉₉ = <span style="color:var(--green);">+2.1</span>  = <span style="color:var(--green);">+0.02</span>  (tiny!)
+        <span style="color:var(--amber);">Pixel 310</span> (dark, where bar WOULD be):    p₃₁₀= <span style="color:var(--red);">0.05</span>  ×  w₃₁₀= <span style="color:var(--green);">+0.7</span>  = <span style="color:var(--green);">+0.04</span>  (tiny!)
+        <span style="color:var(--text-muted);">... 780 more multiplications ...</span>
+        <span style="color:var(--text-muted);">────────────────────────────────────────────</span>
+        <span style="color:var(--cyan);font-weight:bold;">SUM of all 784 (pᵢ × wᵢ)</span>                      = <span style="color:var(--red);">-2.1</span>
+        <span style="color:var(--cyan);">+ bias (b₁)</span>                                   = <span style="color:var(--red);">-0.4</span>
+        <span style="color:var(--text-muted);">────────────────────────────────────────────</span>
+        <span style="color:var(--red);font-weight:bold;font-size:0.75rem;">RAW OUTPUT (before ReLU) = -2.5</span>  ← NEGATIVE!
+
+        <span style="color:var(--cyan);">ReLU(-2.5) = max(0, -2.5) = </span><span style="color:var(--red);font-weight:bold;font-size:0.8rem;">0.0</span>  ← KILLED! 💀
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.8rem 1.2rem;margin:0.5rem 0;text-align:center;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--amber);">
+      💡 <strong>KEY INSIGHT:</strong> The SAME pixel (p₁₂ = 0.95) produces <span style="color:var(--green);">+1.71</span> for N4 (right shape → positive weight → big product → neuron fires) but <span style="color:var(--red);">-1.14</span> for N1 (wrong shape → negative weight → big negative → neuron silenced). <strong>Each neuron looks at the SAME 784 pixels but through DIFFERENT glasses (weights).</strong> ReLU keeps the ones wearing the right glasses and silences the rest.
+    </span>
+  </div>
+
   <h3>🚪 The Bouncer Analogy</h3>
   <div class="eq-box">
 <span style="color:var(--text-muted)">ReLU is like a bouncer at an exclusive club:</span>
