@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CUDA & ML Interactive Learning Modules</title>
+<style>
+:root {
+  --bg: #06090f; --surface: #0d1117; --surface2: #161b22;
+  --border: #21262d; --text: #e6edf3; --text2: #8b949e;
+  --cyan: #39d2ff; --amber: #ffb347; --green: #3fb950;
+  --red: #f85149; --magenta: #ff6ec7; --violet: #a371f7;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 24px; text-align: center; }
+header h1 { font-size: 1.5rem; color: #fff; }
+header h1 span { color: var(--cyan); }
+header p { color: var(--text2); margin-top: 6px; font-size: 0.9rem; }
+main { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+.how-to { background: var(--surface); border: 1px solid var(--cyan); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; }
+.how-to h3 { color: var(--cyan); font-size: 0.9rem; margin-bottom: 6px; }
+.how-to p { color: var(--text2); font-size: 0.82rem; }
+
+.grid { display: grid; gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: 0.2s; display: block; text-decoration: none; color: inherit; }
+.card:hover { border-color: var(--cyan); transform: translateY(-2px); }
+.card h3 { color: #fff; font-size: 1rem; margin-bottom: 6px; }
+.card .tag { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.tag-cuda { background: rgba(57,210,255,0.15); color: var(--cyan); }
+.tag-ml { background: rgba(63,185,80,0.15); color: var(--green); }
+.tag-dl { background: rgba(163,113,247,0.15); color: var(--violet); }
+.card p { color: var(--text2); font-size: 0.82rem; line-height: 1.5; }
+.card .slides { margin-top: 8px; font-size: 0.72rem; color: var(--text2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧠 CUDA & <span>ML</span> Interactive Learning Modules</h1>
+  <p>Click any card to open — runs directly in your browser. No install needed.</p>
+</header>
+
+<main>
+
+<div class="how-to">
+  <h3>💡 How to open ANY .html file from GitHub directly</h3>
+  <p>Go to <strong style="color:var(--cyan);">https://htmlpreview.github.io/</strong> and paste the raw GitHub URL.<br>
+  Or just use the links below — they work with one click.</p>
+</div>
+
+<div class="grid">
+
+  <a href="phase4_yolo_cuda.html" class="card">
+    <span class="tag tag-cuda">CUDA · Phase 4</span>
+    <h3>🎯 YOLO Object Detection + CUDA Pipeline</h3>
+    <p>8 interactive slides: YOLO architecture, CUDA preprocess kernel, TensorRT FP16, NMS kernel, 137 FPS pipeline, Triton serving.</p>
+    <div class="slides">🖥️ 8 slides · Quizzes · Dark/Light theme · Keyboard nav (← →)</div>
+  </a>
+
+  <a href="phase6_production_cuda.html" class="card">
+    <span class="tag tag-cuda">CUDA · Phase 6</span>
+    <h3>🚀 Production CUDA — Ship It (6A-6F)</h3>
+    <p>10 interactive slides: TensorRT, Triton Inference Server, Nsight Profiling, Multi-Stream 7× speedup, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s.</p>
+    <div class="slides">🖥️ 10 slides · Quizzes · Dark/Light theme · Keyboard nav (← →)</div>
+  </a>
+
+  <a href="class_imbalance_visualizer.html" class="card">
+    <span class="tag tag-ml">ML Fundamentals</span>
+    <h3>⚖️ Class Imbalance — All 6 Techniques + Real Code</h3>
+    <p>Interactive visualizer: Undersampling, Oversampling, SMOTE, Class Weights, Focal Loss. Each with real Python code (scikit-learn, XGBoost, TensorFlow, PyTorch).</p>
+    <div class="slides">🖥️ 6 techniques · Code snippets · Visual canvas · Dark/Light theme</div>
+  </a>
+
+  <a href="neuron_weight_visualizer.html" class="card">
+    <span class="tag tag-dl">Deep Learning</span>
+    <h3>👁️ What 784 Weights Per Neuron Look Like</h3>
+    <p>See trained weights as 28×28 images. Three modes: realistic features, random (untrained), digit detectors. Full parameter breakdown (109K knobs).</p>
+    <div class="slides">🖥️ 3 modes · 4 neurons side-by-side · Weight grid rendering</div>
+  </a>
+
+  <a href="one_neuron_explained.html" class="card">
+    <span class="tag tag-dl">Deep Learning</span>
+    <h3>🔬 ONE Neuron Explained — 784 Weights + 1 Bias</h3>
+    <p>What "each has 785 knobs" means. Walkthrough: Σ(w×p) + bias → output. Full Layer 1/2/3 parameter table. Bias explained visually.</p>
+    <div class="slides">🖥️ 1 page · Parameter tables · Flow diagrams · Layer comparison</div>
+  </a>
+
+</div>
+
+</main>
+</body>
+</html>
