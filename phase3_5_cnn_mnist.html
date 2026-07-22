@@ -336,10 +336,72 @@ const slides = [
   <h3>🔄 Translation Invariance</h3>
   <p>A curve in the <strong style="color:var(--cyan)">top-left</strong> is detected the same as a curve in the <strong style="color:var(--green)">bottom-right</strong>. Because the SAME filter slides to all positions, it detects its pattern regardless of WHERE it appears. This is <strong style="color:var(--amber)">translation invariance</strong> — a key property CNNs have that MLPs lack.</p>
 
-  <div style="background:var(--bg-raised);border:1px solid var(--amber);border-radius:8px;padding:1rem;margin:0.8rem 0;text-align:center;">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--amber);">
-      💡 <strong>Parameter Efficiency:</strong> FC: 100K weights for 784→128. Conv: 200 weights for a 5×5 filter applied 576 times.<br>
-      That is <strong style="color:var(--green);">500× fewer parameters</strong> for the same spatial coverage — and better accuracy!
+  <h3>📊 Parameter Efficiency — The Full Calculation (Why 500× Fewer)</h3>
+  <p>Both approaches connect "input pixels" to "output features." But they do it <strong style="color:var(--red);">very</strong> differently. Here's the math:</p>
+
+  <div style="overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.62rem;margin:0.8rem 0;">
+    <thead>
+      <tr style="background:var(--bg-raised);">
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);text-align:left;">What we're counting</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--red);text-align:center;">🔴 FC Layer (784→128)</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--green);text-align:center;">🟢 Conv Layer (5×5, 8 filters)</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--amber);text-align:center;">Ratio</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Weights per neuron / filter</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">784 (one per input pixel)</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">5×5 = <strong>25</strong></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">31× fewer</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Number of neurons / filters</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">128 neurons</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">8 filters</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">16× fewer</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Total weights</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">784 × 128 = <strong>100,352</strong></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">5×5×1×8 = <strong>200</strong></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);font-weight:700;">502× fewer!</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Total biases</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">128</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">8</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">16× fewer</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Total parameters (weights + biases)</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);font-weight:700;">100,352 + 128 = <strong>100,480</strong></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);font-weight:700;">200 + 8 = <strong>208</strong></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);font-weight:700;font-size:0.7rem;">483× fewer!</td>
+      </tr>
+      <tr style="background:rgba(255,179,71,0.08);">
+        <td style="padding:0.4rem;border:1px solid var(--border);color:var(--amber);font-weight:600;">EFFECTIVE CONNECTIONS<br><span style="font-size:0.5rem;color:var(--text-muted);">(how many pixel-weight pairs are computed)</span></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">100,352 per forward pass<br><span style="font-size:0.5rem;color:var(--text-muted);">(each weight used ONCE)</span></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">25 weights × 576 positions × 8 filters<br>= <strong>115,200 per forward pass</strong><br><span style="font-size:0.5rem;color:var(--text-muted);">(each weight reused 576 times!)</span></td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">Conv achieves MORE<br>with 483× LESS params!</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="background:var(--green-bg);border:2px solid var(--green);border-radius:10px;padding:1rem;margin:0.8rem 0;text-align:center;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--text-dim);line-height:1.8;">
+      <strong style="color:var(--green);font-size:0.75rem;">🔑 THE KEY INSIGHT — Weight Sharing</strong><br><br>
+      <span style="color:var(--red);">FC Layer:</span> Each of the 128 neurons has its OWN 784 weights.<br>
+      &nbsp;&nbsp;Neuron 1: w₁..w₇₈₄ &nbsp; Neuron 2: DIFFERENT w₁..w₇₈₄ &nbsp; ... &nbsp; Neuron 128: DIFFERENT w₁..w₇₈₄<br>
+      &nbsp;&nbsp;<span style="color:var(--red);">100,352 UNIQUE weights — nothing is shared.</span><br><br>
+      <span style="color:var(--green);">Conv Layer:</span> Each 5×5 filter has just 25 weights. That filter SLIDES across the image.<br>
+      &nbsp;&nbsp;Position (0,0): same 25 weights &nbsp; Position (0,1): SAME 25 weights &nbsp; ... &nbsp; Position (23,23): SAME 25 weights<br>
+      &nbsp;&nbsp;<span style="color:var(--green);">200 UNIQUE weights — each used 576 times across space.</span><br><br>
+      <span style="color:var(--amber);">Result: Conv has MORE effective connections (115,200 vs 100,352)<br>
+      with 483× fewer stored parameters (208 vs 100,480).<br>
+      That is why CNNs generalize better — they CANNOT overfit to specific pixel positions.</span>
     </div>
   </div>
 
