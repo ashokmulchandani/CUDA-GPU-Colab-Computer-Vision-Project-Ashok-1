@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inner Loops — 25 Multiplications Per GPU Thread</title>
+<title>Inner Loops — 25 Multiplications on 28×28 MNIST</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
@@ -12,432 +12,222 @@ body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background 0.3s,color 0.3s}
 .theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
 .theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.container{max-width:1050px;margin:0 auto;padding:1.2rem;text-align:center}
-h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.subtitle{color:var(--tdim);font-size:0.7rem;margin:0.2rem 0 0.8rem}
+.container{max-width:1050px;margin:0 auto;padding:0.8rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{color:var(--tdim);font-size:0.65rem;margin:0.2rem 0 0.5rem}
 
-/* Layout: 3 panels */
-.panels{display:flex;gap:1rem;justify-content:center;align-items:flex-start;flex-wrap:wrap;margin:0.8rem 0}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
-.panel.input{border-top:3px solid var(--cyan)}
-.panel.filter{border-top:3px solid var(--amber)}
-.panel.output{border-top:3px solid var(--green);min-width:120px}
-.panel-label{font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);letter-spacing:0.06em;margin-bottom:0.6rem}
+/* Top stats */
+.stats{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.3rem 0}
+.st{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center}
+.st .val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700}
+.st .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);text-transform:uppercase}
 
-/* Grids */
-.gt{border-collapse:collapse;margin:0 auto}
-.gt td{width:42px;height:42px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;border:1px solid var(--border);transition:all 0.2s}
-.gt td.active{border:3px solid var(--cyan)!important;background:var(--cyan-bg)!important;z-index:2;font-weight:700;font-size:0.65rem}
-.gt td.done{background:rgba(63,185,80,0.1)}
-.gt td.pos{color:var(--green)} .gt td.neg{color:var(--red)} .gt td.neutral{color:var(--tmut)}
+/* Main layout */
+.panels{display:flex;gap:0.8rem;justify-content:center;align-items:flex-start;flex-wrap:wrap;margin:0.4rem 0}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.7rem}
+.panel-label{font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);letter-spacing:0.04em;margin-bottom:0.4rem}
 
-/* Filter grid */
-.ft{border-collapse:collapse;margin:0 auto;border:3px solid var(--amber);border-radius:6px;overflow:hidden}
-.ft td{width:42px;height:42px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;border:1px solid rgba(255,179,71,0.3)}
-.ft td.active{border:3px solid var(--cyan)!important;background:var(--cyan-bg)!important;font-weight:700;font-size:0.65rem}
-.ft td.done{opacity:0.6}
+/* 28x28 grid */
+.ig28{border-collapse:collapse;margin:0 auto}
+.ig28 td{width:11px;height:11px;border:1px solid rgba(72,79,88,0.12);text-align:center;font-size:0.3rem;transition:0.12s}
+.ig28 td.in-patch{border:1px solid var(--amber)!important;background:rgba(255,179,71,0.35)!important}
+.ig28 td.patch-active{border:2px solid var(--cyan)!important;background:var(--cyan-bg)!important;z-index:2}
+.ig28 td.patch-done{border:1px solid var(--amber)!important;background:rgba(63,185,80,0.3)!important}
 
-/* Big output */
-.big-out{font-family:'Orbitron',sans-serif;font-size:1.4rem;font-weight:700;padding:0.6rem 1.2rem;border-radius:10px;display:inline-block;margin:0.5rem 0}
-.big-out.computing{color:var(--tdim);background:var(--raised);border:1px solid var(--border)}
-.big-out.done{color:var(--green);background:rgba(63,185,80,0.15);border:2px solid var(--green)}
+/* Filter 5x5 */
+.ft{border-collapse:collapse;margin:0 auto;border:3px solid var(--amber);border-radius:4px;overflow:hidden}
+.ft td{width:38px;height:38px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.6rem;font-weight:600;border:1px solid rgba(255,179,71,0.3);transition:0.15s}
+.ft td.filter-active{border:3px solid var(--cyan)!important;background:var(--cyan-bg)!important;z-index:2}
+.ft td.filter-done{opacity:0.5}
 
-/* Stats row */
-.stats{display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
-.st{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.8rem;text-align:center;min-width:70px}
-.st .val{font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700}
-.st .lbl{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);text-transform:uppercase;letter-spacing:0.04em}
-
-/* Computation box */
-.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem auto;max-width:650px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.58rem;line-height:1.9;color:#d4d4d4;white-space:pre-wrap;overflow-x:auto}
+/* Computation */
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem auto;max-width:750px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;overflow-x:auto;white-space:pre-wrap}
 .comp .hl{color:var(--cyan);font-weight:700}
+.comp .gr{color:var(--green)}
 .comp .cm{color:#6a9955}
 
-/* Code box */
-.code{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem auto;max-width:650px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;white-space:pre;overflow-x:auto}
+/* Code */
+.code{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.5rem 0.8rem;margin:0.4rem auto;max-width:750px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.5rem;line-height:1.6;color:#d4d4d4;white-space:pre;overflow-x:auto}
 
 /* Controls */
-.controls{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.6rem 0}
-.btn{font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:0.4rem 1rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.ctrls{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.4rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.35rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
 .btn:hover{border-color:var(--cyan);color:var(--cyan)}
 .btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
 .btn:disabled{opacity:0.3;cursor:not-allowed}
 
-/* Grid legend */
-.legend{display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.4rem}
-
-/* Thread count */
-.thread-info{margin-top:0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);line-height:1.6}
-
-@media(max-width:700px){.gt td,.ft td{width:32px;height:32px;font-size:0.5rem}.big-out{font-size:1rem}}
+.sep{width:1px;height:20px;background:var(--border);margin:0 0.3rem}
+@media(max-width:750px){.ig28 td{width:8px;height:8px}.ft td{width:30px;height:30px;font-size:0.5rem}}
 </style>
 </head>
 <body>
 <button class="theme-btn" onclick="toggleTheme()">☀️</button>
 <div class="container">
-  <h1>Inner Loops — 25 Multiplications Per GPU Thread</h1>
-  <p class="subtitle">One thread = one output pixel. The thread loops over a 5×5 filter: <strong>25 multiplications + 24 additions + 1 bias = 49 ops.</strong></p>
+  <h1>Inner Loops on 28×28 — 25 Multiplications at EVERY Position</h1>
+  <p class="subtitle">Pick a position on the 28×28 grid → Step through the 25 multiplications → See the output pixel computed. <strong>294,912 threads each do this simultaneously.</strong></p>
 
   <!-- STATS -->
   <div class="stats">
-    <div class="st" style="border-top:3px solid var(--cyan);"><div class="val" id="memR" style="color:var(--cyan);">0</div><div class="lbl">Mem Reads</div></div>
-    <div class="st" style="border-top:3px solid var(--green);"><div class="val" id="memW" style="color:var(--green);">0</div><div class="lbl">Mem Writes</div></div>
-    <div class="st" style="border-top:3px solid var(--cyan);"><div class="val" id="mulCnt" style="color:var(--cyan);">0</div><div class="lbl">Multiplies</div></div>
-    <div class="st" style="border-top:3px solid var(--amber);"><div class="val" id="addCnt" style="color:var(--amber);">0</div><div class="lbl">Additions</div></div>
-    <div class="st" style="border-top:3px solid var(--violet);"><div class="val" id="sumVal" style="color:var(--violet);">0.00</div><div class="lbl">Running Sum</div></div>
+    <div class="st" style="border-top:2px solid var(--amber);"><div class="val" id="posLbl" style="color:var(--amber);">(3,8)</div><div class="lbl">Patch Position</div></div>
+    <div class="st" style="border-top:2px solid var(--cyan);"><div class="val" id="mulLbl" style="color:var(--cyan);">0/25</div><div class="lbl">Multiplies</div></div>
+    <div class="st" style="border-top:2px solid var(--amber);"><div class="val" id="addLbl" style="color:var(--amber);">0/25</div><div class="lbl">Additions</div></div>
+    <div class="st" style="border-top:2px solid var(--violet);"><div class="val" id="sumVal" style="color:var(--violet);">0.00</div><div class="lbl">Running Sum</div></div>
+    <div class="st" style="border-top:2px solid var(--green);"><div class="val" id="outVal" style="color:var(--green);">??</div><div class="lbl">Output Pixel</div></div>
   </div>
 
-  <!-- PER-THREAD FLOPs BREAKDOWN -->
-  <div style="display:flex;gap:0.6rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:0.3rem 0;">
-    <div style="background:var(--card);border:2px solid var(--cyan);border-radius:8px;padding:0.4rem 0.8rem;text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--cyan);font-weight:700;" id="mulDisp">0</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">MUL: input × filter</div>
-    </div>
-    <span style="font-size:1rem;color:var(--tmut);">+</span>
-    <div style="background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.4rem 0.8rem;text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--amber);font-weight:700;" id="addDisp">0</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">ADD: sum += product</div>
-    </div>
-    <span style="font-size:1rem;color:var(--tmut);">=</span>
-    <div style="background:var(--card);border:2px solid var(--violet);border-radius:8px;padding:0.4rem 0.8rem;text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--violet);font-weight:700;" id="totDisp">0</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">FLOPs per thread</div>
-    </div>
-    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);">× 294,912 threads = <strong style="color:var(--amber);">~14.5M FLOPs</strong></span>
-  </div>
-
-  <!-- 3 PANELS -->
+  <!-- PANELS -->
   <div class="panels">
-    <!-- INPUT PATCH -->
-    <div class="panel input">
-      <div class="panel-label">INPUT PATCH (5×5 from 28×28 image)</div>
-      <table class="gt" id="inputGrid"></table>
-      <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">input[row+fh][col+fw]</div>
+    <!-- 28x28 -->
+    <div class="panel" style="border-top:3px solid var(--cyan);">
+      <div class="panel-label">📥 INPUT (28×28) — 5×5 patch at row=<span id="patchR">3</span>, col=<span id="patchC">8</span></div>
+      <div id="inputGrid28"></div>
+      <div style="font-size:0.35rem;color:var(--tmut);margin-top:0.2rem;">🟨=patch ▦=done 🔷=active</div>
     </div>
 
     <!-- FILTER -->
-    <div class="panel filter" style="min-width:260px;">
-      <div class="panel-label">🔍 FILTER (5×5 — 25 learned weights)</div>
-      <div style="font-size:0.45rem;color:var(--tmut);margin-bottom:0.4rem;">5 rows × 5 columns = 25 values</div>
+    <div class="panel" style="border-top:3px solid var(--amber);">
+      <div class="panel-label">🔍 FILTER (5×5 — 25 weights)</div>
       <table class="ft" id="filterGrid"></table>
-      <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">filter[fh][fw] — 1 weight per pixel position</div>
+      <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">🟢positive 🔴negative</div>
     </div>
-
-    <!-- OUTPUT -->
-    <div class="panel output">
-      <div class="panel-label">OUTPUT (1 pixel)</div>
-      <div class="big-out computing" id="outputVal">??</div>
-      <div style="font-size:0.45rem;color:var(--tmut);">output[row][col]</div>
-    </div>
-  </div>
-
-  <!-- LEGEND -->
-  <div class="legend">
-    <span style="color:var(--cyan);">■ CYAN = currently computing this pair</span>
-    <span style="color:var(--green);">■ GREEN = already multiplied</span>
-    <span style="color:var(--red);">red = negative weight</span>
   </div>
 
   <!-- COMPUTATION -->
-  <div class="comp" id="compBox">Press ▶ Step to walk through the inner loops</div>
+  <div class="comp" id="compBox">Click a position on the 28×28 grid, then press ▶ Step</div>
 
   <!-- CODE -->
-  <div class="code" id="codeBox"><span style="color:#569cd6;">float</span> <span style="color:#c586c0;">sum</span> = <span style="color:#4ec9b0;">bias</span>[<span style="color:#ce9178;">0</span>];  <span style="color:#6a9955;">// start with bias</span>
-<span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fh = <span style="color:#ce9178;">0</span>; fh &lt; <span style="color:#ce9178;">5</span>; fh++)      <span style="color:#6a9955;">// filter row</span>
-    <span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fw = <span style="color:#ce9178;">0</span>; fw &lt; <span style="color:#ce9178;">5</span>; fw++)  <span style="color:#6a9955;">// filter col</span>
+  <div class="code" id="codeBox"><span style="color:#569cd6;">float</span> <span style="color:#c586c0;">sum</span> = <span style="color:#4ec9b0;">bias</span>[<span style="color:#ce9178;">0</span>];
+<span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fh = <span style="color:#ce9178;">0</span>; fh &lt; <span style="color:#ce9178;">5</span>; fh++)
+    <span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fw = <span style="color:#ce9178;">0</span>; fw &lt; <span style="color:#ce9178;">5</span>; fw++)
         <span style="color:#c586c0;">sum</span> += <span style="color:#4ec9b0;">input</span>[row+fh][col+fw] * <span style="color:#4ec9b0;">filter</span>[fh][fw];
 <span style="color:#4ec9b0;">output</span>[row][col] = <span style="color:#c586c0;">sum</span>;</div>
 
   <!-- CONTROLS -->
-  <div class="controls">
-    <button class="btn" onclick="prev()" id="prevBtn">◀</button>
-    <button class="btn primary" onclick="step()" id="stepBtn">▶ Step</button>
-    <button class="btn" onclick="autoPlay()" id="autoBtn">⏩ Auto</button>
-    <button class="btn" onclick="reset()">↺ Reset</button>
-    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);" id="stepLbl">0 / 25</span>
-  </div>
-  <div style="margin-top:0.3rem;">
-    <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">Speed:</span>
-    <input type="range" min="80" max="800" value="300" oninput="spd=parseInt(this.value)" style="accent-color:var(--cyan);width:100px;">
-  </div>
-
-  <!-- THREAD ORGANIZATION DIAGRAM -->
-  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:left;max-width:750px;margin-left:auto;margin-right:auto;font-size:0.6rem;">
-
-    <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--violet);margin-bottom:1rem;text-align:center;">🧵 Thread Hierarchy — Grid → Blocks → Threads</div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-
-      <!-- LEFT: Block diagram -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;">
-        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.6rem;">📐 24×24 Output Grid → 2×2 Blocks</div>
-
-        <!-- Visual 24x24 divided into 2x2 blocks -->
-        <div style="display:inline-block;position:relative;">
-          <table style="border-collapse:collapse;margin:0 auto;">
-            <tr>
-              <td style="width:60px;height:60px;border:2px solid var(--cyan);background:var(--cyan-bg);text-align:center;vertical-align:middle;">
-                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);">BLOCK<br>(0,0)</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>pixels 0-15</div>
-              </td>
-              <td style="width:60px;height:60px;border:2px solid var(--amber);background:rgba(255,179,71,0.08);text-align:center;vertical-align:middle;">
-                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">BLOCK<br>(1,0)</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>pixels 16-23</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="width:60px;height:60px;border:2px solid var(--amber);background:rgba(255,179,71,0.08);text-align:center;vertical-align:middle;">
-                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">BLOCK<br>(0,1)</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>rows 16-23</div>
-              </td>
-              <td style="width:60px;height:60px;border:2px solid var(--amber);background:rgba(255,179,71,0.08);text-align:center;vertical-align:middle;">
-                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">BLOCK<br>(1,1)</div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>remainder</div>
-              </td>
-            </tr>
-          </table>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;">
-            24 output cols ÷ 16 threads = <strong style="color:var(--cyan);">2 blocks</strong> in X<br>
-            24 output rows ÷ 16 threads = <strong style="color:var(--cyan);">2 blocks</strong> in Y<br>
-            <span style="color:var(--tmut);">(24 isn't divisible by 16 → 2nd block has idle threads)</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT: Z-dimension and total -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;">
-        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.6rem;">📦 Z-Dimension → 512 Stacked Slices</div>
-
-        <!-- Visual stack -->
-        <div style="position:relative;display:inline-block;">
-          <div style="width:80px;height:8px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;margin:0 auto 2px;opacity:0.3;"></div>
-          <div style="width:85px;height:8px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;margin:0 auto 2px;opacity:0.5;"></div>
-          <div style="width:90px;height:8px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;margin:0 auto 2px;opacity:0.7;"></div>
-          <div style="width:80px;height:30px;background:var(--cyan-bg);border:2px solid var(--cyan);border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--cyan);font-weight:700;">×512</div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.5rem;line-height:1.8;">
-          64 batch images × 8 filters = <strong style="color:var(--cyan);">512</strong><br>
-          <span style="color:var(--tmut);">Each (batch, filter) = one 2×2 block grid</span><br>
-          <span style="color:var(--tmut);">= 512 × 4 blocks =</span> <strong style="color:var(--amber);">2,048 blocks total</strong><br>
-        </div>
-      </div>
-    </div>
-
-    <!-- THE FULL FORMULA -->
-    <div style="margin-top:1rem;background:var(--card);border:2px solid var(--violet);border-radius:8px;padding:1rem;text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--violet);margin-bottom:0.6rem;">🧮 The Full Launch Formula</div>
-
-      <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tdim);">
-        <!-- blocks.x -->
-        <div style="background:var(--raised);border:1px solid var(--cyan);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
-          <div style="font-size:0.45rem;color:var(--tmut);">blocks.x</div>
-          <div style="font-size:0.9rem;font-weight:700;color:var(--cyan);">2</div>
-          <div style="font-size:0.4rem;color:var(--tmut);">ceil(24/16)</div>
-        </div>
-        <span style="color:var(--tmut);">×</span>
-        <!-- blocks.y -->
-        <div style="background:var(--raised);border:1px solid var(--cyan);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
-          <div style="font-size:0.45rem;color:var(--tmut);">blocks.y</div>
-          <div style="font-size:0.9rem;font-weight:700;color:var(--cyan);">2</div>
-          <div style="font-size:0.4rem;color:var(--tmut);">ceil(24/16)</div>
-        </div>
-        <span style="color:var(--tmut);">×</span>
-        <!-- blocks.z -->
-        <div style="background:var(--raised);border:1px solid var(--amber);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
-          <div style="font-size:0.45rem;color:var(--tmut);">blocks.z</div>
-          <div style="font-size:0.9rem;font-weight:700;color:var(--amber);">512</div>
-          <div style="font-size:0.4rem;color:var(--tmut);">64×8</div>
-        </div>
-        <span style="color:var(--tmut);">×</span>
-        <!-- threads -->
-        <div style="background:var(--raised);border:1px solid var(--green);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
-          <div style="font-size:0.45rem;color:var(--tmut);">threads/block</div>
-          <div style="font-size:0.9rem;font-weight:700;color:var(--green);">256</div>
-          <div style="font-size:0.4rem;color:var(--tmut);">16×16</div>
-        </div>
-      </div>
-
-      <div style="margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--tdim);line-height:2;">
-        <strong style="color:var(--violet);">2 × 2 × 512 = 2,048 blocks</strong><br>
-        2,048 blocks × <strong style="color:var(--green);">256 threads</strong> = <strong style="color:var(--violet);">524,288 threads launched</strong><br>
-        <span style="font-size:0.55rem;color:var(--tmut);">Of which <strong style="color:var(--green);">294,912</strong> do real work (24×24×64×8). The rest are bounds-check guards.</span>
-      </div>
-    </div>
-
-    <!-- Hierarchy visual -->
-    <div style="margin-top:0.8rem;display:flex;align-items:center;justify-content:center;gap:0.8rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
-      <div style="background:var(--card);border:2px solid var(--violet);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
-        <div style="color:var(--tmut);font-size:0.45rem;">1 GRID</div>
-        <div style="font-size:0.7rem;color:var(--violet);font-weight:700;">dim3(2,2,512)</div>
-      </div>
-      <span style="font-size:1.2rem;color:var(--tmut);">→</span>
-      <div style="background:var(--card);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
-        <div style="color:var(--tmut);font-size:0.45rem;">2,048 BLOCKS</div>
-        <div style="font-size:0.7rem;color:var(--cyan);font-weight:700;">each dim3(16,16)</div>
-      </div>
-      <span style="font-size:1.2rem;color:var(--tmut);">→</span>
-      <div style="background:var(--card);border:2px solid var(--green);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
-        <div style="color:var(--tmut);font-size:0.45rem;">524,288 THREADS</div>
-        <div style="font-size:0.7rem;color:var(--green);font-weight:700;">294,912 active</div>
-      </div>
-      <span style="font-size:1.2rem;color:var(--tmut);">→</span>
-      <div style="background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
-        <div style="color:var(--tmut);font-size:0.45rem;">EACH THREAD</div>
-        <div style="font-size:0.7rem;color:var(--amber);font-weight:700;">1 output pixel</div>
-      </div>
-    </div>
-
+  <div class="ctrls">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">Patch:</span>
+    <button class="btn" onclick="movePatch(-1,0)">◀</button>
+    <button class="btn" onclick="movePatch(0,-1)">▲</button>
+    <button class="btn" onclick="movePatch(0,1)">▼</button>
+    <button class="btn" onclick="movePatch(1,0)">▶</button>
+    <span class="sep"></span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">Loop:</span>
+    <button class="btn" onclick="stepLoop(-1)" id="prevBtn">◀</button>
+    <button class="btn primary" onclick="stepLoop(1)" id="stepBtn">▶ Step</button>
+    <button class="btn" onclick="autoLoop()" id="autoBtn">⏩ Auto</button>
+    <button class="btn" onclick="resetLoop()">↺</button>
+    <span class="sep"></span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">Speed:</span>
+    <input type="range" min="50" max="500" value="200" oninput="spd=parseInt(this.value)" style="width:70px;accent-color:var(--cyan);">
   </div>
 
-  <div class="thread-info">
-    294,912 threads × 49 FLOPs each = <strong style="color:var(--amber);">~14.5 million FLOPs</strong> per forward pass — all running simultaneously on the GPU
+  <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">
+    28×28 input → 5×5 filter → 24×24 output = 576 positions × 25 mult = 14,400 mult per filter × 8 filters = 115,200 mult per image × 64 batch = <strong style="color:var(--amber);">7.37M mult per forward pass</strong>
   </div>
 </div>
 
 <script>
-function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️'}
-if(localStorage.getItem('iloops-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('iloop28-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('iloop28-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
 
-const inp = [
-  [0.12,0.08,0.95,0.88,0.05],
-  [0.03,0.15,0.82,0.91,0.11],
-  [0.01,0.22,0.76,0.84,0.09],
-  [0.08,0.18,0.71,0.79,0.14],
-  [0.04,0.10,0.68,0.73,0.07]
-];
-const flt = [
-  [ 0.18, 0.35, 0.12,-0.22,-0.15],
-  [ 0.25, 0.42, 0.08,-0.18,-0.20],
-  [ 0.10, 0.28, 0.05,-0.25,-0.12],
-  [-0.08,-0.15,-0.30,-0.40,-0.35],
-  [-0.12,-0.20,-0.28,-0.38,-0.30]
-];
-const bias = 0.08;
-let stepIdx = 0, autoTimer = null, spd = 300;
+// 28x28 image data (MNIST-like "7")
+const img28=[];for(let r=0;r<28;r++){img28[r]=[];for(let c=0;c<28;c++){let v=0;if(r<5&&c>=4&&c<24)v=0.6+Math.random()*0.4;let dc=24-(r-5)*0.7;if(r>=5&&c>=dc-2&&c<=dc+2&&c>=4)v=0.6+Math.random()*0.4;if(v<0.05)v=Math.random()*0.06;img28[r][c]=Math.min(1,v)}}
 
-function renderGrids(fh,fw) {
-  // Input grid
-  let ih='';
-  for(let r=0;r<5;r++){ih+='<tr>';
+// Filter
+const flt=[[0.15,0.30,0.10,-0.20,-0.12],[0.22,0.40,0.08,-0.18,-0.18],[0.08,0.25,0.05,-0.22,-0.10],[-0.06,-0.12,-0.25,-0.35,-0.30],[-0.10,-0.18,-0.22,-0.32,-0.28]];
+const bias=0.08;
+
+let pR=3,pC=8,loopStep=0,autoTimer=null,spd=200;
+
+function renderAll() {
+  // 28x28 grid
+  let h='<table class="ig28">';
+  for(let r=0;r<28;r++){h+='<tr>';
+    for(let c=0;c<28;c++){
+      let inP=(r>=pR&&r<pR+5&&c>=pC&&c<pC+5);
+      let cls='',tt='';
+      if(inP){
+        let lr=r-pR,lc=c-pC,idx=lr*5+lc;
+        if(loopStep>0&&idx<loopStep&&loopStep<=25)cls='patch-done';
+        else if(loopStep>0&&idx===loopStep-1&&loopStep<=25)cls='patch-active';
+        else cls='in-patch';
+        tt=`title="(${lr},${lc}) val=${img28[r][c].toFixed(2)}"`;
+      }
+      let bg=img28[r][c]>0.5?'background:rgba(57,210,255,0.4);':img28[r][c]>0.2?'background:rgba(57,210,255,0.12);':'';
+      h+=`<td class="${cls}" ${tt} style="${bg}">${img28[r][c]>0.5?'·':''}</td>`;
+    }h+='</tr>';}
+  h+='</table>';
+  document.getElementById('inputGrid28').innerHTML=h;
+  document.getElementById('patchR').textContent=pR;document.getElementById('patchC').textContent=pC;
+
+  // Filter
+  let fh='';
+  for(let r=0;r<5;r++){fh+='<tr>';
     for(let c=0;c<5;c++){
-      let isCur=(r===fh&&c===fw&&stepIdx>0&&stepIdx<=25);
-      let isDone=(r*5+c<fh*5+fw&&stepIdx>0);
-      let v=inp[r][c];
-      let cls=isCur?'active':(isDone?'done':'');
-      let clr=v>0.7?'var(--cyan)':v>0.5?'var(--text)':'var(--tmut)';
-      ih+=`<td class="${cls}" style="color:${clr};font-weight:${v>0.7?'600':'400'}">${v.toFixed(2)}</td>`;
-    }ih+='</tr>';}
-  document.getElementById('inputGrid').innerHTML=ih;
+      let v=flt[r][c],s=v>=0?'+':'−',a=Math.abs(v).toFixed(2);
+      let bg=v>0.15?'rgba(63,185,80,0.35)':v<-0.15?'rgba(248,81,73,0.35)':'rgba(255,179,71,0.08)';
+      let clr=v>0.15?'var(--amber)':v<-0.15?'var(--red)':'var(--tmut)';
+      let cls='';
+      if(loopStep>0&&loopStep<=25){
+        let lr=Math.floor((loopStep-1)/5),lc=(loopStep-1)%5;
+        if(r===lr&&c===lc)cls='filter-active';
+        else if(r*5+c<lr*5+lc)cls='filter-done';
+      }
+      fh+=`<td class="${cls}" style="background:${bg};color:${clr}">${s}${a}</td>`;
+    }fh+='</tr>';}
+  document.getElementById('filterGrid').innerHTML=fh;
 
-  // Filter grid
-  let fh2='';
-  for(let r=0;r<5;r++){fh2+='<tr>';
-    for(let c=0;c<5;c++){
-      let v=flt[r][c];
-      let isCur=(r===fh&&c===fw&&stepIdx>0&&stepIdx<=25);
-      let isDone=(r*5+c<fh*5+fw&&stepIdx>0);
-      let sgn=v>=0?'+':'−';
-      let cls=isCur?'active':(isDone?'done':'');
-      let bg=v>0.2?'rgba(63,185,80,0.4)':v<-0.2?'rgba(248,81,73,0.4)':'rgba(255,179,71,0.12)';
-      let clr=v>0.2?'var(--amber)':v<-0.2?'var(--red)':'var(--tmut)';
-      fh2+=`<td class="${cls}" style="background:${bg};color:${clr};font-weight:${Math.abs(v)>0.2?'600':'400'}">${sgn}${Math.abs(v).toFixed(2)}</td>`;
-    }fh2+='</tr>';}
-  document.getElementById('filterGrid').innerHTML=fh2;
-}
-
-function update(s) {
-  stepIdx=s;
-  let fh=-1,fw=-1;
-  if(s>0&&s<=25){fh=Math.floor((s-1)/5);fw=(s-1)%5;}
-
-  renderGrids(fh,fw);
-
-  // Compute running sum
-  let sum=bias;
-  for(let i=0;i<Math.min(s,25);i++){let r=Math.floor(i/5),c=i%5;sum+=inp[r][c]*flt[r][c];}
+  // Compute sum
+  let sum=bias,comp='';
+  if(loopStep>0){
+    comp='sum = bias = <span style="color:#ce9178;">'+bias.toFixed(2)+'</span>\n';
+    for(let i=0;i<Math.min(loopStep,25);i++){
+      let lr=Math.floor(i/5),lc=i%5;
+      let pv=img28[pR+lr][pC+lc],w=flt[lr][lc],prod=pv*w;
+      sum+=prod;let ps=prod>=0?'+':'−',isCur=(i===loopStep-1);
+      if(isCur) comp+='<span class="hl">→ +('+pv.toFixed(2)+' × '+(w>=0?'+':'−')+Math.abs(w).toFixed(2)+') = '+ps+Math.abs(prod).toFixed(3)+' ← NOW</span>\n';
+      else comp+='  +('+pv.toFixed(2)+' × '+(w>=0?'+':'−')+Math.abs(w).toFixed(2)+') = '+ps+Math.abs(prod).toFixed(3)+'\n';
+    }
+    if(loopStep<=25) comp+='<span class="cm">  ... '+(25-loopStep)+' more ...</span>\n';
+    if(loopStep>25) comp+='<span class="cm">───────────────────────</span>\n<span class="gr">output['+pR+']['+pC+'] = '+sum.toFixed(4)+' ← DONE!</span>\n<span class="cm">51 reads | 1 write | 25 mul + 25 add = 50 ops</span>';
+  } else {comp='Click a position on the grid above, then press ▶ Step';}
+  document.getElementById('compBox').innerHTML=comp;
 
   // Stats
-  let reads=s===0?0:1+Math.min(s,25)*2;
-  let writes=s>25?1:0;
-  let mulC=s>25?25:Math.min(s,25);
-  let addC=s>25?25:(s>0?Math.min(s,25):0); // same as mulC — each iteration is 1 mul + 1 add
-  let totalFLOPs=mulC+addC;
-  document.getElementById('memR').textContent=reads;
-  document.getElementById('memW').textContent=writes;
-  document.getElementById('mulCnt').textContent=mulC+'/25';
-  document.getElementById('addCnt').textContent=addC+'/25';
-  document.getElementById('mulDisp').textContent=mulC;
-  document.getElementById('addDisp').textContent=addC;
-  document.getElementById('totDisp').textContent=totalFLOPs;
+  document.getElementById('posLbl').textContent='('+pR+','+pC+')';
+  document.getElementById('mulLbl').textContent=Math.min(loopStep,25)+'/25';
+  document.getElementById('addLbl').textContent=Math.min(loopStep,25)+'/25';
   document.getElementById('sumVal').textContent=sum.toFixed(4);
-  document.getElementById('sumVal').style.color=Math.abs(sum)>1?'var(--green)':Math.abs(sum)<0.3?'var(--tmut)':'var(--amber)';
-
-  // Output box
-  let oEl=document.getElementById('outputVal');
-  if(s>25){oEl.textContent=(sum>=0?'+':'')+sum.toFixed(3);oEl.className='big-out done';}
-  else if(s>0){oEl.textContent=(sum>=0?'+':'')+sum.toFixed(4)+'...';oEl.className='big-out computing';}
-  else{oEl.textContent='??';oEl.className='big-out computing';}
-
-  // Computation box
-  let comp='';
-  if(s===0){comp='<span class="cm">Press Step to walk through the inner loops</span>';}
-  else{
-    comp='<span class="cm">// bias = </span><span style="color:#ce9178;">'+bias.toFixed(2)+'</span>\n';
-    comp+='sum = <span style="color:#ce9178;">'+bias.toFixed(2)+'</span>';
-    for(let i=0;i<Math.min(s,25);i++){
-      let r=Math.floor(i/5),c=i%5;
-      let p=inp[r][c]*flt[r][c];
-      let ps=p>=0?'+':'−';
-      let isCur=(i===s-1);
-      comp+='\n';
-      if(isCur) comp+='<span class="hl">→ + ('+inp[r][c].toFixed(2)+' × '+(flt[r][c]>=0?'+':'−')+Math.abs(flt[r][c]).toFixed(2)+') = '+ps+Math.abs(p).toFixed(3)+' ← CURRENT</span>';
-      else comp+='   + ('+inp[r][c].toFixed(2)+' × '+(flt[r][c]>=0?'+':'−')+Math.abs(flt[r][c]).toFixed(2)+') = '+ps+Math.abs(p).toFixed(3);
-    }
-    if(s<=25&&s>0){
-      comp+='\n<span class="cm">   ... '+(25-s)+' more multiplications ...</span>';
-    }
-    if(s>25){
-      comp+='\n<span class="cm">// ─────────────────────────────</span>';
-      comp+='\n<span style="color:var(--green);font-weight:700;">output[row][col] = '+(sum>=0?'+':'')+sum.toFixed(4)+' ← DONE!</span>';
-      comp+='\n<span class="cm">// Mem: 51 reads, 1 write | Ops: 25 mul + 24 add = 49</span>';
-    }
-  }
-  document.getElementById('compBox').innerHTML=comp;
+  document.getElementById('outVal').textContent=loopStep>25?(sum>=0?'+':'')+sum.toFixed(3):'??';
+  document.getElementById('outVal').style.color=loopStep>25?(Math.abs(sum)>1?'var(--green)':'var(--tdim)'):'var(--tmut)';
 
   // Code highlight
   let cd='<span style="color:#569cd6;">float</span> <span style="color:#c586c0;">sum</span> = <span style="color:#4ec9b0;">bias</span>[<span style="color:#ce9178;">0</span>];';
-  if(s===0) cd+=' <span style="color:var(--cyan);">◀ START</span>';
+  if(loopStep===0)cd+=' <span style="color:var(--cyan);">◀ START</span>';
   cd+='\n<span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fh = <span style="color:#ce9178;">0</span>; fh &lt; <span style="color:#ce9178;">5</span>; fh++)';
-  if(s>=1&&s<=25) cd+=' <span style="color:#6a9955;">// fh='+Math.floor((s-1)/5)+'</span>';
+  if(loopStep>=1&&loopStep<=25)cd+=' <span style="color:#6a9955;">// fh='+Math.floor((loopStep-1)/5)+'</span>';
   cd+='\n    <span style="color:#c586c0;">for</span> (<span style="color:#569cd6;">int</span> fw = <span style="color:#ce9178;">0</span>; fw &lt; <span style="color:#ce9178;">5</span>; fw++)';
-  if(s>=1&&s<=25) cd+=' <span style="color:#6a9955;">// fw='+((s-1)%5)+'</span>';
+  if(loopStep>=1&&loopStep<=25)cd+=' <span style="color:#6a9955;">// fw='+((loopStep-1)%5)+'</span>';
   cd+='\n        <span style="color:#c586c0;">sum</span> += <span style="color:#4ec9b0;">input</span>[row+fh][col+fw] * <span style="color:#4ec9b0;">filter</span>[fh][fw];';
-  if(s>=1&&s<=25){
-    let r=Math.floor((s-1)/5),c=(s-1)%5;
-    cd+=' <span style="color:var(--cyan);">◀ ('+inp[r][c].toFixed(2)+' × '+(flt[r][c]>=0?'+':'−')+Math.abs(flt[r][c]).toFixed(2)+')</span>';
-  }
+  if(loopStep>=1&&loopStep<=25){let lr=Math.floor((loopStep-1)/5),lc=(loopStep-1)%5;cd+=' <span style="color:var(--cyan);">◀ ('+img28[pR+lr][pC+lc].toFixed(2)+' × '+(flt[lr][lc]>=0?'+':'−')+Math.abs(flt[lr][lc]).toFixed(2)+')</span>';}
   cd+='\n<span style="color:#4ec9b0;">output</span>[row][col] = <span style="color:#c586c0;">sum</span>;';
-  if(s>25) cd+=' <span style="color:var(--cyan);">◀ DONE!</span>';
+  if(loopStep>25)cd+=' <span style="color:var(--cyan);">◀ DONE!</span>';
   document.getElementById('codeBox').innerHTML=cd;
 
-  document.getElementById('stepLbl').textContent=Math.min(s,25)+' / 25';
-  document.getElementById('prevBtn').disabled=s===0;
-  document.getElementById('stepBtn').disabled=s>25;
+  document.getElementById('prevBtn').disabled=loopStep===0;
+  document.getElementById('stepBtn').disabled=loopStep>25;
 }
 
-function step(){if(stepIdx<=25)update(stepIdx+1)}
-function prev(){if(stepIdx>0)update(stepIdx-1)}
-function autoPlay(){
+function movePatch(dr,dc){let nr=pR+dr,nc=pC+dc;if(nr<0||nr>23||nc<0||nc>23)return;pR=nr;pC=nc;loopStep=0;renderAll()}
+function stepLoop(d){let ns=loopStep+d;if(ns<0||ns>26)return;loopStep=ns;renderAll()}
+function autoLoop(){
   if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');return;}
-  if(stepIdx>25)reset();
+  if(loopStep>25){loopStep=0;renderAll();}
   document.getElementById('autoBtn').textContent='⏸ Stop';document.getElementById('autoBtn').classList.add('primary');
-  autoTimer=setInterval(function(){if(stepIdx<26)step();else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}},spd);
+  autoTimer=setInterval(function(){if(loopStep<26){loopStep++;renderAll();}else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}},spd);
 }
-function reset(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}update(0);}
+function resetLoop(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='⏩ Auto';document.getElementById('autoBtn').classList.remove('primary');}loopStep=0;renderAll()}
 
-// Init
-renderGrids(-1,-1);
-document.getElementById('prevBtn').disabled=true;
+renderAll();document.getElementById('prevBtn').disabled=true;
 </script>
 </body>
 </html>
