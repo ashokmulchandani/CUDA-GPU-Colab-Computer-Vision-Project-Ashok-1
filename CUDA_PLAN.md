@@ -648,31 +648,43 @@ Visual, slide-based learning modules following the same pattern as the [MLOPS Sy
 
 ---
 
-## Chat Context & Revision Notes (2026-07-22)
+## Chat Context & Revision Notes
 
-This plan was reviewed with Claude Code on 2026-07-22. Key findings and actions:
+### Session: 2026-07-21 (Initial Review)
 
-### What Was Reviewed
+**What Was Reviewed:**
 - Full directory structure of `CUDA_Projects-Ashok/` — 7 Colab notebooks, 2 Python scripts, Triton demo, 3D recon reference, LiDAR datasets reference, 3.6 GB local LiDAR data
 - Cross-referenced with 3 sibling repos: `Chicken-Disease-Classification-Projects/` (TF VGG16 + DVC pipeline), `Ashok-Disease_Chicken_Deep_Learning_Classification/` (raw dataset), `Fine_tuning-ML-Pipleine--Synthetic_Data-Ashok-1/` (Phase 10 spinoff, 10-phase fine-tuning plan)
 - Compared plan structure with `MLOPS_System_Design_Thinking/` project for HTML learning module patterns
 
-### Issues Identified
+**Issues Identified:**
 1. **Ordering is broken** — Phases 6, 7, 9 completed before Phase 5. The 32-session execution table is frozen in time.
 2. **Phase 5 (VGG16 in CUDA) is partially redundant** — user already wrote CNN kernels (Phase 3.5), deployed TensorRT/Triton (Phase 6), and has a working TF VGG16 chicken disease classifier with DVC in another repo.
 3. **Phase 8 (Transformer) only has a stub notebook** — the most important remaining topic needs a full breakdown.
 4. **No multi-GPU programming** — NCCL, data/model parallelism, all-reduce are missing.
 5. **All code lives in notebooks** — the `src/` directory structure in the plan was never populated. No CMake/Makefile build system.
-6. **Phase 10** moved to a separate fine-tuning repo — the CUDA_PLAN.md Phase 10 section should be trimmed to a pointer.
+6. **Phase 10** moved to a separate fine-tuning repo — noted for cross-reference.
 
-### Actions Taken (2026-07-22)
-- ✅ Created `phase4_yolo_cuda.html` — interactive learning module for Phase 4 following MLOPS project patterns (8 slides, quizzes, dark/light theme, keyboard nav, particle background)
-- ✅ Linked HTML in CUDA_PLAN.md Phase 4 section and README.md
-- ✅ Added "Interactive Learning Modules" section to this plan
+### Session: 2026-07-22 — Interactive HTMLs Built
+
+All interactive modules follow the MLOPS System Design project pattern: single-file HTML, Orbitron + JetBrains Mono + DM Sans fonts, dark/light theme toggle (persisted in localStorage), animated particle background (canvas), keyboard navigation (← →), clickable progress dots & topic chips, quizzes with correct/wrong feedback on every slide.
+
+| Date | File | Phase | Slides | Content |
+|------|------|-------|--------|---------|
+| 07-22 | `phase4_yolo_cuda.html` | 4 | 8 | YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS kernel, 137 FPS pipeline, Triton serving |
+| 07-22 | `phase6_production_cuda.html` | 6 | 10 | 6A TensorRT, 6B Triton Server, 6C Nsight Profiling (roofline model), 6D Multi-Stream 7.07× + CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment |
+| 07-22 | `phase3_mlp_mnist.html` | 3 | 10 | Architecture 784→128→64→10, Fixed vs Choice hyperparameters, ReLU ("kill negatives" + bouncer analogy), Why ReLU breaks linearity, Softmax (e^x/sum + election analogy), Full pipeline walkthrough with real numbers, Detective analogy, CUDA kernels + 30× benchmark |
+| 07-22 | `class_imbalance_visualizer.html` | ML | 6 | Undersampling, Oversampling, SMOTE, Class Weights, Focal Loss — interactive visual + real Python code |
+| 07-22 | `neuron_weight_visualizer.html` | DL | 3 | 28×28 weight grids for Layer 1, trained vs random vs digit detectors, 109K parameter breakdown |
+| 07-22 | `one_neuron_explained.html` | DL | 1 | Per-neuron breakdown (784 weights + 1 bias), full Layer 1/2/3 parameter table |
+| 07-22 | `index.html` | Hub | — | Dashboard launcher — one-click access to all interactive modules |
+
+All linked in CUDA_PLAN.md (Phase sections + Interactive Learning Modules table) and README.md.
 
 ### Recommended Next Revisions
-- **Phase 5** → Replace "VGG16 from scratch" with "Applied MLOps Bridge": take existing TF chicken disease model → TensorRT → Triton → CI/CD. Keeps the VGG16 connection but focuses on the novel production engineering work.
+- **Phase 5** → Replace "VGG16 from scratch" with "Applied MLOps Bridge": take existing TF chicken disease model → TensorRT → Triton → CI/CD
 - **Phase 8** → Expand into 3 sub-phases: 8A (Self-attention + multi-head kernels), 8B (GPT-style decoder + KV-Cache), 8C (Flash Attention + FP16 optimization)
-- **Add Phase 11** → Multi-GPU Programming: NCCL, data parallelism, model parallelism, all-reduce, gradient accumulation
+- **Add Phase 11** → Multi-GPU Programming: NCCL, data parallelism, model parallelism, all-reduce
 - **Add build system** — CMakeLists.txt for all CUDA source files, moving from notebook `%%writefile` to proper `.cu` files
 - **Drop the frozen 32-session table** — replace with a "Current Status" table reflecting actual completion order
+- **Enable GitHub Pages** on the CUDA repo for live HTML hosting (same as MLOPS repo setup)
