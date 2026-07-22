@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flatten → FC → Softmax — The Final Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:900px;padding:1.5rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin-bottom:1rem}
+
+.pipeline{display:flex;gap:0.5rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:0.8rem 0}
+.pipe-box{background:var(--card);border:2px solid var(--border);border-radius:10px;padding:0.7rem 1rem;text-align:center;transition:0.3s}
+.pipe-box.active{border-color:var(--cyan);box-shadow:0 0 16px var(--cyan-border)}.pipe-box.done{border-color:var(--green)}
+.pipe-box .icon{font-size:1.3rem}.pipe-box .title{font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-top:0.2rem}.pipe-box .val{font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:700;color:var(--cyan)}
+.arr{font-size:1.2rem;color:var(--cyan)}
+
+/* Flatten grid */
+.flat-grid{display:flex;flex-wrap:wrap;gap:1px;max-width:400px;margin:0 auto;justify-content:center}
+.flat-cell{width:7px;height:7px;background:var(--border);border-radius:1px;transition:0.3s}
+.flat-cell.filter0{background:rgba(57,210,255,0.7)}
+.flat-cell.filter1{background:rgba(255,179,71,0.7)}
+.flat-cell.filter2{background:rgba(255,110,199,0.7)}
+.flat-cell.filter3{background:rgba(63,185,80,0.7)}
+.flat-cell.filter4{background:rgba(163,113,247,0.7)}
+.flat-cell.filter5{background:rgba(248,81,73,0.7)}
+.flat-cell.filter6{background:rgba(57,210,255,0.4)}
+.flat-cell.filter7{background:rgba(255,179,71,0.4)}
+.flat-cell.active{transform:scale(2);z-index:2;box-shadow:0 0 6px var(--cyan)}
+
+/* FC visualization */
+.fc-viz{display:flex;flex-direction:column;gap:2px;align-items:center}
+.fc-row{display:flex;gap:2px;align-items:center}
+.fc-neuron{width:8px;height:8px;border-radius:50%;background:var(--border);transition:0.3s}
+.fc-neuron.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan);transform:scale(1.5)}
+
+/* Softmax */
+.sm-bars{display:flex;gap:3px;align-items:flex-end;height:80px;justify-content:center}
+.sm-bar{width:36px;border-radius:4px 4px 0 0;transition:0.5s;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:2px}
+.sm-bar .digit{font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text)}
+.sm-bar .pct{font-family:'Orbitron',sans-serif;font-size:0.5rem;font-weight:700}
+
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 0.8rem;margin:0.6rem auto;max-width:600px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4}
+.comp .hl{color:var(--cyan);font-weight:700}.comp .gr{color:var(--green)}.comp .cm{color:#6a9955}
+
+.ctrls{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:0.4rem 1rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}.btn:disabled{opacity:0.3;cursor:not-allowed}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Flatten → FC → Softmax — The Final 3 Steps</h1>
+  <p class="subtitle">After MaxPool: 12×12×8 = 1,152 values. These go through <strong>Flatten</strong> (3D→1D), <strong>Fully Connected</strong> (1152×10 = 11,530 weights), and <strong>Softmax</strong> (scores→probabilities).</p>
+
+  <!-- PIPELINE STAGES -->
+  <div class="pipeline" id="pipeStages">
+    <div class="pipe-box active" id="stageFlatten"><div class="icon">📐</div><div class="title">FLATTEN</div><div class="val">1152</div></div>
+    <div class="arr">→</div>
+    <div class="pipe-box" id="stageFC"><div class="icon">🧮</div><div class="title">FC 1152→10</div><div class="val">10 scores</div></div>
+    <div class="arr">→</div>
+    <div class="pipe-box" id="stageSoftmax"><div class="icon">📊</div><div class="title">SOFTMAX</div><div class="val">10 probs</div></div>
+  </div>
+
+  <!-- VISUAL AREA -->
+  <div id="visualArea" style="min-height:120px;display:flex;align-items:center;justify-content:center;margin:0.5rem 0;">
+    <div style="color:var(--tmut);font-size:0.7rem;">Press ▶ Step</div>
+  </div>
+
+  <!-- COMPUTATION -->
+  <div class="comp" id="compBox">Press ▶ Step to walk through Flatten → FC → Softmax</div>
+
+  <!-- CONTROLS -->
+  <div class="ctrls">
+    <button class="btn" onclick="changeStep(-1)" id="prevBtn">◀ Prev</button>
+    <button class="btn primary" onclick="changeStep(1)" id="nextBtn">▶ Step</button>
+    <button class="btn" onclick="resetAll()">↺ Reset</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);" id="stepLbl">Step 0/5</span>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('ffs-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('ffs-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+let s=0;
+const stageIds=['stageFlatten','stageFC','stageSoftmax'];
+
+// Simulated FC weights for digit 5 (makes the network output high score for digit 5)
+const rawScores=[1.2,0.3,-0.8,0.5,-0.2,7.8,0.1,-1.5,0.6,0.2];
+
+function softmax(arr){let m=Math.max(...arr);let e=arr.map(v=>Math.exp(v-m));let sum=e.reduce((a,b)=>a+b,0);return e.map(v=>v/sum);}
+
+function update(){
+  document.getElementById('stepLbl').textContent='Step '+s+'/5';
+
+  // Reset stage highlights
+  stageIds.forEach(id=>document.getElementById(id).classList.remove('active','done'));
+  if(s>=1)document.getElementById(stageIds[0]).classList.add('done');
+  if(s>=3)document.getElementById(stageIds[1]).classList.add('done');
+  if(s>=5)document.getElementById(stageIds[2]).classList.add('done');
+  if(s===1||s===2)document.getElementById(stageIds[0]).classList.add('active');
+  if(s===3||s===4)document.getElementById(stageIds[1]).classList.add('active');
+  if(s===5)document.getElementById(stageIds[2]).classList.add('active');
+
+  let area=document.getElementById('visualArea');
+  let comp=document.getElementById('compBox');
+
+  if(s===0){
+    area.innerHTML=`
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);margin-bottom:0.5rem;">After MaxPool: 8 feature maps of 12×12</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.8rem;">
+          ${[0,1,2,3,4,5,6,7].map(f=>`
+            <div style="text-align:center;">
+              <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:1px;border:1px solid var(--cyan);border-radius:4px;padding:2px;opacity:0.8;">
+                ${Array(144).fill(0).map((_,i)=>`<div style="width:5px;height:5px;background:${['rgba(57,210,255,0.7)','rgba(255,179,71,0.7)','rgba(255,110,199,0.7)','rgba(63,185,80,0.7)','rgba(163,113,247,0.7)','rgba(248,81,73,0.7)','rgba(87,210,255,0.4)','rgba(255,179,71,0.4)'][f]};border-radius:1px;"></div>`).join('')}
+              </div>
+              <div style="font-size:0.4rem;color:var(--tmut);">F${f}</div>
+            </div>`).join('')}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--cyan);margin-top:0.5rem;">12×12×8 = <strong>1,152 values</strong> — 3D structure</div>
+      </div>`;
+    comp.innerHTML='<span class="cm">After MaxPool, we have 8 feature maps of 12×12 = 1,152 values.</span>\n<span class="cm">But the FC layer expects a 1D vector. We need to FLATTEN.</span>';
+  }
+  else if(s===1){
+    area.innerHTML=`
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.4rem;">FLATTEN: Stack all 8 maps into ONE long vector</div>
+        <div class="flat-grid" style="max-width:600px;">${Array(1152).fill(0).map((_,i)=>{let f=Math.floor(i/144);return`<div class="flat-cell filter${f}" style="width:5px;height:5px;"></div>`}).join('')}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.4rem;">Filter 0 (144) → Filter 1 (144) → ... → Filter 7 (144) = <strong style="color:var(--cyan);">1,152 long</strong></div>
+      </div>`;
+    comp.innerHTML='<span class="hl">STEP 1: FLATTEN</span>\n<span class="cm">8 × 12 × 12 = 1,152</span>\n<span class="cm">The 3D tensor (8,12,12) becomes a 1D vector of 1,152 numbers.</span>\n<span class="cm">Spatial structure is LOST — each value is now just "input[k]" with no (row,col,filter) info.</span>';
+  }
+  else if(s===2){
+    area.innerHTML=`
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.4rem;">FC Layer: Each output neuron connects to ALL 1,152 inputs</div>
+        <div style="display:flex;gap:4px;align-items:center;justify-content:center;flex-wrap:wrap;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">[1,152]</div>
+          <div style="font-size:1rem;color:var(--cyan);">→</div>
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            ${[0,1,2,3,4,5,6,7,8,9].map(d=>`
+              <div style="display:flex;align-items:center;gap:4px;">
+                <div style="width:12px;height:12px;border-radius:50%;background:var(--amber);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text);">${d}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">= Σ(wᵢ×xᵢ) + b${d}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">[1,152 mults + 1,151 adds]</div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">10 neurons × (1,152 weights + 1 bias) = <strong style="color:var(--amber);">11,530 parameters</strong></div>
+      </div>`;
+    comp.innerHTML='<span class="hl">STEP 2: FULLY CONNECTED (1152 → 10)</span>\n<span class="cm">Each of the 10 output neurons computes:</span>\n<span class="cm">  score[d] = w[d][0]×x[0] + w[d][1]×x[1] + ... + w[d][1151]×x[1151] + bias[d]</span>\n<span class="cm">That is <strong>1,152 multiplications + 1,151 additions + 1 bias = 2,304 ops PER DIGIT</strong></span>\n<span class="cm">× 10 digits = 23,040 ops just for the FC layer.</span>';
+  }
+  else if(s===3){
+    let sm=softmax(rawScores);let maxSc=Math.max(...rawScores);
+    area.innerHTML=`
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.4rem;">BEFORE Softmax — Raw Scores</div>
+        <div class="sm-bars">
+          ${rawScores.map((v,i)=>{
+            let h=Math.max(3,((v+2)/12)*80);
+            return`<div class="sm-bar" style="height:${h}px;background:${i===5?'var(--amber)':'var(--raised)'};"><div class="digit">${i}</div><div class="pct" style="color:${v>2?'var(--green)':v<-1?'var(--red)':'var(--tdim)'};">${v>=0?'+':''}${v.toFixed(1)}</div></div>`;
+          }).join('')}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.3rem;">Raw scores can be ANY number. Digit <strong style="color:var(--amber);">5</strong> has the highest (${rawScores[5].toFixed(1)}), but what does that MEAN?</div>
+      </div>`;
+    comp.innerHTML='<span class="hl">STEP 3: Raw FC Scores</span>\n<span class="cm">The FC layer outputs 10 raw scores — one per digit.</span>\n<span class="cm">Digit 0: '+rawScores[0].toFixed(2)+'  Digit 1: '+rawScores[1].toFixed(2)+'  ...  <strong style="color:var(--amber);">Digit 5: '+rawScores[5].toFixed(2)+'</strong></span>\n<span class="cm">These are uninterpretable. Is '+rawScores[5].toFixed(2)+' "60% sure" or "99% sure"? Softmax converts them to probabilities.</span>';
+  }
+  else if(s===4){
+    let sm=softmax(rawScores);
+    area.innerHTML=`
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.4rem;">Softmax Formula: <span style="color:var(--violet);">eˣ / Σeˣ</span></div>
+        <div style="display:flex;gap:4px;align-items:flex-end;justify-content:center;margin:0.5rem 0;">
+          ${rawScores.map((v,i)=>{let ev=Math.exp(v);return`<div style="text-align:center;font-size:0.45rem;font-family:'JetBrains Mono',monospace;color:var(--tdim);">e<sup>${v.toFixed(1)}</sup><br>=<br><span style="color:${v>5?'var(--green)':'var(--tdim)'};">${ev<1000?ev.toFixed(0):ev.toExponential(0)}</span></div>`;}).join('<span style="color:var(--tmut);margin-bottom:10px;">+</span>')}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Sum of all eˣ = ${rawScores.reduce((a,v)=>a+Math.exp(v),0).toExponential(0)}</div>
+      </div>`;
+    comp.innerHTML='<span class="hl">STEP 4: Softmax Math</span>\n<span class="cm">For each score: e^score / sum_of_all_e^scores</span>\n<span class="cm">e^7.8 = ${Math.exp(7.8).toExponential(0)} — this DOMINATES the sum!</span>\n<span class="cm">The BIGGEST raw score becomes ALMOST ALL of the probability.</span>';
+  }
+  else if(s===5){
+    let sm=softmax(rawScores);let winner=sm.indexOf(Math.max(...sm));
+    area.innerHTML=`
+      <div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.4rem;">AFTER Softmax — 10 Probabilities (sum = 100%)</div>
+        <div class="sm-bars">
+          ${sm.map((v,i)=>{
+            let h=Math.max(2,v*80);
+            let isWin=i===winner;
+            return`<div class="sm-bar" style="height:${h}px;background:${isWin?'var(--green)':'var(--raised)'};border:${isWin?'2px solid var(--green)':'1px solid var(--border)'};"><div class="digit">${i}</div><div class="pct" style="color:${isWin?'var(--green)':'var(--tmut)'};">${(v*100).toFixed(1)}%</div></div>`;
+          }).join('')}
+        </div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--green);font-weight:700;margin-top:0.5rem;">Prediction: "${winner}" — ${(sm[winner]*100).toFixed(1)}% confident!</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">All 10 probabilities sum to 100%. The winner dominates.</div>
+      </div>`;
+    comp.innerHTML='<span class="hl">STEP 5: Final Probabilities</span>\n<span class="cm">Softmax output (probabilities summing to 1.0):</span>\n<span class="cm">Digit 0: '+(sm[0]*100).toFixed(1)+'%  Digit 1: '+(sm[1]*100).toFixed(1)+'%  Digit 2: '+(sm[2]*100).toFixed(1)+'%</span>\n<span class="cm">Digit 3: '+(sm[3]*100).toFixed(1)+'%  Digit 4: '+(sm[4]*100).toFixed(1)+'%  <strong style="color:var(--green);">Digit 5: '+(sm[5]*100).toFixed(1)+'% ← WINNER!</strong></span>\n<span class="cm">Digit 6: '+(sm[6]*100).toFixed(1)+'%  Digit 7: '+(sm[7]*100).toFixed(1)+'%  Digit 8: '+(sm[8]*100).toFixed(1)+'%  Digit 9: '+(sm[9]*100).toFixed(1)+'%</span>';
+  }
+
+  document.getElementById('prevBtn').disabled=s===0;
+  document.getElementById('nextBtn').disabled=s===5;
+}
+function changeStep(d){let ns=s+d;if(ns<0||ns>5)return;s=ns;update()}
+function resetAll(){s=0;update()}
+update();document.getElementById('prevBtn').disabled=true;
+</script>
+</body>
+</html>
