@@ -116,10 +116,11 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
     </div>
 
     <!-- FILTER -->
-    <div class="panel filter">
-      <div class="panel-label">FILTER 1 (5×5 learned weights)</div>
+    <div class="panel filter" style="min-width:260px;">
+      <div class="panel-label">🔍 FILTER (5×5 — 25 learned weights)</div>
+      <div style="font-size:0.45rem;color:var(--tmut);margin-bottom:0.4rem;">5 rows × 5 columns = 25 values</div>
       <table class="ft" id="filterGrid"></table>
-      <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">filter[fh][fw]</div>
+      <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">filter[fh][fw] — 1 weight per pixel position</div>
     </div>
 
     <!-- OUTPUT -->
@@ -337,7 +338,7 @@ function renderGrids(fh,fw) {
       let isDone=(r*5+c<fh*5+fw&&stepIdx>0);
       let sgn=v>=0?'+':'−';
       let cls=isCur?'active':(isDone?'done':'');
-      let bg=v>0.2?'rgba(63,185,80,0.25)':v<-0.2?'rgba(248,81,73,0.25)':'rgba(255,179,71,0.08)';
+      let bg=v>0.2?'rgba(63,185,80,0.4)':v<-0.2?'rgba(248,81,73,0.4)':'rgba(255,179,71,0.12)';
       let clr=v>0.2?'var(--amber)':v<-0.2?'var(--red)':'var(--tmut)';
       fh2+=`<td class="${cls}" style="background:${bg};color:${clr};font-weight:${Math.abs(v)>0.2?'600':'400'}">${sgn}${Math.abs(v).toFixed(2)}</td>`;
     }fh2+='</tr>';}
