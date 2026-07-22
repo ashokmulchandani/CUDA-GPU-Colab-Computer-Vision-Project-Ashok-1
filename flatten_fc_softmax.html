@@ -156,7 +156,11 @@ function update(){
               </div>`).join('')}
           </div>
         </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;"><strong style="color:var(--green);">10 neurons</strong> — each neuron has <strong style="color:var(--cyan);">1,152 weights</strong> (one per input) + <strong style="color:var(--amber);">1 bias</strong><br>= 10 × (1,152 + 1) = 10 × 1,153 = <strong style="color:var(--amber);">11,530 parameters</strong></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">
+  Weight matrix: <strong style="color:var(--cyan);">1,152 inputs</strong> × <strong style="color:var(--green);">10 outputs</strong> = <strong style="color:var(--amber);">11,520 weights</strong><br>
+  + 10 biases = <strong style="color:var(--amber);">11,530 total</strong><br>
+  <span style="color:var(--tmut);">NOT 1152×1152 — that would be 1.3M params! The output is only 10 (digits).</span><br>
+  Same as MLP: <strong style="color:var(--green);">10 neurons</strong>, each with <strong style="color:var(--cyan);">1,152 weights</strong> + 1 bias = 1,153 per neuron</div>
       </div>`;
     comp.innerHTML='<span class="hl">STEP 2: FULLY CONNECTED (1152 → 10)</span>\n<span class="cm">10 neurons (digits 0-9). Each neuron has <strong>1,152 weights + 1 bias = 1,153 knobs</strong>.</span>\n<span class="cm">Neuron 5: score[5] = w[5][0]×x[0] + w[5][1]×x[1] + ... + w[5][1151]×x[1151] + bias[5]</span>\n<span class="cm">Same as the MLP! Each neuron does Σ(wᵢ × inputᵢ) + bias — just with 1,152 inputs instead of 784.</span>\n<span class="cm">10 neurons × 1,153 = <strong>11,530 parameters</strong>. That is 1,152 mults + 1,151 adds + 1 bias = 2,304 ops PER neuron.</span>';
   }
