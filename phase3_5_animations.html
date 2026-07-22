@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 3.5 — Interactive Animations</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:800px;margin:0 auto;padding:2rem 1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.subtitle{color:var(--tdim);font-size:0.8rem;margin-bottom:1.5rem}
+
+.cards{display:grid;gap:1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-decoration:none;color:inherit;transition:0.2s;text-align:left;display:flex;gap:1rem;align-items:center}
+.card:hover{transform:translateY(-2px);border-color:var(--cyan)}
+.card .icon{font-size:2rem;flex-shrink:0}
+.card h3{font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--text);margin-bottom:0.3rem}
+.card p{font-size:0.7rem;color:var(--tdim);line-height:1.5}
+.card .tag{display:inline-block;font-size:0.5rem;padding:0.15rem 0.5rem;border-radius:100px;margin-top:0.4rem;font-family:'JetBrains Mono',monospace}
+
+.back-link{display:inline-block;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tmut);text-decoration:none}
+.back-link:hover{color:var(--cyan)}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Phase 3.5 — Interactive Animations</h1>
+  <p class="subtitle">Click any card to open the animation. Each one visualizes a different aspect of how convolution works.</p>
+
+  <div class="cards">
+    <a href="filter_sliding_animation.html" class="card" style="border-left:4px solid var(--cyan);">
+      <div class="icon">🎬</div>
+      <div>
+        <h3>3×3 Filter Sliding on 5×5 Input</h3>
+        <p>Simplest demo. Watch a 3×3 filter slide across 9 positions. 6 filter types (edge, blur, sharpen...). Step-by-step multiplications. Best for FIRST understanding.</p>
+        <span class="tag" style="background:var(--cyan-bg);color:var(--cyan);">filter_sliding_animation.html</span>
+      </div>
+    </a>
+
+    <a href="cnn_28x28_sliding.html" class="card" style="border-left:4px solid var(--amber);">
+      <div class="icon">📥</div>
+      <div>
+        <h3>Real CNN — 5×5 Filter on 28×28 Input</h3>
+        <p>Full-scale demo. All 576 positions. 24×24 output heatmap. 6 filter types. Auto-play through all positions. See where edges appear on a real digit.</p>
+        <span class="tag" style="background:var(--amber-bg);color:var(--amber);">cnn_28x28_sliding.html</span>
+      </div>
+    </a>
+
+    <a href="inner_loops_animation.html" class="card" style="border-left:4px solid var(--violet);">
+      <div class="icon">🔬</div>
+      <div>
+        <h3>Inner Loops — 25 Multiplications Per Thread</h3>
+        <p>Deepest demo. Full 28×28 grid + 5×5 filter + 24×24 heatmap. Step through all 25 multiplications at any position. Code line highlighting. Stats counters. 6 filter types.</p>
+        <span class="tag" style="background:rgba(163,113,247,0.15);color:var(--violet);">inner_loops_animation.html</span>
+      </div>
+    </a>
+
+    <a href="phase3_5_cnn_mnist.html" class="card" style="border-left:4px solid var(--green);">
+      <div class="icon">📖</div>
+      <div>
+        <h3>Phase 3.5 Learning Module (13 slides)</h3>
+        <p>Full curriculum: CNN vs FC, convolution, CUDA kernel code, max pooling, architecture, training loop, benchmarks. 4 hands-on exercises with Colab instructions.</p>
+        <span class="tag" style="background:var(--green-bg);color:var(--green);">phase3_5_cnn_mnist.html</span>
+      </div>
+    </a>
+  </div>
+
+  <a href="index.html" class="back-link">← Back to Dashboard</a>
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('p35a-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('p35a-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+</script>
+</body>
+</html>
