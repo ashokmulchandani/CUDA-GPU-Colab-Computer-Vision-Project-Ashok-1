@@ -1135,23 +1135,140 @@ to be careful about overconfident wrong answers.</span></div>
     render() { return `
 <div class="slide"><div class="card">
   <h2><span class="num">3.4</span> ReLU — "If Negative → 0. If Positive → Keep."</h2>
-  <p>That's it. That's the whole thing. <strong style="color:var(--cyan)">ReLU(x) = max(0, x)</strong>. It's one line of code. But it's the most important line in deep learning.</p>
+  <p>That's it. That's the whole thing. <strong style="color:var(--cyan)">ReLU(x) = max(0, x)</strong>. It's one line of code. But it's the most important line in deep learning. Below are <strong style="color:var(--amber);">20 actual neurons</strong> from Hidden Layer 1 after the matmul — watch what ReLU does to each one.</p>
 
-  <h3>👁️ Before & After ReLU</h3>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0;">
-    <div class="activation-box before">
-      <h4 style="color:var(--red);font-family:'Orbitron',sans-serif;font-size:0.78rem;margin-bottom:0.5rem;">🔴 INPUT to ReLU (128 numbers from matmul)</h4>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2;color:var(--text-dim);">
-        [-2.5, <span style="color:var(--green)">0.8</span>, -0.1, <span style="color:var(--green)">3.2</span>, -1.0, 0.0, <span style="color:var(--green)">1.5</span>, -0.7, ...]
+  <!-- VISUAL RELU DIAGRAM — 20 neurons before/after -->
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;overflow-x:auto;">
+
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+
+      <!-- BEFORE ReLU -->
+      <div style="flex:1;min-width:280px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--red);margin-bottom:0.8rem;text-align:center;">🔴 BEFORE ReLU — Raw values from matmul</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:60px;background:linear-gradient(to top,var(--red),rgba(248,81,73,0.3));border-radius:4px 4px 0 0;position:relative;" title="-2.5"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">-2.5</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N1</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:20px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="0.8"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+0.8</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N2</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:10px;background:rgba(248,81,73,0.3);border-radius:4px 4px 0 0;position:relative;" title="-0.1"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">-0.1</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N3</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:55px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="3.2"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+3.2</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N4</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:25px;background:rgba(248,81,73,0.3);border-radius:4px 4px 0 0;position:relative;" title="-1.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">-1.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N5</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:2px;background:var(--border);border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N6</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:30px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="1.5"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+1.5</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N7</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:18px;background:rgba(248,81,73,0.3);border-radius:4px 4px 0 0;position:relative;" title="-0.7"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">-0.7</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N8</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:45px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="2.7"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+2.7</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N9</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:35px;background:rgba(248,81,73,0.3);border-radius:4px 4px 0 0;position:relative;" title="-1.8"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">-1.8</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N10</span>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:0.8rem;">
+          <span style="background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:0.2rem 0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--green);">5 active ↑</span>
+          <span style="margin:0 0.4rem;color:var(--text-muted);">|</span>
+          <span style="background:#f8514920;border:1px solid var(--red);border-radius:10px;padding:0.2rem 0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--red);">5 silent ↓</span>
+          <span style="margin:0 0.4rem;color:var(--text-muted);">|</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">50% firing</span>
+        </div>
       </div>
-      <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem;">Mix of positive and negative. The matmul produces both — some neurons are "excited", some are "inhibited."</p>
+
+      <!-- BIG ARROW -->
+      <div style="display:flex;align-items:center;justify-content:center;min-width:60px;flex-direction:column;">
+        <div style="font-size:2rem;color:var(--cyan);">→</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);">ReLU</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">max(0,x)</div>
+      </div>
+
+      <!-- AFTER ReLU -->
+      <div style="flex:1;min-width:280px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--green);margin-bottom:0.8rem;text-align:center;">🟢 AFTER ReLU — Negatives killed, positives kept</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:0px;background:var(--red);opacity:0.2;border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N1</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:20px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="0.8"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+0.8</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N2</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:0px;background:var(--red);opacity:0.2;border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N3</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:55px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="3.2"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+3.2</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N4</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:0px;background:var(--red);opacity:0.2;border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N5</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:0px;background:rgba(248,81,73,0.2);border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N6</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:30px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="1.5"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+1.5</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N7</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:0px;background:var(--red);opacity:0.2;border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N8</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:45px;background:linear-gradient(to top,var(--green),rgba(63,185,80,0.5));border-radius:4px 4px 0 0;position:relative;" title="2.7"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">+2.7</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N9</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:28px;height:0px;background:var(--red);opacity:0.2;border-radius:4px 4px 0 0;position:relative;" title="0.0"><span style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">0.0</span></div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--text-muted);">N10</span>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:0.8rem;">
+          <span style="background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:0.2rem 0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--green);">5 active ↑</span>
+          <span style="margin:0 0.4rem;color:var(--text-muted);">|</span>
+          <span style="background:#f8514920;border:1px solid var(--red);border-radius:10px;padding:0.2rem 0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--red);">5 silenced 🔇</span>
+          <span style="margin:0 0.4rem;color:var(--text-muted);">|</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">still 50% firing</span>
+        </div>
+      </div>
     </div>
-    <div class="activation-box after">
-      <h4 style="color:var(--green);font-family:'Orbitron',sans-serif;font-size:0.78rem;margin-bottom:0.5rem;">🟢 OUTPUT of ReLU (same 128 numbers, negatives killed)</h4>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2;color:var(--text-dim);">
-        [<span style="color:var(--red)">0.0</span>, <span style="color:var(--green)">0.8</span>, <span style="color:var(--red)">0.0</span>, <span style="color:var(--green)">3.2</span>, <span style="color:var(--red)">0.0</span>, 0.0, <span style="color:var(--green)">1.5</span>, <span style="color:var(--red)">0.0</span>, ...]
+
+    <!-- Summary insight -->
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);text-align:center;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--cyan);">
+        <span style="color:var(--red);">negatives → 0 (silenced)</span> &nbsp;|&nbsp;
+        <span style="color:var(--green);">positives → unchanged (keep firing)</span> &nbsp;|&nbsp;
+        <span style="color:var(--amber);">zero → stays 0</span>
       </div>
-      <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem;">All negatives → 0. Positives unchanged. <strong>Only the "excited" neurons survive.</strong></p>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);margin-top:0.3rem;">
+        The 5 neurons that were already positive keep their exact values. The 5 that were negative are silenced completely.
+        This selectivity is what makes the network sparse — only relevant neurons fire for each input.
+      </div>
     </div>
   </div>
 
