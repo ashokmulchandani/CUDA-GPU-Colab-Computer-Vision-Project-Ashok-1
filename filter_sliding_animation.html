@@ -60,7 +60,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient
 <button class="theme-btn" onclick="toggleTheme()">☀️</button>
 <div class="container">
   <h1>Filter Sliding — How Convolution Works</h1>
-  <p class="subtitle">Watch a 3×3 vertical-edge filter slide across a 5×5 input. Each position computes <strong>9 multiplications → 1 sum → 1 output pixel.</strong></p>
+  <p class="subtitle">Watch a 3×3 vertical-edge filter slide across a 5×5 input. Each position computes <strong>9 multiplications → 1 sum → 1 output pixel.</strong><br><span style="font-size:0.65rem;color:var(--tmut);">Teaching demo (9 positions). Real MNIST CNN: 28×28 input, 5×5 filter, 24×24 output = <strong>576 positions</strong>. Same math, bigger grid.</span></p>
 
   <div class="main-grid">
     <!-- INPUT GRID -->
@@ -231,21 +231,63 @@ function updateDisplay(step) {
   renderInputGrid(inR, inC);
   renderOutputGrid();
 
-  // Computation box
-  let compHTML = '';
+  // Computation box — show actual multiplications with running total
+  let compHTML = '<div style="font-family:\'Orbitron\',sans-serif;font-size:0.6rem;color:var(--cyan);margin-bottom:0.5rem;">🧮 Element-wise Multiply, Then Sum</div>';
+  let runningSum = 0;
+  let calcLines = [];
   for (let fr = 0; fr < 3; fr++) {
-    compHTML += '<div class="row">';
     for (let fc = 0; fc < 3; fc++) {
       let t = calcRows[fr][fc];
       let sign = t.w >= 0 ? '+' : '';
-      compHTML += `(${t.p.toFixed(1)}×<span style="color:${t.w>0?'var(--green)':t.w<0?'var(--red)':'var(--tmut)'}">${sign}${t.w}</span>)`;
-      if (fc < 2) compHTML += ' + ';
+      let wColor = t.w > 0 ? 'var(--green)' : t.w < 0 ? 'var(--red)' : 'var(--tmut)';
+      let prodSign = t.prod >= 0 ? '+' : '';
+      runningSum += t.prod;
+      let pColor = t.prod > 0.3 ? 'var(--green)' : t.prod < -0.3 ? 'var(--red)' : 'var(--tmut)';
+      calcLines.push({
+        p: t.p, w: t.w, wSign: sign, wColor: wColor,
+        prod: t.prod, prodSign: prodSign, pColor: pColor,
+        running: runningSum
+      });
+    }
+  }
+
+  // Build the 3-row grid
+  compHTML += '<div style="display:grid;grid-template-columns:1fr;gap:3px;">';
+  for (let fr = 0; fr < 3; fr++) {
+    compHTML += '<div class="row" style="display:flex;flex-wrap:wrap;gap:2px;align-items:center;">';
+    for (let fc = 0; fc < 3; fc++) {
+      let idx = fr*3+fc;
+      let l = calcLines[idx];
+      compHTML += `<span style="font-size:0.6rem;color:var(--tmut);">${l.p.toFixed(1)}</span>`;
+      compHTML += `<span style="font-size:0.55rem;color:var(--tmut);margin:0 1px;">×</span>`;
+      compHTML += `<span style="font-size:0.6rem;color:${l.wColor};font-weight:600;">${l.wSign}${l.w}</span>`;
+      compHTML += `<span style="font-size:0.55rem;color:var(--tmut);margin:0 1px;">=</span>`;
+      compHTML += `<span style="font-size:0.6rem;color:${l.pColor};font-weight:600;">${l.prodSign}${Math.abs(l.prod).toFixed(2)}</span>`;
+      if (fc < 2) compHTML += '<span style="font-size:0.55rem;color:var(--border);margin:0 2px;">+</span>';
     }
     compHTML += '</div>';
   }
+
+  // Running total line
+  compHTML += '<div style="margin-top:0.4rem;padding-top:0.4rem;border-top:2px solid var(--border);">';
+  let runningHTML = '';
+  for (let i = 0; i < 9; i++) {
+    let l = calcLines[i];
+    let s = l.running >= 0 ? '+' : '';
+    runningHTML += `<span style="font-size:0.55rem;color:var(--tmut);">${s}${Math.abs(l.running).toFixed(2)}</span>`;
+    if (i < 8) runningHTML += '<span style="font-size:0.5rem;color:var(--border);margin:0 1px;">→</span>';
+  }
+  compHTML += `<div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tmut);">running sum:</div>`;
+  compHTML += `<div style="margin-top:2px;">${runningHTML}</div>`;
+  compHTML += '</div>';
+
+  // Final result
   const absV = Math.abs(sum);
-  const resultClass = absV > 1.0 ? 'strong' : (absV < 0.3 ? 'weak' : '');
-  compHTML += `<div class="result ${resultClass}">= ${sum.toFixed(2)} ${absV>1?'🔥 edge!':absV<0.3?'😴 flat':''}</div>`;
+  let resultColor = absV > 1.0 ? 'var(--green)' : absV < 0.3 ? 'var(--tdim)' : 'var(--amber)';
+  let emoji = absV > 1.0 ? '🔥 EDGE DETECTED!' : absV < 0.3 ? '😴 flat region' : '🤔 mild response';
+  compHTML += `<div style="margin-top:0.5rem;padding-top:0.4rem;border-top:1px solid var(--border);font-family:\'Orbitron\',sans-serif;font-size:0.75rem;color:${resultColor};font-weight:700;">FINAL SUM = ${sum >= 0 ? '+' : ''}${sum.toFixed(2)} — ${emoji}</div>`;
+  compHTML += '</div>';
+
   document.getElementById('compBox').innerHTML = compHTML;
 
   document.getElementById('stepLabel').textContent = `${step+1} / 9`;
