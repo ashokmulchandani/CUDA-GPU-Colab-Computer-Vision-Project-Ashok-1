@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 3: MLP on MNIST — ReLU, Softmax & The Full Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06090f; --bg-card: #0d1117; --bg-raised: #161b22;
+  --border: #21262d; --border-active: #30363d;
+  --text: #e6edf3; --text-dim: #8b949e; --text-muted: #484f58;
+  --cyan: #39d2ff; --cyan-bg: #39d2ff15; --cyan-border: #39d2ff40;
+  --amber: #ffb347; --amber-bg: #ffb34715;
+  --green: #3fb950; --green-bg: #3fb95015;
+  --magenta: #ff6ec7; --magenta-bg: #ff6ec715;
+  --red: #f85149; --violet: #a371f7;
+  --radius: 14px; --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+body.light {
+  --bg: #f6f8fa; --bg-card: #ffffff; --bg-raised: #e8ecf0;
+  --border: #d0d7de; --border-active: #afb8c1;
+  --text: #1f2328; --text-dim: #656d76; --text-muted: #8b949e;
+  --cyan: #0969da; --cyan-bg: #ddf4ff; --cyan-border: #54aeff;
+  --amber: #9a6700; --amber-bg: #fff8c5;
+  --green: #1a7f37; --green-bg: #dafbe1;
+  --magenta: #bf3989; --magenta-bg: #fbefff;
+  --red: #cf222e; --violet: #8250df;
+}
+body.light .topbar { background: rgba(246,248,250,0.9); }
+body.light .eq-box { background: rgba(0,0,0,0.03); }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow-x: hidden; line-height: 1.65;
+  transition: background 0.3s, color 0.3s;
+}
+.bg-canvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.app { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:2rem; }
+
+.theme-toggle {
+  position: fixed; top: 0.7rem; right: 2rem; z-index: 200;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--text); font-size: 1.1rem; cursor: pointer;
+  padding: 0.35rem 0.6rem; border-radius: 6px;
+  transition: var(--transition);
+  font-family: 'JetBrains Mono', monospace;
+}
+.theme-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.topbar {
+  position: sticky; top:0; z-index:100;
+  background: rgba(6,9,15,0.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 2rem; display: flex; align-items: center; gap: 1rem; font-size: 0.8rem;
+}
+.topbar .logo { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; letter-spacing: 0.15em; color: var(--cyan); white-space: nowrap; }
+.topbar .step-dots { display: flex; gap: 0.4rem; flex:1; justify-content: center; }
+.topbar .step-dot { width: 28px; height: 4px; border-radius: 2px; background: var(--border); transition: var(--transition); cursor: pointer; }
+.topbar .step-dot.done { background: var(--green); }
+.topbar .step-dot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.topbar .step-dot:hover { background: var(--text-dim); }
+.topbar .step-label { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; }
+
+.header { text-align: center; padding: 3rem 0 1rem; }
+.header .phase-badge { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.2em; color: var(--green); border: 1px solid var(--green-bg); border-radius: 100px; padding: 0.4em 1.4em; margin-bottom: 1rem; }
+.header h1 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: 700; background: linear-gradient(135deg, var(--cyan), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+.header .tagline { color: var(--text-dim); font-size: 1rem; }
+
+.topic-list { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin: 1.5rem 0 1rem; }
+.topic-chip { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.04em; padding: 0.3rem 0.7rem; border-radius: 100px; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: var(--transition); background: transparent; }
+.topic-chip.visited { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.topic-chip.current { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); box-shadow: 0 0 10px var(--cyan-border); }
+.topic-chip:hover { border-color: var(--text-dim); color: var(--text-dim); }
+
+.fun-fact { background: linear-gradient(135deg, var(--amber-bg), var(--magenta-bg)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 1.2rem; margin-bottom: 1.5rem; font-size: 0.78rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.6rem; }
+.fun-fact .bulb { font-size: 1.2rem; flex-shrink: 0; }
+.fun-fact strong { color: var(--amber); }
+
+.slide { animation: slideIn 0.35s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; }
+.card h2 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text); }
+.card h2 .num { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--cyan); background: var(--cyan-bg); border-radius: 6px; padding: 0.2em 0.6em; }
+.card p { color: var(--text-dim); margin-bottom: 1rem; font-size: 0.95rem; }
+.card h3 { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--cyan); margin: 1.2rem 0 0.5rem; }
+.card ul, .card ol { color: var(--text-dim); padding-left: 1.5rem; margin-bottom: 1rem; font-size: 0.9rem; }
+.card ul li, .card ol li { margin-bottom: 0.4rem; }
+
+.eq-box { background: rgba(0,0,0,0.4); border-left: 3px solid var(--cyan); border-radius: var(--radius-sm); padding: 1.2rem 1.5rem; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.8; color: var(--text); white-space: pre-wrap; overflow-x: auto; }
+
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.compare-grid.two-col { grid-template-columns: 1fr 1fr; }
+.compare-card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; transition: var(--transition); }
+.compare-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.compare-card.pick-a { border-left: 3px solid var(--red); }
+.compare-card.pick-b { border-left: 3px solid var(--cyan); }
+.compare-card.pick-c { border-left: 3px solid var(--green); }
+.compare-card h4 { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; margin-bottom: 0.5rem; }
+.compare-card.pick-a h4 { color: var(--red); }
+.compare-card.pick-b h4 { color: var(--cyan); }
+.compare-card.pick-c h4 { color: var(--green); }
+.compare-card p { font-size: 0.82rem !important; color: var(--text-dim) !important; }
+.compare-card .tag-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.compare-card .tag { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; padding: 0.2em 0.6em; border-radius: 100px; }
+.tag.low { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.tag.med { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+.tag.high { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+.pipeline { display: flex; align-items: center; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin: 1.2rem 0; }
+.pipeline-stage { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.8rem 1rem; text-align: center; transition: var(--transition); min-width: 90px; }
+.pipeline-stage.highlight { border-color: var(--cyan); background: var(--cyan-bg); }
+.pipeline-stage .stage-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.pipeline-stage .stage-name { font-family: 'Orbitron', sans-serif; font-size: 0.6rem; color: var(--cyan); line-height: 1.3; }
+.pipeline-stage .stage-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.2rem; }
+.pipeline-arrow { font-size: 1.4rem; color: var(--cyan); animation: arrowPulse 1.5s ease-in-out infinite; }
+@keyframes arrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+.data-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin: 1rem 0; }
+.data-types.two { grid-template-columns: repeat(2, 1fr); }
+.data-type-card { background: var(--bg-raised); border: 1px solid var(--border); border-top: 3px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; transition: var(--transition); cursor: default; }
+.data-type-card:nth-child(1) { border-top-color: var(--cyan); }
+.data-type-card:nth-child(2) { border-top-color: var(--amber); }
+.data-type-card:nth-child(3) { border-top-color: var(--magenta); }
+.data-type-card:nth-child(4) { border-top-color: var(--green); }
+.data-type-card:nth-child(5) { border-top-color: var(--violet); }
+.data-type-card:nth-child(6) { border-top-color: var(--red); }
+.data-type-card:hover { transform: translateY(-3px); border-color: var(--border-active); }
+.data-type-card .dt-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.data-type-card h4 { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; margin-bottom: 0.3rem; color: var(--cyan); }
+.data-type-card p { font-size: 0.78rem !important; color: var(--text-muted) !important; margin-bottom: 0 !important; }
+
+.ladder { display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
+.ladder-rung { display: flex; align-items: center; gap: 0.8rem; background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 1rem; transition: var(--transition); }
+.ladder-rung:hover { border-color: var(--cyan); }
+.ladder-rung .rung-icon { font-size: 1.3rem; flex-shrink: 0; }
+.ladder-rung .rung-bar { width: 6px; height: 36px; border-radius: 3px; flex-shrink: 0; }
+.ladder-rung .rung-label { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text); min-width: 80px; }
+.ladder-rung .rung-metric { font-family: 'Orbitron', sans-serif; font-size: 0.72rem; color: var(--cyan); flex: 1; }
+.ladder-rung .rung-example { font-size: 0.72rem; color: var(--text-muted); }
+
+.checklist { margin: 1rem 0; }
+.checklist .check-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; color: var(--text-dim); }
+.checklist .check-box { font-size: 1rem; flex-shrink: 0; }
+
+.flashcard-wrap { perspective: 800px; margin: 1rem 0; cursor: pointer; }
+.flashcard { position: relative; width: 100%; min-height: 90px; transform-style: preserve-3d; transition: transform 0.5s; }
+.flashcard.flipped { transform: rotateY(180deg); }
+.flashcard .front, .flashcard .back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: var(--radius-sm); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1rem; }
+.flashcard .front { background: var(--bg-raised); border: 1px solid var(--border); font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--cyan); }
+.flashcard .front .hint { font-family: 'DM Sans', sans-serif; font-size: 0.7rem; color: var(--text-muted); margin-top: 0.4rem; }
+.flashcard .back { background: var(--bg-raised); border: 1px solid var(--cyan); transform: rotateY(180deg); color: var(--text-dim); font-size: 0.85rem; text-align: center; }
+
+.big-stat { text-align: center; margin: 1rem 0; }
+.big-stat .number { font-family: 'Orbitron', sans-serif; font-size: 2.8rem; font-weight: 700; background: linear-gradient(135deg, var(--cyan), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.big-stat .label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+.quiz { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; margin-top: 1.5rem; }
+.quiz .question { font-family: 'Orbitron', sans-serif; font-size: 0.82rem; color: var(--text); margin-bottom: 0.8rem; }
+.quiz .options { display: flex; flex-direction: column; gap: 0.4rem; }
+.quiz .option { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 1rem; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; transition: var(--transition); }
+.quiz .option:hover { border-color: var(--cyan); color: var(--cyan); }
+.quiz .option.correct { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.quiz .option.wrong { border-color: var(--red); background: #f8514920; color: var(--red); }
+.quiz .feedback { display: none; margin-top: 0.8rem; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.82rem; }
+.quiz .feedback.show { display: block; }
+.quiz .feedback.correct { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.quiz .feedback.wrong { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+
+.nav-row { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
+.nav-btn { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; padding: 0.6rem 1.8rem; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); cursor: pointer; transition: var(--transition); }
+.nav-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-btn.primary { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-bg); }
+
+.funnel { display:flex; flex-direction:column; align-items:center; gap:0.3rem; margin:1rem 0; }
+.funnel-row { display:flex; align-items:center; gap:0.8rem; }
+.funnel-bar { font-family:'Orbitron',sans-serif; font-size:0.85rem; font-weight:600; color:var(--text); background:var(--bg-raised); border:1px solid var(--border); border-radius:6px; padding:0.5rem 1rem; text-align:center; transition:var(--transition); }
+.funnel-bar:nth-child(1) { width:280px; border-left:3px solid var(--magenta); }
+.funnel-bar:nth-child(2) { width:200px; border-left:3px solid var(--cyan); }
+.funnel-bar:nth-child(3) { width:150px; border-left:3px solid var(--amber); }
+.funnel-bar:nth-child(4) { width:100px; border-left:3px solid var(--green); }
+.funnel-bar:hover { transform:scaleX(1.05); border-color:var(--cyan); }
+.funnel-label { font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--text-muted); text-align:center; margin-top:0.2rem; }
+
+.activation-box { background:var(--bg-raised); border:2px solid var(--border); border-radius:var(--radius-sm); padding:1rem; margin:0.8rem 0; }
+.activation-box.before { border-left:3px solid var(--red); }
+.activation-box.after { border-left:3px solid var(--green); }
+
+@media (max-width: 768px) {
+  .app { padding: 1rem; } .topbar { padding: 0.5rem 1rem; }
+  .compare-grid { grid-template-columns: 1fr; } .data-types { grid-template-columns: 1fr; }
+  .pipeline { flex-direction: column; } .pipeline-arrow { transform: rotate(90deg); }
+  .header h1 { font-size: 1.3rem; } .card { padding: 1.2rem; }
+  .theme-toggle { right: 0.5rem; top: 0.5rem; font-size: 0.9rem; padding: 0.3rem 0.5rem; }
+  .big-stat .number { font-size: 2rem; }
+  .funnel-bar:nth-child(1) { width:200px; } .funnel-bar:nth-child(2) { width:150px; } .funnel-bar:nth-child(3) { width:120px; } .funnel-bar:nth-child(4) { width:90px; }
+}
+</style>
+</head>
+<body>
+
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme" onclick="toggleTheme()">☀️</button>
+
+<nav class="topbar">
+  <span class="logo">CUDA — PHASE 3</span>
+  <div class="step-dots" id="stepDots"></div>
+  <span class="step-label" id="stepLabel">1/10</span>
+</nav>
+
+<div class="app">
+  <header class="header">
+    <div class="phase-badge">✅ COMPLETED — 95.55% Accuracy, 30× vs PyTorch</div>
+    <h1>Phase 3: MLP on MNIST — ReLU, Softmax & The Full Pipeline</h1>
+    <p class="tagline">784 pixels → 128 neurons → 64 neurons → 10 digits. Understand every activation, every layer, and why this simple funnel achieves 95% accuracy.</p>
+  </header>
+
+  <div class="topic-list" id="topicChips"></div>
+
+  <div class="fun-fact" id="funFact">
+    <span class="bulb">💡</span>
+    <span class="fact-text" id="funFactText"></span>
+  </div>
+
+  <div id="slideContainer"></div>
+
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn" onclick="goTo(currentSlide-1)">← Previous</button>
+    <button class="nav-btn primary" id="nextBtn" onclick="goTo(currentSlide+1)">Next →</button>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  document.getElementById('themeToggle').textContent = document.body.classList.contains('light') ? '🌙' : '☀️';
+  localStorage.setItem('cuda-phase3-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+}
+(function() {
+  if (localStorage.getItem('cuda-phase3-theme') === 'light') { document.body.classList.add('light'); document.getElementById('themeToggle').textContent = '🌙'; }
+})();
+
+(function() {
+  const canvas = document.getElementById('bgCanvas'), ctx = canvas.getContext('2d');
+  let particles = [];
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  for (let i = 0; i < 60; i++) particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, r: Math.random() * 2 + 0.5 });
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const isLight = document.body.classList.contains('light');
+    const lineColor = isLight ? 'rgba(9,105,218,0.06)' : 'rgba(57,210,255,0.06)';
+    const dotColor = isLight ? 'rgba(9,105,218,0.3)' : 'rgba(57,210,255,0.3)';
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0; if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0; });
+    for (let i = 0; i < particles.length; i++)
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        if (Math.sqrt(dx*dx+dy*dy) < 100) { ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.strokeStyle = lineColor; ctx.lineWidth = 0.5; ctx.stroke(); }
+      }
+    particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fillStyle = dotColor; ctx.fill(); });
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+const slides = [
+  // ═══════ SLIDE 1: Architecture Overview ═══════
+  {
+    id: '3.1',
+    title: 'The Architecture — 784 → 128 → 64 → 10',
+    fact: '<strong>This tiny network achieves 95.55% on MNIST.</strong> Three layers, 100K parameters, trained entirely in CUDA C++. It runs 30× faster than the same architecture in PyTorch.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.1</span> The Architecture — 784 → 128 → 64 → 10</h2>
+  <p>The network is a <strong style="color:var(--cyan)">funnel</strong> — wide at the top (all the raw pixels), narrow at the bottom (just the answer). Each layer compresses information into more useful patterns.</p>
+
+  <div class="funnel">
+    <div><div class="funnel-bar">784 pixels</div><div class="funnel-label">INPUT: Raw 28×28 image</div></div>
+    <div style="color:var(--cyan);font-size:1.2rem;margin:0.2rem 0">⬇ Matmul + ReLU</div>
+    <div><div class="funnel-bar">128 neurons</div><div class="funnel-label">HIDDEN 1: Edges, curves, lines</div></div>
+    <div style="color:var(--cyan);font-size:1.2rem;margin:0.2rem 0">⬇ Matmul + ReLU</div>
+    <div><div class="funnel-bar">64 neurons</div><div class="funnel-label">HIDDEN 2: Loops, strokes, corners</div></div>
+    <div style="color:var(--cyan);font-size:1.2rem;margin:0.2rem 0">⬇ Matmul + Softmax</div>
+    <div><div class="funnel-bar">10 digits</div><div class="funnel-label">OUTPUT: "96% it's a 5!"</div></div>
+  </div>
+
+  <h3>🧠 Why This Shape?</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">📐</div><h4>SHRINKING</h4><p>Each layer has FEWER neurons than the one before. Information gets compressed from raw pixels → patterns → answer.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔢</div><h4>POWERS OF 2</h4><p>128 and 64 are powers of 2. GPU warps are 32 threads — multiples of 32 give the best memory alignment and occupancy.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🎯</div><h4>JUST RIGHT</h4><p>MNIST is simple (10 digits, small images). 128→64 is enough for 95%+. Bigger would overfit, smaller would underfit.</p></div>
+  </div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 Why not 784 → 1024 → 512 → 256 → 10?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Overfitting + slower training.</strong> MNIST only has 60,000 training images. A network with 1M+ parameters would memorize them instead of learning general patterns. Plus more neurons = more CUDA kernels = slower. 128→64 hits the sweet spot.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz0"><div class="question">🧪 Why do we use powers of 2 (32, 64, 128, 256) for neuron counts?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz0', this)">A. It's just a tradition with no technical reason</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz0', this)">B. GPU warps are 32 threads. Multiples of 32 give the best memory alignment, warp occupancy, and throughput on NVIDIA GPUs.</div>
+    <div class="option" onclick="checkQuiz('quiz0', this)">C. Powers of 2 make the math easier for the CPU</div>
+  </div><div class="feedback" id="quiz0-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 2: Fixed vs Choice ═══════
+  {
+    id: '3.2',
+    title: 'Fixed vs Choice — What YOU Decide',
+    fact: '<strong>There\'s NO perfect formula for hyperparameters.</strong> ML engineers run dozens of experiments guided by rules of thumb. The art is knowing which knobs to turn first.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.2</span> Fixed vs Choice — What the Problem Decides, What YOU Decide</h2>
+  <p>Some numbers are <strong style="color:var(--red)">forced by the problem</strong>. Others are <strong style="color:var(--cyan)">your choice</strong> — hyperparameters you tune through experimentation.</p>
+
+  <h3>🔒 FIXED (You Can't Change)</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 Input = 784</h4><p>MNIST images are 28×28 = 784 pixels. That's what the dataset gives you. Every image is exactly this size.</p></div>
+    <div class="compare-card pick-a"><h4>🔴 Output = 10</h4><p>There are exactly 10 possible digits (0-9). The problem defines this — you can't decide there are only 7 digits.</p></div>
+  </div>
+
+  <h3>🎛️ YOU CHOOSE (Hyperparameters)</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">🏗️</div><h4>Layers = 3</h4><p>Start simple. Add more only if accuracy is low. More layers = more weights = more training time + overfitting risk.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🧠</div><h4>Neurons = 128, 64</h4><p>Shrinking funnel. Powers of 2. Trial and error — for harder problems, try 256→128 or 512→256.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📦</div><h4>Batch Size = 64</h4><p>32-128 is common. Bigger = faster training but less precise gradients. Smaller = noisier but can escape local minima.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔄</div><h4>Epochs = 10</h4><p>Train until accuracy stops improving. Watch for diminishing returns — if epoch 20 is only 0.1% better, stop.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📏</div><h4>Learning Rate = 0.01</h4><p>Standard starting point. Too high (0.1) = unstable jumps. Too low (0.001) = painfully slow. Adjust if needed.</p></div>
+    <div class="data-type-card"><div class="dt-icon">⚡</div><h4>Activation = ReLU</h4><p>Default choice for hidden layers. Fast, simple, works. Use Softmax ONLY on the final output layer for classification.</p></div>
+  </div>
+
+  <div class="quiz" id="quiz1"><div class="question">🧪 A colleague says "Just use 1024 neurons everywhere." Why is this bad for MNIST?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz1', this)">A. 1024 neurons × 784 inputs = 800K weights just for layer 1. With only 60K training images, the network will memorize (overfit) instead of learning general patterns. Plus it's slower to train for no accuracy gain.</div>
+    <div class="option" onclick="checkQuiz('quiz1', this)">B. 1024 isn't a power of 2, so the GPU won't work</div>
+    <div class="option" onclick="checkQuiz('quiz1', this)">C. More neurons always mean worse accuracy</div>
+  </div><div class="feedback" id="quiz1-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 3: Batch Size, Epochs, Learning Rate ═══════
+  {
+    id: '3.3',
+    title: 'How to Pick Batch Size, Epochs & Learning Rate',
+    fact: '<strong>Batch size = 1 is like reading one flashcard and immediately changing your entire understanding.</strong> Batch size = 64 is like reading 64 flashcards, thinking about all of them, THEN adjusting. Much more stable.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.3</span> How to Pick Batch Size, Epochs & Learning Rate</h2>
+  <p>These three knobs control <strong style="color:var(--cyan)">how fast and how well</strong> your network learns. Each has a clear intuition.</p>
+
+  <h3>📦 Batch Size — How Many Images Before Adjusting Weights</h3>
+  <div class="compare-grid">
+    <div class="compare-card pick-a"><h4>🔴 Batch = 1</h4><p>Adjust after EVERY image. Noisy, unstable, slow (can't use GPU parallelism). Like changing your opinion after every single word you read.</p><div class="tag-row"><span class="tag high">Unstable</span></div></div>
+    <div class="compare-card pick-c"><h4>🟢 Batch = 64</h4><p>Adjust after 64 images. Good balance of stability and speed. GPU processes 64 images in parallel = fast. The "default that works."</p><div class="tag-row"><span class="tag low">Stable</span><span class="tag low">Fast</span></div></div>
+    <div class="compare-card pick-b"><h4>🔵 Batch = 1024</h4><p>Adjust after 1024 images. Very smooth gradients but might miss important details. Each update is expensive (more memory, more compute).</p><div class="tag-row"><span class="tag med">Smooth</span><span class="tag med">Heavy</span></div></div>
+  </div>
+
+  <h3>🔄 Epochs — Stop When Accuracy Stops Improving</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Watch accuracy per epoch — stop when it plateaus:</span>
+<span style="color:var(--text-muted)">Epoch  1:</span>  11%  <span style="color:var(--text-muted)">← just getting started</span>
+<span style="color:var(--text-muted)">Epoch  5:</span>  85%  <span style="color:var(--green)">← improving fast!</span>
+<span style="color:var(--text-muted)">Epoch 10:</span>  91%  <span style="color:var(--cyan)">← still improving, slowing down</span>
+<span style="color:var(--text-muted)">Epoch 20:</span>  92%  <span style="color:var(--amber)">← barely improving (diminishing returns)</span>
+<span style="color:var(--text-muted)">Epoch 50:</span>  92%  <span style="color:var(--red)">← STOP HERE — no more improvement, risk of overfitting</span></div>
+
+  <h3>📏 Learning Rate — How Big Are the Weight Updates?</h3>
+  <div class="compare-grid">
+    <div class="compare-card pick-a"><h4>🔴 LR = 0.1</h4><p>Accuracy jumps around wildly. Weights update too aggressively — might overshoot the optimum entirely.</p><div class="tag-row"><span class="tag high">Too aggressive</span></div></div>
+    <div class="compare-card pick-c"><h4>🟢 LR = 0.01</h4><p>Accuracy climbs steadily. <strong>The standard starting point.</strong> Works for most simple networks.</p><div class="tag-row"><span class="tag low">Just right</span></div></div>
+    <div class="compare-card pick-b"><h4>🔵 LR = 0.001</h4><p>Accuracy climbs VERY slowly. Safe but you'll need many more epochs. Use if 0.01 is unstable.</p><div class="tag-row"><span class="tag med">Too cautious</span></div></div>
+  </div>
+
+  <div class="quiz" id="quiz2"><div class="question">🧪 Your network's accuracy is 92% at epoch 10 and 92.1% at epoch 20. What should you do?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz2', this)">A. Keep training for 100 more epochs — it'll eventually improve</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz2', this)">B. STOP. The plateau means your network has learned everything it can from this architecture. More training wastes time and risks overfitting (memorizing the training set). Try a different learning rate or architecture instead.</div>
+    <div class="option" onclick="checkQuiz('quiz2', this)">C. Increase the batch size to 1024</div>
+  </div><div class="feedback" id="quiz2-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 4: ReLU — Kill the Negatives ═══════
+  {
+    id: '3.4',
+    title: 'ReLU — "If Negative → 0. If Positive → Keep."',
+    fact: '<strong>ReLU is the simplest activation function ever invented.</strong> One line of code: max(0, x). Yet without it, your 3-layer network collapses into 1 layer — completely useless.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.4</span> ReLU — "If Negative → 0. If Positive → Keep."</h2>
+  <p>That's it. That's the whole thing. <strong style="color:var(--cyan)">ReLU(x) = max(0, x)</strong>. It's one line of code. But it's the most important line in deep learning.</p>
+
+  <h3>👁️ Before & After ReLU</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0;">
+    <div class="activation-box before">
+      <h4 style="color:var(--red);font-family:'Orbitron',sans-serif;font-size:0.78rem;margin-bottom:0.5rem;">🔴 INPUT to ReLU (128 numbers from matmul)</h4>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2;color:var(--text-dim);">
+        [-2.5, <span style="color:var(--green)">0.8</span>, -0.1, <span style="color:var(--green)">3.2</span>, -1.0, 0.0, <span style="color:var(--green)">1.5</span>, -0.7, ...]
+      </div>
+      <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem;">Mix of positive and negative. The matmul produces both — some neurons are "excited", some are "inhibited."</p>
+    </div>
+    <div class="activation-box after">
+      <h4 style="color:var(--green);font-family:'Orbitron',sans-serif;font-size:0.78rem;margin-bottom:0.5rem;">🟢 OUTPUT of ReLU (same 128 numbers, negatives killed)</h4>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2;color:var(--text-dim);">
+        [<span style="color:var(--red)">0.0</span>, <span style="color:var(--green)">0.8</span>, <span style="color:var(--red)">0.0</span>, <span style="color:var(--green)">3.2</span>, <span style="color:var(--red)">0.0</span>, 0.0, <span style="color:var(--green)">1.5</span>, <span style="color:var(--red)">0.0</span>, ...]
+      </div>
+      <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.5rem;">All negatives → 0. Positives unchanged. <strong>Only the "excited" neurons survive.</strong></p>
+    </div>
+  </div>
+
+  <h3>🚪 The Bouncer Analogy</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">ReLU is like a bouncer at an exclusive club:</span>
+
+<span style="color:var(--green)">Positive numbers:</span> <span style="color:var(--text)">"You're in! Go ahead."</span> ✅  <span style="color:var(--text-muted)">→ pass through unchanged</span>
+<span style="color:var(--red)">Negative numbers:</span> <span style="color:var(--text)">"Nope. You're zero now. Blocked."</span> ❌  <span style="color:var(--text-muted)">→ become exactly 0</span>
+
+<span style="color:var(--amber)">Why?</span> It forces the network to be SELECTIVE.
+Not every neuron should fire for every input.
+Some neurons stay quiet (zero) and only activate
+for specific patterns they recognize.
+
+<span style="color:var(--text-muted)">Example: A neuron that detects "vertical line on the left"
+fires (3.2) when seeing a 1, but stays silent (0.0) for a 0.</span></div>
+
+  <div class="quiz" id="quiz3"><div class="question">🧪 ReLU(-5) = ? and ReLU(3) = ?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz3', this)">A. ReLU(-5) = 0, ReLU(3) = 3. Negatives become zero, positives stay unchanged.</div>
+    <div class="option" onclick="checkQuiz('quiz3', this)">B. ReLU(-5) = 5, ReLU(3) = 3. ReLU takes the absolute value.</div>
+    <div class="option" onclick="checkQuiz('quiz3', this)">C. ReLU(-5) = -5, ReLU(3) = 3. ReLU doesn't change anything.</div>
+  </div><div class="feedback" id="quiz3-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 5: Why We Need ReLU ═══════
+  {
+    id: '3.5',
+    title: 'Why We NEED ReLU — Breaking Linearity',
+    fact: '<strong>3 layers without ReLU = 1 layer.</strong> Matrix multiplication is linear. Stacking linear operations just gives you... another linear operation. ReLU breaks the chain — it\'s what makes deep networks actually "deep."',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.5</span> Why We NEED ReLU — Breaking Linearity</h2>
+  <p>Here's the problem: <strong style="color:var(--red)">matrix multiplication is linear</strong>. If you stack three matmuls without any activation between them, the math collapses into ONE matmul. Your "deep" network is secretly a shallow one.</p>
+
+  <h3>🔴 WITHOUT ReLU (Useless Extra Layers)</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">Layer 1: h1 = W1 × input        (linear)</span>
+<span style="color:var(--text-muted)">Layer 2: h2 = W2 × h1           (linear)</span>
+<span style="color:var(--text-muted)">Layer 3: output = W3 × h2       (linear)</span>
+
+<span style="color:var(--red)">Math fact: h2 = W2 × (W1 × input) = (W2 × W1) × input = W_combined × input</span>
+<span style="color:var(--red)">So: output = W3 × W_combined × input = ONE big matmul!</span>
+
+<span style="color:var(--red);font-weight:bold;">3 layers without activation = same power as 1 layer. WASTED computation.</span></div>
+
+  <h3>🟢 WITH ReLU (Each Layer Learns Different Things)</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">Layer 1: h1 = </span><span style="color:var(--green)">ReLU(</span><span style="color:var(--text-muted)">W1 × input</span><span style="color:var(--green)">)</span>    <span style="color:var(--text-muted)">← ReLU BREAKS linearity here!</span>
+<span style="color:var(--text-muted)">Layer 2: h2 = </span><span style="color:var(--green)">ReLU(</span><span style="color:var(--text-muted)">W2 × h1</span><span style="color:var(--green)">)</span>       <span style="color:var(--text-muted)">← And breaks it again here!</span>
+<span style="color:var(--text-muted)">Layer 3: output = W3 × h2       </span><span style="color:var(--text-muted)">← Softmax for final probabilities</span>
+
+<span style="color:var(--green);font-weight:bold;">Now each layer CAN learn different patterns. That's what makes it "deep."</span></div>
+
+  <h3>🔨 Analogy: ReLU is the Glue That Makes Layers Count</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">📏</div><h4>Without ReLU</h4><p>Stacking 3 rulers end-to-end. You just get... one longer ruler. Nothing interesting happened.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🏗️</div><h4>With ReLU</h4><p>Ruler → filter → ruler → filter → ruler. Each filter (ReLU) removes different things. The layers build on each other.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🧱</div><h4>The Key Insight</h4><p>ReLU is what makes a 3-layer network MORE powerful than a 1-layer network. Without it, depth is wasted.</p></div>
+  </div>
+
+  <div class="quiz" id="quiz4"><div class="question">🧪 If you remove ALL activation functions from a 10-layer network, what happens to its learning capacity?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz4', this)">A. It becomes more powerful — 10 layers can learn more than 3</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz4', this)">B. It collapses to the power of a 1-layer network. ALL matmuls multiply together into ONE equivalent matmul. You're wasting 9 layers of computation for zero benefit.</div>
+    <div class="option" onclick="checkQuiz('quiz4', this)">C. It stops working entirely and outputs all zeros</div>
+  </div><div class="feedback" id="quiz4-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 6: Softmax ═══════
+  {
+    id: '3.6',
+    title: 'Softmax — "Convert Raw Scores to Percentages"',
+    fact: '<strong>Before Softmax, the output is just random-looking numbers.</strong> After Softmax, it\'s "96% sure it\'s a 5!" — probabilities that sum to exactly 100%. The highest score dominates.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.6</span> Softmax — Convert Raw Scores to Percentages</h2>
+  <p>The last layer outputs 10 <strong style="color:var(--red)">raw scores</strong> — one per digit. They can be any number. Softmax transforms them into <strong style="color:var(--cyan)">probabilities that sum to 100%</strong>.</p>
+
+  <h3>🔢 Before vs After (Real Example)</h3>
+  <div class="activation-box before" style="margin-bottom:0.5rem;">
+    <h4 style="color:var(--red);font-family:'Orbitron',sans-serif;font-size:0.78rem;margin-bottom:0.5rem;">🔴 RAW SCORES (from last matmul — hard to interpret)</h4>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;line-height:2;color:var(--text-dim);">
+      Digit 0: 2.1 &nbsp; Digit 1: 0.5 &nbsp; Digit 2: -1.0 &nbsp; Digit 3: 0.3 &nbsp; Digit 4: -0.5<br>
+      <span style="color:var(--cyan);font-weight:bold;">Digit 5: 8.5</span> &nbsp; Digit 6: 0.1 &nbsp; Digit 7: -2.0 &nbsp; Digit 8: 0.8 &nbsp; Digit 9: 0.2
+    </div>
+    <p style="font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem;">"8.5 is the highest... but what does that MEAN? Is that 60% sure or 99% sure?"</p>
+  </div>
+  <div class="activation-box after">
+    <h4 style="color:var(--green);font-family:'Orbitron',sans-serif;font-size:0.78rem;margin-bottom:0.5rem;">🟢 AFTER SOFTMAX (probabilities, sum = 100%)</h4>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;line-height:2;color:var(--text-dim);">
+      Digit 0: 0.2% &nbsp; Digit 1: 0.0% &nbsp; Digit 2: 0.0% &nbsp; Digit 3: 0.0% &nbsp; Digit 4: 0.0%<br>
+      <span style="color:var(--green);font-weight:bold;">Digit 5: 96.0%</span> &nbsp; Digit 6: 0.0% &nbsp; Digit 7: 0.0% &nbsp; Digit 8: 0.1% &nbsp; Digit 9: 0.0%
+    </div>
+    <p style="font-size:0.72rem;color:var(--green);margin-top:0.3rem;"><strong>"I'm 96% confident it's a 5!" — now THAT is useful.</strong></p>
+  </div>
+
+  <h3>🧮 How Softmax Works (3-Step Math)</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">Example with just 3 classes for simplicity: raw scores [2.1, 8.5, 0.3]</span>
+
+<span style="color:var(--cyan)">Step 1: e^(each score)</span>  — This makes everything positive AND amplifies differences
+  e^2.1 = <span style="color:var(--green)">8.2</span>
+  e^8.5 = <span style="color:var(--green)">4914.8</span>  ← big score becomes HUGE!
+  e^0.3 = <span style="color:var(--green)">1.3</span>
+
+<span style="color:var(--cyan)">Step 2: Sum them up</span>
+  sum = 8.2 + 4914.8 + 1.3 = <span style="color:var(--amber)">4924.3</span>
+
+<span style="color:var(--cyan)">Step 3: Divide each by the sum</span>
+  8.2 / 4924.3    = <span style="color:var(--text)">0.002</span>  (0.2%)
+  4914.8 / 4924.3 = <span style="color:var(--green);font-weight:bold;">0.998</span>  (99.8%)  ← WINNER TAKES ALMOST ALL!
+  1.3 / 4924.3    = <span style="color:var(--text)">0.000</span>  (0.0%)
+
+  <span style="color:var(--green)">The biggest score DOMINATES after softmax!</span></div>
+
+  <h3>🗳️ The Election Analogy</h3>
+  <div class="eq-box">
+<span style="color:var(--text)">Raw scores = votes each candidate received</span>
+<span style="color:var(--text)">Softmax = convert to percentages</span>
+
+  Candidate A: 500 votes  →   5%
+  <span style="color:var(--cyan);font-weight:bold">Candidate B: 9000 votes →  90%  ← clear winner!</span>
+  Candidate C: 500 votes  →   5%
+
+  Total: 100%. The winner gets most of the probability.</div>
+
+  <div class="quiz" id="quiz5"><div class="question">🧪 Raw scores are [1.0, 5.0, 1.0]. After softmax, approximately what does the winner (5.0) get?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz5', this)">A. ~33% — all three scores get roughly equal probability</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz5', this)">B. ~98% — e^5 is 148, while e^1 is only 2.7. The exponential amplifies the difference MASSIVELY. The biggest score dominates almost completely.</div>
+    <div class="option" onclick="checkQuiz('quiz5', this)">C. ~50% — the winner gets exactly half</div>
+  </div><div class="feedback" id="quiz5-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 7: Full Pipeline ═══════
+  {
+    id: '3.7',
+    title: 'Full Pipeline Walkthrough — Pixel to Prediction',
+    fact: '<strong>Every layer has one job.</strong> Matmul finds weighted combinations. ReLU kills weak signals. Together, they transform 784 raw pixel values into "96% sure it\'s a 5."',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.7</span> Full Pipeline Walkthrough — Pixel → Prediction</h2>
+  <p>Let's trace an actual image of a <strong style="color:var(--cyan)">handwritten "5"</strong> through every step of the network.</p>
+
+  <div class="pipeline">
+    <div class="pipeline-stage highlight"><div class="stage-icon">🖼️</div><div class="stage-name">INPUT</div><div class="stage-desc">784 pixels<br>of a "5"</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">✖️</div><div class="stage-name">MATMUL 1</div><div class="stage-desc">784→128<br>Weighted sum</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🚫</div><div class="stage-name">ReLU 1</div><div class="stage-desc">Kill negatives<br>128→128</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">✖️</div><div class="stage-name">MATMUL 2</div><div class="stage-desc">128→64<br>Combine patterns</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🚫</div><div class="stage-name">ReLU 2</div><div class="stage-desc">Kill weak<br>64→64</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage"><div class="stage-icon">✖️</div><div class="stage-name">MATMUL 3</div><div class="stage-desc">64→10<br>Score digits</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">📊</div><div class="stage-name">SOFTMAX</div><div class="stage-desc">To percentages<br>"96% it's a 5!"</div></div>
+  </div>
+
+  <h3>🔍 What Each Stage Produces (Real Numbers)</h3>
+  <div class="ladder">
+    <div class="ladder-rung"><div class="rung-icon">📥</div><div class="rung-bar" style="background:var(--magenta)"></div><div class="rung-label">INPUT</div><div class="rung-metric">784 pixels</div><div class="rung-example">[0.0, 0.0, ..., 0.9, 1.0, ..., 0.0]</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🔀</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">MATMUL 1</div><div class="rung-metric">128 raw numbers</div><div class="rung-example">[-2.1, 3.5, -0.8, 1.2, ..., 0.3]</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🚫</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">ReLU 1</div><div class="rung-metric">128 (no negatives)</div><div class="rung-example">[0.0, 3.5, 0.0, 1.2, ..., 0.3]</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🔀</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">MATMUL 2</div><div class="rung-metric">64 raw numbers</div><div class="rung-example">[1.5, -3.2, 0.7, ..., -1.1]</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🚫</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">ReLU 2</div><div class="rung-metric">64 (no negatives)</div><div class="rung-example">[1.5, 0.0, 0.7, ..., 0.0]</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🔀</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">MATMUL 3</div><div class="rung-metric">10 raw scores</div><div class="rung-example">[..., 8.5, ...] — digit 5 is highest</div></div>
+    <div class="ladder-rung"><div class="rung-icon">📊</div><div class="rung-bar" style="background:var(--violet)"></div><div class="rung-label">SOFTMAX</div><div class="rung-metric">10 probabilities</div><div class="rung-example">[..., 0.96, ...] — 96% it's a 5!</div></div>
+  </div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 Why Matmul → ReLU → Matmul → ReLU → Matmul → Softmax?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Matmul = "Look at inputs, compute weighted scores." ReLU = "Only keep the strong signals, silence the rest." Softmax = "Pick the winner."</strong> The alternation is crucial — matmul alone can't create non-linear boundaries, and ReLU alone can't learn weights.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz6"><div class="question">🧪 Why does ReLU come AFTER matmul, not before?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz6', this)">A. The matmul produces both positive and negative values. ReLU then filters out the negative ones — keeping only "excited" neurons. If ReLU came first, it would zero out parts of the INPUT before the matmul could even look at them.</div>
+    <div class="option" onclick="checkQuiz('quiz6', this)">B. ReLU before matmul would make the GPU crash</div>
+    <div class="option" onclick="checkQuiz('quiz6', this)">C. There's no reason — you could put ReLU anywhere</div>
+  </div><div class="feedback" id="quiz6-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 8: The Detective Analogy ═══════
+  {
+    id: '3.8',
+    title: 'The Detective Analogy — Layer by Layer',
+    fact: '<strong>Each layer is a detective building a case.</strong> Layer 1 finds clues (edges, curves). Layer 2 connects clues into patterns (loops, strokes). Layer 3 makes the final conclusion (it\'s a 5!).',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.8</span> The Detective Analogy — How the Network "Sees"</h2>
+  <p>Think of the network as a <strong style="color:var(--cyan)">detective solving a case</strong>. Each layer builds on the previous one, going from raw evidence to final conclusion.</p>
+
+  <h3>🕵️ The Case: "What digit is this?"</h3>
+  <div class="ladder">
+    <div class="ladder-rung"><div class="rung-icon">🔍</div><div class="rung-bar" style="background:var(--magenta)"></div><div class="rung-label">LAYER 1</div><div class="rung-metric">Finds LOW-LEVEL CLUES</div><div class="rung-example">"I see edges here, curves there, a straight vertical line on the left..."</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🚫</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">ReLU</div><div class="rung-metric">Ignores irrelevant clues</div><div class="rung-example">"Ignore the faint marks in the corner — those are just noise."</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🧩</div><div class="rung-bar" style="background:var(--amber)"></div><div class="rung-label">LAYER 2</div><div class="rung-metric">Combines into PATTERNS</div><div class="rung-example">"That curve forms a loop at the top, that vertical line goes straight down..."</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🚫</div><div class="rung-bar" style="background:var(--green)"></div><div class="rung-label">ReLU</div><div class="rung-metric">Drops weak patterns</div><div class="rung-example">"The loop signal is strong, but the horizontal-line signal is weak — drop it."</div></div>
+    <div class="ladder-rung"><div class="rung-icon">💡</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">LAYER 3</div><div class="rung-metric">Makes CONCLUSION</div><div class="rung-example">"Loop at top + vertical line below = that's a 5! Score: 8.5"</div></div>
+    <div class="ladder-rung"><div class="rung-icon">📊</div><div class="rung-bar" style="background:var(--violet)"></div><div class="rung-label">SOFTMAX</div><div class="rung-metric">States confidence</div><div class="rung-example">"I'm 96% confident it's a 5, 2% it's a 3, 1% it's an 8..."</div></div>
+  </div>
+
+  <h3>🗺️ The Information Funnel — Why It Shrinks</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">784 pixels  = "Here's every tiny detail about the image"</span>
+<span style="color:var(--text-muted)">    ⬇</span>
+<span style="color:var(--cyan)">128 neurons = "I found edges, curves, lines"</span>  <span style="color:var(--text-muted)">(compress 784 details → 128 features)</span>
+<span style="color:var(--text-muted)">    ⬇</span>
+<span style="color:var(--cyan)">64 neurons  = "I found loops, strokes, corners"</span>  <span style="color:var(--text-muted)">(compress 128 features → 64 higher-level features)</span>
+<span style="color:var(--text-muted)">    ⬇</span>
+<span style="color:var(--cyan)">10 neurons  = "It's a 5!"</span>  <span style="color:var(--text-muted)">(compress 64 features → 1 answer)</span>
+
+<span style="color:var(--amber)">Each layer COMPRESSES information into more useful, more abstract patterns.</span></div>
+
+  <div class="quiz" id="quiz7"><div class="question">🧪 If Layer 1 detects edges and Layer 2 detects loops, what would Layer 3 of a 10-layer network detect?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz7', this)">A. More edges — each layer detects the same thing</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz7', this)">B. Higher and higher abstractions: edges → shapes → parts → objects → concepts. For a face detector: edges → eyes/nose/mouth → face → person → identity. Each layer compresses and abstracts further.</div>
+    <div class="option" onclick="checkQuiz('quiz7', this)">C. Layer 3 would detect individual pixels again</div>
+  </div><div class="feedback" id="quiz7-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 9: CUDA Implementation ═══════
+  {
+    id: '3.9',
+    title: 'From Theory to CUDA Kernels',
+    fact: '<strong>You wrote every layer as a CUDA kernel.</strong> Forward pass, ReLU, Softmax, Cross-Entropy loss, Backpropagation, Weight update — all in CUDA C++. That\'s why it runs 30× faster than PyTorch.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.9</span> From Theory to CUDA Kernels — What You Built</h2>
+  <p>This isn't just theory — you wrote <strong style="color:var(--cyan)">6 CUDA kernels</strong> that implement the entire MLP from scratch. Every matmul, every activation, every gradient computation runs on the GPU.</p>
+
+  <h3>⚡ The 6 CUDA Kernels You Wrote</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">➡️</div><h4>1. Forward Pass Kernel</h4><p>Matrix multiply: input (784) × weights (784×128) + bias. One thread per output neuron. GPU parallelism across the batch.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🚫</div><h4>2. ReLU Kernel</h4><p>Element-wise max(0, x). Each thread handles one neuron. The simplest kernel — just one line: <code>out[i] = max(0.0f, in[i])</code></p></div>
+    <div class="data-type-card"><div class="dt-icon">📊</div><h4>3. Softmax Kernel</h4><p>Per-sample: find max (numerical stability), compute exp of each score, sum, divide. Uses shared memory for reduction.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📉</div><h4>4. Cross-Entropy Loss</h4><p>Compare predicted probabilities vs true label. -log(p_correct). Lower loss = better predictions.</p></div>
+    <div class="data-type-card"><div class="dt-icon">⬅️</div><h4>5. Backprop Kernels</h4><p>Compute gradients dW and db for every layer. Backpropagate error from output → hidden2 → hidden1 using chain rule.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔧</div><h4>6. Weight Update (SGD)</h4><p>W -= learning_rate × dW. Update all weights using the gradients. One thread per weight. Simple but effective.</p></div>
+  </div>
+
+  <h3>🏆 Benchmarks — CUDA vs PyTorch</h3>
+  <div class="big-stat">
+    <div class="number">95.55%</div>
+    <div class="label">ACCURACY ON MNIST TEST SET (10 EPOCHS)</div>
+  </div>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-a"><h4>🔴 PyTorch (same architecture)</h4><p>Training time: ~30 seconds/epoch<br>Total: ~300 seconds for 10 epochs</p></div>
+    <div class="compare-card pick-c"><h4>🟢 CUDA from Scratch</h4><p>Training time: ~1 second/epoch<br>Total: ~10 seconds for 10 epochs<br><strong>30× faster!</strong></p></div>
+  </div>
+
+  <div class="quiz" id="quiz8"><div class="question">🧪 Why is the CUDA-from-scratch version 30× faster than PyTorch for the SAME architecture?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz8', this)">A. PyTorch has overhead: Python interpreter, autograd graph building, generic kernel launches, framework-level bookkeeping. The custom CUDA version does ONLY the math — fused kernels, no Python overhead, no autograd graph, kernels tuned specifically for this architecture.</div>
+    <div class="option" onclick="checkQuiz('quiz8', this)">B. PyTorch uses a slower GPU by default</div>
+    <div class="option" onclick="checkQuiz('quiz8', this)">C. Custom CUDA code is always 30× faster than any framework</div>
+  </div><div class="feedback" id="quiz8-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE 10: Summary ═══════
+  {
+    id: '3.10',
+    title: 'Phase 3 Summary — MLP Complete',
+    fact: '<strong>You can now explain every operation in a neural network</strong> — not just "the model learns" but exactly what happens at each layer, why ReLU is there, and how Softmax picks the winner.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">3.10</span> Phase 3 Summary — What You Learned</h2>
+  <p>Phase 3 is the bridge from "I can write CUDA kernels" to <strong style="color:var(--cyan)">"I understand neural networks from the metal up."</strong></p>
+
+  <h3>🧠 Core Concepts Mastered</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">🏗️</span> <strong>Architecture Design:</strong> Shrinking funnel (784→128→64→10), powers of 2, start simple</div>
+    <div class="check-item"><span class="check-box">🎛️</span> <strong>Hyperparameters:</strong> Fixed (input/output) vs choice (layers, neurons, batch, epochs, LR)</div>
+    <div class="check-item"><span class="check-box">🚫</span> <strong>ReLU:</strong> max(0, x) — kills negatives, breaks linearity, bouncer analogy</div>
+    <div class="check-item"><span class="check-box">📊</span> <strong>Softmax:</strong> e^x / sum(e^x) — raw scores → percentages, winner dominates, election analogy</div>
+    <div class="check-item"><span class="check-box">🔗</span> <strong>Pipeline:</strong> Matmul→ReLU→Matmul→ReLU→Matmul→Softmax — every stage has a purpose</div>
+    <div class="check-item"><span class="check-box">🕵️</span> <strong>Layer Abstraction:</strong> Edges → shapes → conclusion — the detective building a case</div>
+    <div class="check-item"><span class="check-box">⚡</span> <strong>CUDA Implementation:</strong> 6 kernels (forward, ReLU, softmax, loss, backprop, SGD)</div>
+    <div class="check-item"><span class="check-box">📈</span> <strong>Benchmarks:</strong> 95.55% accuracy, 30× faster than PyTorch on same architecture</div>
+  </div>
+
+  <h3>📋 The Rules of Thumb You Can Always Use</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">📐</div><h4>SHRINK as you go deeper</h4><p>More layers = each layer should have FEWER neurons. Like a funnel: wide→narrow.</p></div>
+    <div class="data-type-card"><div class="dt-icon">2️⃣</div><h4>Use POWERS OF 2</h4><p>32, 64, 128, 256, 512, 1024. GPU warp size is 32. Multiples of 32 = best performance.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📦</div><h4>Batch = 32 to 128</h4><p>32 for small datasets, 64 is the default, 128 for larger. Don't overthink this.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🛑</div><h4>STOP when accuracy plateaus</h4><p>If accuracy doesn't improve for 5+ epochs, stop. More training = overfitting, not better results.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📏</div><h4>LR starts at 0.01</h4><p>0.1 = unstable. 0.01 = good default. 0.001 = safe but slow. Start at 0.01, halve if unstable.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🚫</div><h4>ReLU for hidden, Softmax for output</h4><p>ReLU everywhere except the last layer. Softmax ONLY on the final output when doing classification.</p></div>
+  </div>
+
+  <div class="big-stat">
+    <div class="number">Phase 3 ✅</div>
+    <div class="label">MLP ON MNIST — 95.55% ACCURACY, 30× VS PYTORCH, 6 CUDA KERNELS</div>
+  </div>
+
+  <div class="quiz" id="quiz9"><div class="question">🧪 You're designing a network for a harder problem (1000 classes, 224×224 images). Which architecture would you try FIRST?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz9', this)">A. Input(150K) → 1024 → 512 → 256 → Output(1000). Still a shrinking funnel, still powers of 2, just bigger. Start simple and scale up ONLY if accuracy is insufficient. The principles don't change — only the numbers do.</div>
+    <div class="option" onclick="checkQuiz('quiz9', this)">B. Input(150K) → Output(1000) — one giant layer is always fastest</div>
+    <div class="option" onclick="checkQuiz('quiz9', this)">C. Copy the MNIST architecture exactly — 128→64 is enough for any problem</div>
+  </div><div class="feedback" id="quiz9-fb"></div></div>
+</div></div>`; }
+  }
+];
+
+window.checkQuiz = function(quizId, clickedEl) {
+  const quiz = document.getElementById(quizId);
+  if (quiz.dataset.answered === 'true') return;
+  const options = quiz.querySelectorAll('.option');
+  const feedback = document.getElementById(quizId + '-fb');
+  const isCorrect = clickedEl.dataset.correct === 'true';
+  options.forEach(o => { if (o.dataset.correct === 'true') o.classList.add('correct'); });
+  if (!isCorrect) clickedEl.classList.add('wrong');
+  feedback.className = 'feedback show ' + (isCorrect ? 'correct' : 'wrong');
+  feedback.textContent = isCorrect ? '✅ Correct! Well done.' : '❌ Not quite. The correct answer is highlighted in green.';
+  quiz.dataset.answered = 'true';
+};
+
+let currentSlide = 0;
+const visitedSlides = new Set([0]);
+
+function renderSlide(index) {
+  currentSlide = index; visitedSlides.add(index);
+  document.getElementById('slideContainer').innerHTML = slides[index].render();
+  updateDots(); updateChips();
+  document.getElementById('funFactText').innerHTML = '<strong>' + slides[index].id + ':</strong> ' + slides[index].fact;
+  document.getElementById('stepLabel').textContent = (index + 1) + '/' + slides.length;
+  document.getElementById('prevBtn').disabled = index === 0;
+  const nextBtn = document.getElementById('nextBtn');
+  if (index === slides.length - 1) {
+    nextBtn.textContent = '✓ Complete'; nextBtn.style.background = 'var(--green-bg)'; nextBtn.style.borderColor = 'var(--green)'; nextBtn.style.color = 'var(--green)';
+  } else {
+    nextBtn.textContent = 'Next →'; nextBtn.style.background = 'var(--cyan-bg)'; nextBtn.style.borderColor = 'var(--cyan)'; nextBtn.style.color = 'var(--cyan)';
+  }
+  document.getElementById('slideContainer').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function goTo(index) { if (index >= 0 && index < slides.length) renderSlide(index); }
+
+function updateDots() {
+  document.getElementById('stepDots').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'active' : visitedSlides.has(i) ? 'done' : '';
+    return '<div class="step-dot ' + cls + '" onclick="goTo(' + i + ')" title="' + s.id + ': ' + s.title + '"></div>';
+  }).join('');
+}
+
+function updateChips() {
+  document.getElementById('topicChips').innerHTML = slides.map(function(s, i) {
+    var cls = i === currentSlide ? 'current' : visitedSlides.has(i) ? 'visited' : '';
+    return '<span class="topic-chip ' + cls + '" onclick="goTo(' + i + ')">' + s.id + ' ' + s.title + '</span>';
+  }).join('');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' && currentSlide < slides.length - 1) goTo(currentSlide + 1);
+  if (e.key === 'ArrowLeft' && currentSlide > 0) goTo(currentSlide - 1);
+});
+
+renderSlide(0);
+</script>
+</body>
+</html>

@@ -34,6 +34,8 @@
 
 ## Phase 3: MLP on MNIST (Fully Connected Layers in CUDA)
 
+> 🎓 **Interactive Learning Module:** [phase3_mlp_mnist.html](phase3_mlp_mnist.html) — 10 interactive slides: architecture 784→128→64→10, Fixed vs Choice hyperparameters, ReLU ("kill negatives"), Why ReLU breaks linearity, Softmax (scores→percentages), Full pipeline walkthrough, Detective analogy, CUDA kernels, benchmarks. Use ← → arrow keys.
+
 | Step | Task |
 |------|------|
 | 3.1 | Download MNIST dataset — parse binary format into arrays |
@@ -635,6 +637,7 @@ Visual, slide-based learning modules following the same pattern as the [MLOPS Sy
 
 | Phase | Module | Slides | Topics |
 |-------|--------|--------|--------|
+| **3** | [phase3_mlp_mnist.html](phase3_mlp_mnist.html) | 10 slides | Architecture 784→128→64→10, Fixed vs Choice, ReLU ("kill negatives"), Why ReLU breaks linearity, Softmax (scores→percentages), Full pipeline walkthrough, Detective analogy, CUDA kernels |
 | **4** | [phase4_yolo_cuda.html](phase4_yolo_cuda.html) | 8 slides | YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS kernel, 137 FPS pipeline, Triton serving |
 | **6** | [phase6_production_cuda.html](phase6_production_cuda.html) | 10 slides | 6A TensorRT, 6B Triton Server, 6C Nsight Profiling, 6D Multi-Stream 7×, CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment |
 | **ML** | [class_imbalance_visualizer.html](class_imbalance_visualizer.html) | 6 techniques | Undersampling, Oversampling, SMOTE, Class Weights, Focal Loss — interactive visual + real Python code (scikit-learn, XGBoost, TensorFlow, PyTorch) |
