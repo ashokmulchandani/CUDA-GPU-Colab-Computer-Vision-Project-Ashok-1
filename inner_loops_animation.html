@@ -290,9 +290,9 @@ function renderGrids(fh, fw) {
       let isActive = (r === fh && c === fw && currentStep > 0 && currentStep <= 25);
       let isDone = (r*5+c < fh*5+fw && currentStep > 0);
       let val = filterVals[r][c];
-      let sign = val >= 0 ? '+' : '';
+      let sign = val >= 0 ? '+' : '−';
       let cls = isActive ? 'highlight' : '';
-      let bg = isActive ? 'rgba(255,179,71,0.3)' : isDone ? 'rgba(63,185,80,0.08)' : 'rgba(255,179,71,0.06)';
+      let bg = isActive ? 'rgba(255,179,71,0.3)' : isDone ? 'rgba(63,185,80,0.08)' : val < -0.2 ? 'rgba(248,81,73,0.2)' : 'rgba(255,179,71,0.06)';
       let color = val > 0.2 ? 'var(--amber)' : val < -0.2 ? 'var(--red)' : 'var(--tmut)';
       fh2 += `<td class="${cls}" style="background:${bg};color:${color};font-weight:${Math.abs(val)>0.2?'600':'400'}">${sign}${Math.abs(val).toFixed(2)}</td>`;
     }
@@ -355,7 +355,7 @@ function updateStep(step) {
       let prod = inputPatch[r][c] * filterVals[r][c];
       let isCurrent = (i === step-1);
       let cls = isCurrent ? 'comp-active' : 'comp-done';
-      let pSign = prod>=0?'+':'';
+      let pSign = prod>=0?'+':'−';
       let pColor = prod > 0.3 ? 'var(--green)' : prod < -0.3 ? 'var(--red)' : 'var(--tmut)';
       compHTML += '<div class="comp-row">';
       compHTML += `<span class="comp-cell ${cls}">+ (${inputPatch[r][c].toFixed(2)} × ${filterVals[r][c]>=0?'+':''}${filterVals[r][c].toFixed(2)})</span>`;
