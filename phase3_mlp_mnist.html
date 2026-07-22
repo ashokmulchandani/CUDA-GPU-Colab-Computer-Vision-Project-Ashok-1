@@ -468,6 +468,148 @@ Accuracy = correct_count / 10000 × 100
 </div></div>`; }
   },
 
+  // ═══════ SLIDE loss: Cross-Entropy Loss ═══════
+  {
+    id: 'loss',
+    title: 'Loss — "How Wrong Was the Prediction?"',
+    fact: '<strong>Loss is what the network MINIMIZES during training.</strong> Accuracy tells you if you were right. Loss tells you HOW wrong you were — including HOW confident you were in your wrong answers. Loss drives learning.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">loss</span> Cross-Entropy Loss — "How Wrong Was the Prediction?"</h2>
+  <p>While accuracy just counts right vs wrong, <strong style="color:var(--red)">loss measures HOW FAR off</strong> the prediction was — and crucially, <strong style="color:var(--cyan)">how confident the model was in its wrong answers</strong>. The network uses loss (not accuracy) to update its weights during backpropagation.</p>
+
+  <h3>🧮 The Formula — Cross-Entropy Loss</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// For a SINGLE image, loss depends on the probability assigned to the CORRECT class:</span>
+
+<span style="color:var(--cyan);font-weight:bold;">Loss = −log(p_correct)</span>
+
+<span style="color:var(--text-muted)">Where:</span>
+<span style="color:var(--text-muted)">  p_correct = Softmax probability for the TRUE label (the digit it should be)</span>
+<span style="color:var(--text-muted)">  −log()    = negative natural log (ln)</span>
+
+<span style="color:var(--text-muted)">// For a BATCH of images, average the individual losses:</span>
+<span style="color:var(--cyan);font-weight:bold;">Batch Loss = (1/N) × Σ −log(p_correct_i)</span></div>
+
+  <h3>🔢 How −log(p) Works — The Penalty Curve</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// −log(p) converts probability into a PENALTY:</span>
+
+<span style="color:var(--text-muted)">When p_correct is HIGH (model is confident and RIGHT):</span>
+  p = 0.99  →  −log(0.99) = <span style="color:var(--green)">0.01</span>   ← tiny penalty (good!)
+  p = 0.95  →  −log(0.95) = <span style="color:var(--green)">0.05</span>   ← small penalty
+  p = 0.90  →  −log(0.90) = <span style="color:var(--green)">0.11</span>   ← still small
+
+<span style="color:var(--text-muted)">When p_correct is MEDIUM (model is unsure but right):</span>
+  p = 0.70  →  −log(0.70) = <span style="color:var(--amber)">0.36</span>   ← noticeable penalty
+  p = 0.51  →  −log(0.51) = <span style="color:var(--amber)">0.67</span>   ← getting expensive
+
+<span style="color:var(--text-muted)">When p_correct is LOW (model is confident and WRONG):</span>
+  p = 0.10  →  −log(0.10) = <span style="color:var(--red)">2.30</span>   ← heavy penalty!
+  p = 0.01  →  −log(0.01) = <span style="color:var(--red)">4.61</span>   ← massive penalty!!
+  p = 0.001 →  −log(0.001) = <span style="color:var(--red)">6.91</span>   ← catastrophic!!!
+
+<span style="color:var(--amber);">KEY INSIGHT: Being confidently WRONG is punished MUCH harder
+than being unsure but correct. This is why the network learns
+to be careful about overconfident wrong answers.</span></div>
+
+  <h3>📝 Concrete Example — 3 Images in a Batch</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">Image 1: True label = "5". Softmax gives 96% for "5".</span>
+  p_correct = 0.96  →  loss = −log(0.96) = <span style="color:var(--green)">0.041</span>  ✅ Great!
+
+<span style="color:var(--text-muted)">Image 2: True label = "3". Softmax gives only 45% for "3" (unsure, but right).</span>
+  p_correct = 0.45  →  loss = −log(0.45) = <span style="color:var(--amber)">0.799</span>  ⚠️ Penalized for uncertainty
+
+<span style="color:var(--text-muted)">Image 3: True label = "7". Softmax gives 88% for "2" (confidently WRONG!).</span>
+  p_correct = 0.03  →  loss = −log(0.03) = <span style="color:var(--red)">3.507</span>  ❌ Heavily punished!
+
+<span style="color:var(--text-muted)">============================================</span>
+<span style="color:var(--cyan);font-weight:bold;">Batch Loss = (0.041 + 0.799 + 3.507) / 3 = 1.449</span>
+
+<span style="color:var(--text-muted)">Accuracy = 2/3 = 66.7%  (but loss reveals Image 3 was REALLY wrong)</span></div>
+
+  <h3>🔄 How Loss Drives Learning — The Training Loop</h3>
+  <div class="pipeline">
+    <div class="pipeline-stage highlight"><div class="stage-icon">➡️</div><div class="stage-name">FORWARD<br>PASS</div><div class="stage-desc">Pixel →<br>Prediction</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">📏</div><div class="stage-name">COMPUTE<br>LOSS</div><div class="stage-desc">−log(p_correct)<br>How wrong?</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">⬅️</div><div class="stage-name">BACKPROP</div><div class="stage-desc">Compute<br>gradients dW</div></div>
+    <span class="pipeline-arrow">→</span>
+    <div class="pipeline-stage highlight"><div class="stage-icon">🔧</div><div class="stage-name">UPDATE<br>WEIGHTS</div><div class="stage-desc">W -= lr × dW<br>Improve!</div></div>
+  </div>
+  <p style="text-align:center;font-size:0.78rem;color:var(--text-dim);margin-top:0.3rem;"><strong>Loss is the ENGINE.</strong> High loss → big gradients → big weight updates → the network learns. Low loss → small gradients → weights barely change → training slows down. This is why loss naturally decreases over epochs.</p>
+
+  <h3>📊 Accuracy vs Loss — The Full Picture</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-c"><h4>🟢 Accuracy</h4>
+    <p><strong>What:</strong> correct / total</p>
+    <p><strong>Range:</strong> 0% to 100%</p>
+    <p><strong>Used for:</strong> Evaluating the final model</p>
+    <p><strong>Example:</strong> "95.55% on test set"</p>
+    <p style="margin-top:0.5rem;color:var(--green);font-size:0.78rem">Tells you: "Is my model good enough to deploy?"</p></div>
+    <div class="compare-card pick-b"><h4>🔵 Loss (Cross-Entropy)</h4>
+    <p><strong>What:</strong> −log(p_correct), averaged</p>
+    <p><strong>Range:</strong> 0 to ∞</p>
+    <p><strong>Used for:</strong> TRAINING — computing gradients</p>
+    <p><strong>Example:</strong> "Loss dropped from 2.3 → 0.18"</p>
+    <p style="margin-top:0.5rem;color:var(--cyan);font-size:0.78rem">Tells you: "Is my model still learning, or has it plateaued?"</p></div>
+  </div>
+
+  <h3>📏 What Are "Good" Ranges? — Accuracy & Loss Benchmarks for MNIST</h3>
+  <div class="data-types two">
+    <div class="data-type-card"><div class="dt-icon">📊</div><h4>Accuracy Benchmarks</h4>
+    <p><strong style="color:var(--red);">Below 50%:</strong> Random guessing or broken. Debug the architecture.<br>
+    <strong style="color:var(--amber);">50-85%:</strong> Learning, but weak. More epochs or better architecture needed.<br>
+    <strong style="color:var(--cyan);">85-94%:</strong> Decent. A simple MLP should hit this range.<br>
+    <strong style="color:var(--green);">94-97%:</strong> Good! Our 3-layer MLP achieved 95.55% — solid for no convolutions.<br>
+    <strong style="color:var(--green);">97-99%:</strong> Excellent. Usually needs CNNs or data augmentation.<br>
+    <strong style="color:var(--violet);">>99%:</strong> Suspiciously good — check for data leakage or overfitting.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📉</div><h4>Loss Benchmarks</h4>
+    <p><strong style="color:var(--red);">Above 2.0:</strong> Model is essentially guessing. Loss at epoch 1: ~2.3 (random weights).<br>
+    <strong style="color:var(--amber);">1.0-2.0:</strong> Early training. Learning has started but still unsure.<br>
+    <strong style="color:var(--cyan);">0.3-1.0:</strong> Mid-training. Getting decent, confidence improving.<br>
+    <strong style="color:var(--green);">0.10-0.30:</strong> Well-trained. Our MLP ended around 0.15-0.18 after 10 epochs.<br>
+    <strong style="color:var(--green);">Below 0.10:</strong> Very confident. The model is rarely wrong AND confident about right answers.<br>
+    <strong style="color:var(--red);">Below 0.05:</strong> Warning — might be overfitting. Check if test accuracy stopped improving.</p></div>
+  </div>
+
+  <h3>⚠️ The Key Diagnostic: Loss Divergence</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Watch these patterns during training:</span>
+
+<span style="color:var(--green);font-weight:bold;">✅ HEALTHY TRAINING:</span>
+  Epoch 1:  Loss=2.30, Acc=11%   ← random start
+  Epoch 5:  Loss=0.42, Acc=85%   ← improving fast
+  Epoch 10: Loss=0.16, Acc=95.5% ← converging nicely
+
+<span style="color:var(--red);font-weight:bold;">❌ OVERFITTING (train loss ↓ but test loss ↑):</span>
+  Train Epoch 10: Loss=0.08, Acc=99%   ← memorizing training set!
+  Test  Epoch 10: Loss=0.35, Acc=92%   ← test is WORSE than epoch 8
+  → STOP. Your model is memorizing, not learning.
+
+<span style="color:var(--amber);font-weight:bold;">⚠️ UNDERFITTING (both losses still high):</span>
+  Epoch 20: Train Loss=0.55, Test Loss=0.58
+  → More epochs won't help. Need bigger network or more features.
+
+<span style="color:var(--red);font-weight:bold;">💥 DIVERGING (loss = ∞ or NaN):</span>
+  → Learning rate TOO HIGH. Halve it and restart.</div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 Why not just use accuracy for training?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Accuracy is not differentiable.</strong> "Right" vs "wrong" is a binary jump — you can't compute a smooth gradient from it. Loss (−log(p)) is a smooth, continuous function: every small change in weights produces a small change in loss. That smooth slope is what gradient descent follows downhill. Without it, the network can't learn.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz_loss"><div class="question">🧪 Two models both get 90% accuracy. Model A has loss=0.15. Model B has loss=0.45. Which is better and why?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz_loss', this)">A. Model A is better. Same accuracy but LOWER loss means Model A is more CONFIDENT in its correct answers and less confident in its wrong ones. Model B might be barely guessing right (51% confidence each time — one small drift and it fails). Loss reveals what accuracy hides.</div>
+    <div class="option" onclick="checkQuiz('quiz_loss', this)">B. They're equal — accuracy is all that matters</div>
+    <div class="option" onclick="checkQuiz('quiz_loss', this)">C. Model B is better — higher loss means it's learning more aggressively</div>
+  </div><div class="feedback" id="quiz_loss-fb"></div></div>
+</div></div>`; }
+  },
+
   // ═══════ SLIDE 4: ReLU — Kill the Negatives ═══════
   {
     id: '3.4',
