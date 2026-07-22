@@ -708,6 +708,9 @@ const slides = [
 <div class="slide">
   <div class="card">
     <h2><span class="num">4.2</span> The 3-Stage Detection Pipeline</h2>
+
+    <div class="callout-box"><span style="font-size:1.2rem;">🔬</span><span><strong style="color:var(--cyan);">Interactive Visualizer:</strong> Click through all 3 stages step-by-step — <a href="yolo_pipeline_visualizer.html" style="color:var(--cyan);">YOLO Pipeline Visualizer</a>. See resize, HWC→CHW, CNN backbone, feature pyramid, confidence filtering, NMS — with code for each step.</span></div>
+
     <p>Every object detection system has <strong style="color:var(--cyan)">three stages</strong>. The original Python pipeline spent almost all its time in stage 2. CUDA attacks all three.</p>
 
     <div class="pipeline">

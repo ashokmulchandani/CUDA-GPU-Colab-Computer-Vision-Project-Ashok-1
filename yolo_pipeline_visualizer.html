@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YOLO Pipeline — 3 Stages Visual Explainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:900px;margin:0 auto;padding:1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin-bottom:0.8rem}
+
+/* Pipeline header */
+.pipe-header{display:flex;gap:0.5rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:0.6rem 0}
+.pipe-step{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:0.7rem 1rem;text-align:center;transition:0.3s;cursor:pointer;min-width:130px}
+.pipe-step:hover{border-color:var(--cyan)}
+.pipe-step.active{border-color:var(--cyan);box-shadow:0 0 16px var(--cyan-border);background:var(--cyan-bg)}
+.pipe-step.done{border-color:var(--green);background:var(--green-bg)}
+.pipe-step .icon{font-size:1.5rem}.pipe-step .title{font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-top:0.2rem}.pipe-step .stat{font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;color:var(--cyan)}
+.pipe-arrow{font-size:1.2rem;color:var(--cyan)}
+
+/* Sub-steps */
+.substeps{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.6rem 0}
+.substep{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.8rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);min-width:100px;transition:0.3s;cursor:pointer}
+.substep:hover{border-color:var(--cyan)}
+.substep.current{border-color:var(--cyan);background:var(--cyan-bg);color:var(--cyan);font-weight:700}
+.substep.done{border-color:var(--green);color:var(--green)}
+
+/* Visual area */
+.visual{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;margin:0.6rem 0;min-height:280px;position:relative;overflow:hidden}
+
+/* Image visualization */
+.img-box{position:relative;margin:0 auto;background:var(--raised);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.img-label{position:absolute;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);padding:2px 6px;background:rgba(0,0,0,0.7);border-radius:4px}
+
+/* Memory layout */
+.mem-grid{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin:0.5rem 0}
+.mem-cell{width:10px;height:10px;border-radius:2px;transition:0.3s}
+.mem-cell.R{background:rgba(248,81,73,0.7)}.mem-cell.G{background:rgba(63,185,80,0.7)}.mem-cell.B{background:rgba(57,210,255,0.7)}
+
+/* Code */
+.code{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem auto;max-width:750px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;overflow-x:auto}
+
+/* Stats */
+.stats-row{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center}
+.stat .val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700}.stat .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+
+.ctrls{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}.btn:disabled{opacity:0.3;cursor:not-allowed}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>YOLO Pipeline — 3 Stages Visual Explainer</h1>
+  <p class="subtitle">Click any stage, then step through its sub-operations. <strong>252ms (Python) → 12ms (CUDA) = 21× faster.</strong></p>
+
+  <div class="pipe-header" id="pipeline">
+    <div class="pipe-step active" id="ps1" onclick="selectStage(0)"><div class="icon">🖼️</div><div class="title">STAGE 1</div><div class="stat">PREPROCESS</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" id="ps2" onclick="selectStage(1)"><div class="icon">🧠</div><div class="title">STAGE 2</div><div class="stat">INFERENCE</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" id="ps3" onclick="selectStage(2)"><div class="icon">🔍</div><div class="title">STAGE 3</div><div class="stat">POSTPROCESS</div></div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat" style="border-top:2px solid var(--red);"><div class="val" style="color:var(--red);" id="pyTime">252 ms</div><div class="lbl">Python Total</div></div>
+    <div class="stat" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);" id="cuTime">12 ms</div><div class="lbl">CUDA Total</div></div>
+    <div class="stat" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);">21×</div><div class="lbl">Speedup</div></div>
+    <div class="stat" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);" id="fpsVal">83</div><div class="lbl">FPS</div></div>
+  </div>
+
+  <div class="substeps" id="substeps"></div>
+
+  <div class="visual" id="visual"></div>
+
+  <div class="code" id="codeBox"></div>
+
+  <div class="ctrls">
+    <button class="btn" onclick="prevSub()">◀ Prev</button>
+    <button class="btn primary" onclick="nextSub()">Next ▶</button>
+    <button class="btn" onclick="resetAll()">↺ Reset</button>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('ypipe-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('ypipe-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+// Stage data
+const stages=[
+  {name:'PREPROCESS',icon:'🖼️',pyTime:'19.3 ms',cuTime:'0.046 ms',speedup:'419×',subs:[
+    {name:'1. Resize',desc:'Nearest-neighbor: 810×1080 → 640×640',detail:'Each thread: out_x → map back to in_x = out_x/640 × 1080. No floating point interpolation — just nearest neighbor.'},
+    {name:'2. Normalize',desc:'uint8 [0-255] → float32 [0-1]',detail:'Each pixel value divided by 255.0. The GPU does this as part of the same thread — no separate pass needed.'},
+    {name:'3. HWC→CHW',desc:'Height-Width-Channel → Channel-Height-Width',detail:'Memory layout transform. All R pixels together, then G, then B. This is what the CNN expects — coalesced memory reads for the first conv layer.'}
+  ]},
+  {name:'INFERENCE',icon:'🧠',pyTime:'168 ms',cuTime:'11.3 ms',speedup:'15×',subs:[
+    {name:'1. CNN Backbone',desc:'225 layers, 3.15M params, 8.7 GFLOPs',detail:'Convolution → BatchNorm → SiLU repeated. Early layers detect edges/textures. Deep layers detect object parts. 225 layers total, all running on TensorRT FP16.'},
+    {name:'2. Feature Pyramid',desc:'Multi-scale feature fusion (Neck)',detail:'Combines features from 3 scales: 80×80 (fine), 40×40 (medium), 20×20 (coarse). Small objects detected at fine scale, large at coarse.'},
+    {name:'3. Detection Head',desc:'Outputs (1, 84, 8400) tensor',detail:'8400 candidate boxes. Each box = 4 coords (x,y,w,h) + 80 class scores. Most boxes have confidence < 0.5 and will be filtered out.'}
+  ]},
+  {name:'POSTPROCESS',icon:'🔍',pyTime:'72.5 ms',cuTime:'~1 ms',speedup:'72×',subs:[
+    {name:'1. Filter by confidence',desc:'Keep boxes with confidence > 0.5',detail:'8400 boxes → ~100 boxes. Discard low-confidence predictions. Most of the 8400 are garbage — background, incomplete objects, noise.'},
+    {name:'2. Sort by confidence',desc:'Sort remaining boxes (highest first)',detail:'GPU sorts boxes by confidence score. This is crucial — NMS needs to process highest-confidence boxes first to determine which lower ones to suppress.'},
+    {name:'3. NMS (IoU > 0.5)',desc:'Suppress overlapping boxes',detail:'For each box: check all HIGHER-confidence boxes. If IoU > 50%, suppress this one. Result: ~5-20 final detections, one per object.'}
+  ]}
+];
+
+let curStage=0,curSub=0;
+
+function render(){
+  // Update pipeline header
+  ['ps1','ps2','ps3'].forEach((id,i)=>{
+    let el=document.getElementById(id);
+    el.classList.remove('active','done');
+    if(i===curStage)el.classList.add('active');
+    else if(i<curStage)el.classList.add('done');
+  });
+
+  // Update substeps
+  let sh='';
+  stages[curStage].subs.forEach((s,i)=>{
+    let cls='';
+    if(i===curSub)cls='current';
+    else if(i<curSub)cls='done';
+    sh+=`<div class="substep ${cls}" onclick="curSub=${i};render()">${s.name}<br>${s.desc}</div>`;
+  });
+  document.getElementById('substeps').innerHTML=sh;
+
+  // Update times
+  let stage=stages[curStage];
+  document.getElementById('pyTime').textContent=stage.pyTime;
+  document.getElementById('cuTime').textContent=stage.cuTime;
+
+  // Visual area
+  let v='',c='';
+  if(curStage===0){
+    if(curSub===0){ // Resize
+      v=`<div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);">INPUT (810×1080)</div>
+          <div style="width:100px;height:130px;background:var(--raised);border:2px solid var(--red);border-radius:6px;margin:0.3rem;position:relative;">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(57,210,255,0.2) 0%,rgba(63,185,80,0.2) 50%,rgba(248,81,73,0.2) 100%);"></div>
+            <div class="img-label" style="bottom:4px;right:4px;">HWC</div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">uint8 [0-255]</div>
+        </div>
+        <div style="font-size:1.5rem;color:var(--cyan);">→</div>
+        <div style="text-align:center;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);">OUTPUT (640×640)</div>
+          <div style="width:80px;height:80px;background:var(--raised);border:2px solid var(--green);border-radius:6px;margin:0.3rem;position:relative;">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(57,210,255,0.3) 0%,rgba(63,185,80,0.3) 50%,rgba(248,81,73,0.3) 100%);"></div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">Each thread: nearest neighbor</div>
+        </div>
+      </div>`;
+      c='<span class="cm">// Nearest-neighbor resize: out[x][y] maps to input at scaled coordinates</span>\n<span style="color:#569cd6;">int</span> in_x = (<span style="color:#569cd6;">int</span>)((<span style="color:#569cd6;">float</span>)out_x / <span style="color:#ce9178;">640</span> * in_w);\n<span style="color:#569cd6;">int</span> in_y = (<span style="color:#569cd6;">int</span>)((<span style="color:#569cd6;">float</span>)out_y / <span style="color:#ce9178;">640</span> * in_h);';
+    }
+    else if(curSub===1){ // Normalize
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">Each pixel value: uint8 → float32</div>
+        <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--red);">uint8</div>
+            <div style="font-size:0.8rem;color:var(--red);">128</div>
+            <div style="font-size:0.8rem;color:var(--red);">255</div>
+            <div style="font-size:0.8rem;color:var(--red);">64</div>
+          </div>
+          <div style="font-size:1.5rem;color:var(--cyan);">÷ 255.0 →</div>
+          <div style="background:var(--raised);border:1px solid var(--green);border-radius:8px;padding:0.8rem;text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--green);">float32</div>
+            <div style="font-size:0.8rem;color:var(--green);">0.502</div>
+            <div style="font-size:0.8rem;color:var(--green);">1.000</div>
+            <div style="font-size:0.8rem;color:var(--green);">0.251</div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.4rem;">Same thread that did the resize — zero extra memory access</div>
+      </div>`;
+      c='<span class="cm">// Same kernel, same thread — just one more line:</span>\noutput[...] = (<span style="color:#569cd6;">float</span>)pixel / <span style="color:#ce9178;">255.0f</span>;';
+    }
+    else if(curSub===2){ // HWC → CHW
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">Memory Layout Transform</div>
+        <div style="display:flex;gap:1.5rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--red);">HWC (input from camera)</div>
+            <div class="mem-grid" style="width:160px;">${Array(40).fill(0).map((_,i)=>{let c=i%3;return`<div class="mem-cell ${['R','G','B'][c]}" style="opacity:0.7"></div>`}).join('')}</div>
+            <div style="font-size:0.4rem;color:var(--tmut);">R,G,B interleaved per pixel</div>
+          </div>
+          <div style="font-size:1.5rem;color:var(--cyan);">→</div>
+          <div style="text-align:center;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--green);">CHW (what CNN expects)</div>
+            <div class="mem-grid" style="width:160px;">${Array(13).fill(0).map(()=>'<div class="mem-cell R" style="opacity:0.7"></div>').join('')}${Array(13).fill(0).map(()=>'<div class="mem-cell G" style="opacity:0.7"></div>').join('')}${Array(14).fill(0).map(()=>'<div class="mem-cell B" style="opacity:0.7"></div>').join('')}</div>
+            <div style="font-size:0.4rem;color:var(--tmut);">All R, then all G, then all B</div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.4rem;">CHW = coalesced memory access for convolution — GPU reads sequential addresses</div>
+      </div>`;
+      c='<span class="cm">// Output layout: channel-first for coalesced conv reads</span>\noutput[c * out_h * out_w + out_y * out_w + out_x] = (<span style="color:#569cd6;">float</span>)pixel / <span style="color:#ce9178;">255.0f</span>;\n<span class="cm">// c=R(0), G(1), B(2) via blockIdx.z</span>';
+    }
+  }
+  else if(curStage===1){
+    if(curSub===0){ // CNN Backbone
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">CNN Backbone — 225 Layers</div>
+        <div style="display:flex;gap:0.3rem;align-items:center;justify-content:center;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+          <div style="background:var(--raised);border:1px solid var(--cyan);border-radius:4px;padding:0.3rem 0.5rem;">640³</div><span>→</span>
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">320²</div><span>→</span>
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">160²</div><span>→</span>
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">80²</div><span>→</span>
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">40²</div><span>→</span>
+          <div style="background:var(--raised);border:1px solid var(--amber);border-radius:4px;padding:0.3rem 0.5rem;">20²</div>
+        </div>
+        <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;">Each step: Conv → BatchNorm → SiLU. Spatial size shrinks, channels grow.</div>
+        <div style="font-size:0.45rem;color:var(--tmut);">Early layers: edges. Middle: textures. Deep: object parts.</div>
+      </div>`;
+      c='<span class="cm">// TensorRT fuses Conv+BN+SiLU into ONE kernel</span>\n<span class="cm">// FP16 precision → 2× faster on Tensor Cores</span>\n<span style="color:#4ec9b0;">PyTorch:</span> 13.8 ms (73 FPS)\n<span style="color:#4ec9b0;">TensorRT:</span> 11.3 ms (89 FPS) <span class="cm">// 1.2× faster</span>';
+    }
+    else if(curSub===1){ // Feature Pyramid
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">Feature Pyramid — 3 Detection Scales</div>
+        <div style="display:flex;gap:0.5rem;align-items:flex-end;justify-content:center;">
+          <div style="text-align:center;"><div style="width:40px;height:40px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:4px;"></div><div style="font-size:0.45rem;color:var(--cyan);">80×80</div><div style="font-size:0.4rem;color:var(--tmut);">small objects</div></div>
+          <div style="text-align:center;"><div style="width:28px;height:28px;background:var(--amber-bg);border:1px solid var(--amber);border-radius:4px;"></div><div style="font-size:0.45rem;color:var(--amber);">40×40</div><div style="font-size:0.4rem;color:var(--tmut);">medium</div></div>
+          <div style="text-align:center;"><div style="width:18px;height:18px;background:var(--magenta-bg);border:1px solid var(--magenta);border-radius:4px;"></div><div style="font-size:0.45rem;color:var(--magenta);">20×20</div><div style="font-size:0.4rem;color:var(--tmut);">large objects</div></div>
+        </div>
+        <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;">Top-down + bottom-up connections merge features across scales</div>
+      </div>`;
+      c='<span class="cm">// 3 scales, 3 anchor boxes per scale = 9 predictions per grid cell</span>\n<span class="cm">// Fine scale catches small objects (birds, balls)</span>\n<span class="cm">// Coarse scale catches large objects (buses, buildings)</span>';
+    }
+    else if(curSub===2){ // Detection Head
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">Output: (1, 84, 8400) Tensor</div>
+        <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--cyan);">1 batch</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);">84 values</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">8400 boxes</div>
+          </div>
+          <div style="text-align:left;font-size:0.5rem;font-family:'JetBrains Mono',monospace;color:var(--tdim);line-height:1.8;">
+            <span style="color:var(--amber);">4 coords:</span> x, y, w, h<br>
+            <span style="color:var(--amber);">80 scores:</span> one per COCO class<br>
+            <span style="color:var(--green);">8,400 boxes</span> = 80²+40²+20² × 3 anchors
+          </div>
+        </div>
+        <div style="font-size:0.45rem;color:var(--green);margin-top:0.4rem;">After confidence filtering (>0.5): ~10-100 boxes remain</div>
+      </div>`;
+      c='<span class="cm">// 8400 = (80x80 + 40x40 + 20x20) x 3 anchors</span>\n<span class="cm">// Most boxes have confidence < 0.5 and are discarded</span>\n<span class="hl">~10-50 boxes survive after confidence filtering</span>';
+    }
+  }
+  else if(curStage===2){
+    if(curSub===0){ // Filter
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">Confidence Filtering: 8400 → ~100 boxes</div>
+        <div style="display:flex;gap:0.5rem;align-items:flex-end;justify-content:center;height:80px;">
+          <div style="width:6px;height:8px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.02"></div>
+          <div style="width:6px;height:12px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.08"></div>
+          <div style="width:6px;height:8px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.01"></div>
+          <div style="width:6px;height:25px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.15"></div>
+          <div style="width:6px;height:10px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.05"></div>
+          <div style="width:8px;height:55px;background:var(--amber);border-radius:2px;" title="0.55"></div>
+          <div style="width:6px;height:12px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.10"></div>
+          <div style="width:8px;height:70px;background:var(--green);border-radius:2px;" title="0.92"></div>
+          <div style="width:6px;height:18px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.22"></div>
+          <div style="width:8px;height:65px;background:var(--green);border-radius:2px;" title="0.88"></div>
+          <div style="width:6px;height:8px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.03"></div>
+          <div style="width:8px;height:60px;background:var(--green);border-radius:2px;" title="0.78"></div>
+          <div style="width:6px;height:15px;background:var(--red);opacity:0.3;border-radius:2px;" title="0.18"></div>
+        </div>
+        <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;"><span style="color:var(--red);">■ <0.5 discarded</span> <span style="color:var(--amber);">■ >0.5 kept</span> <span style="color:var(--green);">■ >0.7 strong</span></div>
+      </div>`;
+      c='<span class="cm">// Keep only boxes where confidence > 0.5</span>\n<span class="cm">// 8400 → ~50-100 boxes survive</span>\n<span class="hl">Filter removes ~98% of candidate boxes instantly</span>';
+    }
+    else if(curSub===1){ // Sort
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">Sort Surviving Boxes by Confidence (descending)</div>
+        <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
+          <div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.6rem;text-align:center;">
+            <div style="font-size:0.45rem;color:var(--tmut);">Unsorted</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">0.55, 0.92, 0.78, 0.88, 0.61</div>
+          </div>
+          <div style="font-size:1rem;color:var(--cyan);display:flex;align-items:center;">→</div>
+          <div style="background:var(--raised);border:1px solid var(--green);border-radius:6px;padding:0.4rem 0.6rem;text-align:center;">
+            <div style="font-size:0.45rem;color:var(--green);">Sorted ↓</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">0.92, 0.88, 0.78, 0.61, 0.55</div>
+          </div>
+        </div>
+        <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;">NMS needs HIGHEST confidence first to know which boxes to suppress</div>
+      </div>`;
+      c='<span class="cm">// Sort by confidence descending — critical for NMS</span>\n<span class="cm">// The highest-confidence box for each object will suppress</span>\n<span class="cm">// all lower-confidence boxes that overlap it too much</span>';
+    }
+    else if(curSub===2){ // NMS
+      v=`<div style="text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">NMS: 10 boxes → 5 objects</div>
+        <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+          <div style="background:var(--raised);border:1px solid var(--red);border-radius:8px;padding:0.6rem;">
+            <div style="font-size:0.45rem;color:var(--red);">BEFORE (10 boxes)</div>
+            <div style="position:relative;width:140px;height:100px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;margin:0.3rem 0;">
+              <div style="position:absolute;top:8px;left:10px;width:100px;height:40px;border:2px solid var(--red);border-radius:3px;opacity:0.5;"></div>
+              <div style="position:absolute;top:10px;left:12px;width:95px;height:38px;border:2px solid var(--amber);border-radius:3px;opacity:0.6;"></div>
+              <div style="position:absolute;top:9px;left:11px;width:98px;height:39px;border:3px solid var(--green);border-radius:3px;"></div>
+              <div style="position:absolute;top:50px;left:40px;width:40px;height:35px;border:2px solid var(--red);border-radius:3px;"></div>
+              <div style="position:absolute;top:52px;left:42px;width:36px;height:33px;border:2px solid var(--green);border-radius:3px;"></div>
+            </div>
+          </div>
+          <div style="font-size:1.2rem;color:var(--cyan);">→</div>
+          <div style="background:var(--raised);border:1px solid var(--green);border-radius:8px;padding:0.6rem;">
+            <div style="font-size:0.45rem;color:var(--green);">AFTER (5 boxes)</div>
+            <div style="position:relative;width:140px;height:100px;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;margin:0.3rem 0;">
+              <div style="position:absolute;top:9px;left:11px;width:98px;height:39px;border:3px solid var(--green);border-radius:3px;"></div>
+              <div style="position:absolute;top:52px;left:42px;width:36px;height:33px;border:2px solid var(--green);border-radius:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:0.45rem;color:var(--green);margin-top:0.4rem;">IoU > 0.5 → suppress. Only the best box per object survives.</div>
+      </div>`;
+      c='<span class="cm">// CUDA NMS kernel — each thread checks one box</span>\n<span class="hl">for (j=0; j<i; j++) // higher-confidence boxes</span>\n<span class="hl">  if (IoU(box[i], box[j]) > 0.5) keep[i]=0; // suppress</span>\n<span class="cm">Python: 72.5ms → CUDA: ~1ms (72× faster)</span>';
+    }
+  }
+  document.getElementById('visual').innerHTML=v;
+  document.getElementById('codeBox').innerHTML=c;
+}
+
+function selectStage(s){curStage=s;curSub=0;render()}
+function nextSub(){if(curSub<2)curSub++;else if(curStage<2){curStage++;curSub=0;}render()}
+function prevSub(){if(curSub>0)curSub--;else if(curStage>0){curStage--;curSub=stages[curStage].subs.length-1;}render()}
+function resetAll(){curStage=0;curSub=0;render()}
+
+render();
+</script>
+</body>
+</html>
