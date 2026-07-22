@@ -25,11 +25,16 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 header h1 { font-size: 1.5rem; color: var(--heading); }
 header h1 span { color: var(--cyan); }
 header p { color: var(--text2); margin-top: 6px; font-size: 0.9rem; }
-main { max-width: 900px; margin: 0 auto; padding: 24px; }
+nav.links { text-align: center; padding: 12px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+nav.links a { color: var(--cyan); text-decoration: none; font-size: 0.8rem; margin: 0 12px; }
+nav.links a:hover { text-decoration: underline; }
+main { max-width: 960px; margin: 0 auto; padding: 24px; }
 
-.how-to { background: var(--surface); border: 1px solid var(--cyan); border-radius: 12px; padding: 16px 20px; margin-bottom: 28px; }
-.how-to h3 { color: var(--cyan); font-size: 0.9rem; margin-bottom: 6px; }
-.how-to p { color: var(--text2); font-size: 0.82rem; }
+.stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+.stat-card .num { font-size: 1.8rem; font-weight: 700; color: var(--cyan); }
+.stat-card .lbl { font-size: 0.7rem; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+@media (max-width: 600px) { .stats { grid-template-columns: repeat(2,1fr); } }
 
 .grid { display: grid; gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: 0.2s; display: block; text-decoration: none; color: inherit; }
@@ -39,61 +44,90 @@ main { max-width: 900px; margin: 0 auto; padding: 24px; }
 .tag-cuda { background: rgba(57,210,255,0.15); color: var(--cyan); }
 .tag-ml { background: rgba(63,185,80,0.15); color: var(--green); }
 .tag-dl { background: rgba(163,113,247,0.15); color: var(--violet); }
+.tag-tool { background: rgba(255,179,71,0.15); color: var(--amber); }
 .card p { color: var(--text2); font-size: 0.82rem; line-height: 1.5; }
 .card .slides { margin-top: 8px; font-size: 0.72rem; color: var(--text2); }
+.section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text2); margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🧠 CUDA & <span>ML</span> Interactive Learning Modules</h1>
-  <p>Click any card to open — runs directly in your browser. No install needed.</p>
+  <h1>CUDA & <span>ML</span> Interactive Learning Modules</h1>
+  <p>Click any card to open. All modules run directly in your browser. No install needed.</p>
   <button id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="position:absolute;top:18px;right:24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:1rem;">🌙</button>
 </header>
 
+<nav class="links">
+  <a href="CUDA_PLAN.md">CUDA Plan</a>
+  <a href="README.md">README</a>
+  <a href="https://github.com/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1">GitHub Repo</a>
+</nav>
+
 <main>
 
-<div class="how-to">
-  <h3>💡 How to open ANY .html file from GitHub directly</h3>
-  <p>Go to <strong style="color:var(--cyan);">https://htmlpreview.github.io/</strong> and paste the raw GitHub URL.<br>
-  Or just use the links below — they work with one click.</p>
+<div class="stats">
+  <div class="stat-card"><div class="num">3</div><div class="lbl">CUDA Phases</div></div>
+  <div class="stat-card"><div class="num">2</div><div class="lbl">ML/DL Modules</div></div>
+  <div class="stat-card"><div class="num">1</div><div class="lbl">Tool</div></div>
+  <div class="stat-card"><div class="num">8</div><div class="lbl">Total HTMLs</div></div>
 </div>
 
 <div class="grid">
 
+  <div class="section-title" style="grid-column:1/-1;">CUDA Phases</div>
+
+  <a href="phase3_mlp_mnist.html" class="card">
+    <span class="tag tag-cuda">CUDA Phase 3</span>
+    <h3>MLP on MNIST -- ReLU, Softmax & The Full Pipeline</h3>
+    <p>15 interactive slides: Architecture 784-128-64-10, Fixed vs Choice hyperparameters, Accuracy & Loss formulas with p_correct visual extractor, R-squared/MAE/RMSE regression metrics, Precision/Recall/F1, ReLU explained (kill negatives), Why ReLU breaks linearity, Softmax (scores to percentages), Full pipeline walkthrough, Detective analogy, CUDA kernels + 30x vs PyTorch benchmark.</p>
+    <div class="slides">15 slides | Embedded LR estimator | Quizzes | Dark/Light theme | Arrow key nav</div>
+  </a>
+
   <a href="phase4_yolo_cuda.html" class="card">
-    <span class="tag tag-cuda">CUDA · Phase 4</span>
-    <h3>🎯 YOLO Object Detection + CUDA Pipeline</h3>
-    <p>8 interactive slides: YOLO architecture, CUDA preprocess kernel, TensorRT FP16, NMS kernel, 137 FPS pipeline, Triton serving.</p>
-    <div class="slides">🖥️ 8 slides · Quizzes · Dark/Light theme · Keyboard nav (← →)</div>
+    <span class="tag tag-cuda">CUDA Phase 4</span>
+    <h3>YOLO Object Detection + CUDA Pipeline</h3>
+    <p>8 interactive slides: YOLO architecture (grid cells, 8400 boxes), 3-stage pipeline breakdown, CUDA preprocess kernel (419x faster than NumPy), TensorRT FP16 engine optimization, CUDA NMS kernel (IoU computation), 137 FPS video inference, Triton Inference Server demo.</p>
+    <div class="slides">8 slides | Quizzes | Dark/Light theme | Arrow key nav</div>
   </a>
 
   <a href="phase6_production_cuda.html" class="card">
-    <span class="tag tag-cuda">CUDA · Phase 6</span>
-    <h3>🚀 Production CUDA — Ship It (6A-6F)</h3>
-    <p>10 interactive slides: TensorRT, Triton Inference Server, Nsight Profiling, Multi-Stream 7× speedup, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s.</p>
-    <div class="slides">🖥️ 10 slides · Quizzes · Dark/Light theme · Keyboard nav (← →)</div>
+    <span class="tag tag-cuda">CUDA Phase 6</span>
+    <h3>Production CUDA -- Ship It (6A-6F)</h3>
+    <p>10 interactive slides covering all 6 sub-phases: 6A TensorRT (layer fusion, FP16/INT8), 6B Triton Inference Server (config.pbtxt, HTTP/gRPC, dynamic batching), 6C Nsight Profiling (Systems vs Compute, roofline model), 6D Multi-Stream 7.07x speedup + CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment.</p>
+    <div class="slides">10 slides | Quizzes | Dark/Light theme | Arrow key nav</div>
   </a>
+
+  <div class="section-title" style="grid-column:1/-1;">Interactive Tools</div>
+
+  <a href="phase3_lr_convergence_calc.html" class="card">
+    <span class="tag tag-tool">Calculator</span>
+    <h3>LR to Epochs Convergence Estimator</h3>
+    <p>Interactive calculator: adjust learning rate via slider (0.001-0.05), instantly see estimated epochs to converge on MNIST. Core formula: N = log(G_target/G_start) / log(|1-2xlr|). 17-row reference table, accuracy trajectory bars for 5 learning rates, good/bad ranges, rules of thumb.</p>
+    <div class="slides">Interactive | Real-time calculation | Dark/Light theme</div>
+  </a>
+
+  <div class="section-title" style="grid-column:1/-1;">ML & Deep Learning Fundamentals</div>
 
   <a href="class_imbalance_visualizer.html" class="card">
     <span class="tag tag-ml">ML Fundamentals</span>
-    <h3>⚖️ Class Imbalance — All 6 Techniques + Real Code</h3>
-    <p>Interactive visualizer: Undersampling, Oversampling, SMOTE, Class Weights, Focal Loss. Each with real Python code (scikit-learn, XGBoost, TensorFlow, PyTorch).</p>
-    <div class="slides">🖥️ 6 techniques · Code snippets · Visual canvas · Dark/Light theme</div>
+    <h3>Class Imbalance -- All 6 Techniques + Real Code</h3>
+    <p>Interactive visualizer comparing all 6 techniques: Undersampling, Oversampling, SMOTE, Class Weights, Focal Loss. Each with real Python code snippets (scikit-learn, XGBoost, TensorFlow, PyTorch). Visual canvas shows how each technique transforms the data.</p>
+    <div class="slides">6 techniques | Python code | Visual canvas | Dark/Light theme</div>
   </a>
 
   <a href="neuron_weight_visualizer.html" class="card">
     <span class="tag tag-dl">Deep Learning</span>
-    <h3>👁️ What 784 Weights Per Neuron Look Like</h3>
-    <p>See trained weights as 28×28 images. Three modes: realistic features, random (untrained), digit detectors. Full parameter breakdown (109K knobs).</p>
-    <div class="slides">🖥️ 3 modes · 4 neurons side-by-side · Weight grid rendering</div>
+    <h3>What 784 Weights Per Neuron Look Like</h3>
+    <p>Visualize trained weights as 28x28 images. Three modes: realistic features, random (untrained), digit detectors (activates for specific digits). Full parameter breakdown showing all 109K knobs across Layers 1/2/3.</p>
+    <div class="slides">3 modes | 4 neurons side-by-side | Weight grid rendering</div>
   </a>
 
   <a href="one_neuron_explained.html" class="card">
     <span class="tag tag-dl">Deep Learning</span>
-    <h3>🔬 ONE Neuron Explained — 784 Weights + 1 Bias</h3>
-    <p>What "each has 785 knobs" means. Walkthrough: Σ(w×p) + bias → output. Full Layer 1/2/3 parameter table. Bias explained visually.</p>
-    <div class="slides">🖥️ 1 page · Parameter tables · Flow diagrams · Layer comparison</div>
+    <h3>ONE Neuron Explained -- 784 Weights + 1 Bias</h3>
+    <p>What "each neuron has 785 knobs" actually means. Walkthrough: sum-of-products (w x p) + bias to output. Full Layer 1/2/3 parameter table with neuron counts and total knobs. Bias explained with visual examples.</p>
+    <div class="slides">1 page | Parameter tables | Flow diagrams | Layer comparison</div>
   </a>
 
 </div>
