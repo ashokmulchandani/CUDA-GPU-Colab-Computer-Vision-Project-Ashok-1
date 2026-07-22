@@ -105,7 +105,8 @@ function render(){
       </div>
 
       <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">Each box = 1 GPU kernel launch (~5μs overhead each)</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);margin-top:0.3rem;">225 launches × 5μs = <strong>1.1ms wasted just on launch overhead!</strong></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);margin-top:0.3rem;">225 launches × 5μs = 1,125μs = <strong>1.1ms</strong> wasted just on launch overhead!</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">💡 μs = microsecond (1/1,000,000 second) &nbsp;|&nbsp; ms = millisecond (1/1,000 second) &nbsp;|&nbsp; <strong>1 ms = 1,000 μs</strong></div>
       <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">Also: dropout layers, gradient computation, optimizer state — all still present but useless for inference.</div>
     </div>`;
     c='<span class="cm">// PyTorch is a TRAINING framework — not optimized for inference</span>\n<span style="color:var(--red);">Problems:</span>\n<span class="cm">1. Each layer is a separate GPU kernel launch (overhead)</span>\n<span class="cm">2. FP32 precision — Tensor Cores prefer FP16</span>\n<span class="cm">3. Generic kernels — not tuned for YOUR specific GPU</span>\n<span class="cm">4. Training-only ops still present (dropout, loss, gradients)</span>';
