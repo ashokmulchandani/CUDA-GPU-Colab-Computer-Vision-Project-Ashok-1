@@ -648,6 +648,31 @@ const slides = [
       </div>
     </div>
 
+    <h3>📦 Bounding Box Anatomy — How YOLO Represents a Detection</h3>
+    <p>Each detection is <strong style="color:var(--cyan);">5 numbers</strong> — NOT corner coordinates like you might expect:</p>
+    <div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;margin:0.8rem 0;">
+      <div style="position:relative;width:220px;height:160px;background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;">
+        <div style="position:absolute;top:30px;left:50px;width:120px;height:90px;border:3px solid var(--cyan);border-radius:4px;"></div>
+        <!-- Center crosshair -->
+        <div style="position:absolute;top:30px;left:110px;width:2px;height:90px;background:var(--amber);"></div>
+        <div style="position:absolute;top:75px;left:50px;width:120px;height:2px;background:var(--amber);"></div>
+        <div style="position:absolute;top:73px;left:112px;width:8px;height:8px;background:var(--amber);border-radius:50%;"></div>
+        <!-- Labels -->
+        <div style="position:absolute;top:10px;left:88px;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);">(x,y)</div>
+        <div style="position:absolute;top:68px;left:10px;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);">← w →</div>
+        <div style="position:absolute;top:50px;left:178px;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);writing-mode:vertical-lr;">h</div>
+        <div style="position:absolute;top:128px;left:60px;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);">conf: 0.95</div>
+      </div>
+      <div style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:2;">
+        <div><span style="color:var(--amber);">x_center</span> = horizontal center of box</div>
+        <div><span style="color:var(--amber);">y_center</span> = vertical center of box</div>
+        <div><span style="color:var(--amber);">width</span> = box width</div>
+        <div><span style="color:var(--amber);">height</span> = box height</div>
+        <div><span style="color:var(--green);">confidence</span> = how sure the model is</div>
+        <div style="margin-top:0.3rem;font-size:0.5rem;color:var(--tmut);">All values normalized 0..1<br>(fraction of image dimensions)</div>
+      </div>
+    </div>
+
     <h3>🔢 The Numbers (YOLOv8n — the "nano" model)</h3>
     <div class="eq-box">
 <span style="color:var(--text-muted)">// YOLOv8n architecture at a glance:</span>
@@ -1070,24 +1095,51 @@ output[c * out_h * out_w + out_y * out_w + out_x] = (<span style="color:var(--cy
     }
 }</div>
 
-    <h3>🎯 Concrete Example: 10 Boxes → 5 Objects</h3>
-    <div class="compare-grid">
-      <div class="compare-card pick-a">
-        <h4>🔴 BEFORE NMS (10 boxes)</h4>
-        <p>🚌 Bus: 4 overlapping boxes (conf: 0.45, 0.78, 0.95, 0.61)</p>
-        <p style="margin-top:0.3rem">🧑 Person: 3 overlapping boxes (conf: 0.55, 0.92, 0.38)</p>
-        <p style="margin-top:0.3rem">🚗 Car: 1 box (conf: 0.88)</p>
-        <p style="margin-top:0.3rem">🐕 Dog: 1 box (conf: 0.71)</p>
-        <p style="margin-top:0.3rem">🚦 Sign: 1 box (conf: 0.64)</p>
+    <h3>🎯 Visual: How NMS Cleans Up 10 Boxes → 5 Objects</h3>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:0.8rem 0;">
+      <!-- BEFORE -->
+      <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--red);margin-bottom:0.5rem;">🔴 BEFORE NMS — 10 boxes, many overlapping</div>
+        <div style="position:relative;width:200px;height:160px;background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;margin:0 auto;">
+          <div style="position:absolute;top:10px;left:15px;width:150px;height:60px;border:2px solid var(--red);border-radius:4px;opacity:0.6;"></div>
+          <div style="position:absolute;top:14px;left:20px;width:140px;height:55px;border:2px solid var(--amber);border-radius:4px;opacity:0.7;"></div>
+          <div style="position:absolute;top:12px;left:18px;width:145px;height:58px;border:3px solid var(--green);border-radius:4px;"></div>
+          <div style="position:absolute;top:16px;left:22px;width:135px;height:52px;border:2px solid var(--red);border-radius:4px;opacity:0.5;"></div>
+          <div style="position:absolute;top:8px;left:12px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--green);">🚌 BUS 0.95 ✅</div>
+
+          <div style="position:absolute;top:70px;left:50px;width:60px;height:50px;border:2px solid var(--red);border-radius:4px;opacity:0.5;"></div>
+          <div style="position:absolute;top:72px;left:52px;width:56px;height:48px;border:3px solid var(--green);border-radius:4px;"></div>
+          <div style="position:absolute;top:74px;left:54px;width:52px;height:46px;border:2px solid var(--red);border-radius:4px;opacity:0.6;"></div>
+          <div style="position:absolute;top:68px;left:48px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--green);">🧑 0.92 ✅</div>
+
+          <div style="position:absolute;top:100px;left:130px;width:50px;height:30px;border:2px solid var(--cyan);border-radius:4px;"></div>
+          <div style="position:absolute;top:98px;left:128px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--cyan);">🚗 0.88</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.4rem;">🚌×4 🧑×3 🚗×1 🐕×1 🚦×1</div>
       </div>
-      <div class="compare-card pick-c">
-        <h4>🟢 AFTER NMS (5 boxes)</h4>
-        <p>🚌 Bus: 1 box (conf: 0.95) ✅</p>
-        <p style="margin-top:0.3rem">🧑 Person: 1 box (conf: 0.92) ✅</p>
-        <p style="margin-top:0.3rem">🚗 Car: 1 box (conf: 0.88) ✅</p>
-        <p style="margin-top:0.3rem">🐕 Dog: 1 box (conf: 0.71) ✅</p>
-        <p style="margin-top:0.3rem">🚦 Sign: 1 box (conf: 0.64) ✅</p>
+
+      <!-- AFTER -->
+      <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--green);margin-bottom:0.5rem;">🟢 AFTER NMS — 5 clean detections</div>
+        <div style="position:relative;width:200px;height:160px;background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;margin:0 auto;">
+          <div style="position:absolute;top:12px;left:18px;width:145px;height:58px;border:3px solid var(--green);border-radius:4px;"></div>
+          <div style="position:absolute;top:8px;left:12px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--green);">🚌 BUS 0.95 ✅</div>
+
+          <div style="position:absolute;top:72px;left:52px;width:56px;height:48px;border:3px solid var(--green);border-radius:4px;"></div>
+          <div style="position:absolute;top:68px;left:48px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--green);">🧑 0.92 ✅</div>
+
+          <div style="position:absolute;top:100px;left:130px;width:50px;height:30px;border:2px solid var(--cyan);border-radius:4px;"></div>
+          <div style="position:absolute;top:98px;left:128px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--cyan);">🚗 0.88</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);margin-top:0.4rem;">🚌×1 🧑×1 🚗×1 ✅ Clean!</div>
       </div>
+    </div>
+
+    <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);margin:0.5rem 0;">
+      <strong style="color:var(--cyan);">NMS</strong> = <strong>N</strong>on-<strong>M</strong>aximum <strong>S</strong>uppression &nbsp;|&nbsp;
+      <strong style="color:var(--amber);">IoU</strong> = <strong>I</strong>ntersection <strong>o</strong>ver <strong>U</strong>nion &nbsp;|&nbsp;
+      IoU > 0.5 → boxes overlap too much → keep only the highest-confidence one
     </div>
 
     <div class="quiz" id="quiz6">
