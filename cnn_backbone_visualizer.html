@@ -60,7 +60,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
     <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🔍 What Are "Channels"? — Think of Them as Stacked Feature Maps</div>
     <div style="display:flex;gap:0.5rem;align-items:center;justify-content:center;flex-wrap:wrap;">
       <div style="text-align:center;">
-        <div style="font-size:0.45rem;color:var(--tmut);">Input: 3 channels (RGB)</div>
+        <div style="font-size:0.45rem;color:var(--tmut);">Input: <strong style="color:var(--amber);">3 channels</strong> (🔴R 🟢G 🔵B)</div>
         <div style="display:flex;gap:1px;justify-content:center;">
           <div style="width:50px;height:50px;background:rgba(248,81,73,0.7);border:1px solid var(--red);border-radius:2px;"></div>
           <div style="width:50px;height:50px;background:rgba(63,185,80,0.7);border:1px solid var(--green);border-radius:2px;"></div>
@@ -106,6 +106,40 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
 
   <!-- INSIGHT -->
   <div class="insight-box" id="insight"></div>
+
+  <!-- PARAMETER TABLE -->
+  <div style="background:var(--card);border:2px solid var(--violet);border-radius:12px;padding:1rem;margin:0.8rem auto;max-width:700px;text-align:left;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--violet);margin-bottom:0.6rem;text-align:center;">📊 Where Do 3.15M Parameters Come From?</div>
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.5rem;">
+      <thead>
+        <tr style="background:var(--raised);">
+          <th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Level</th>
+          <th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Input → Output</th>
+          <th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Filter</th>
+          <th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Weights per filter</th>
+          <th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Calculation</th>
+          <th style="padding:0.3rem;border:1px solid var(--border);color:var(--amber);text-align:right;">Params</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:0.3rem;border:1px solid var(--border);color:var(--cyan);">Stem</td><td style="padding:0.3rem;border:1px solid var(--border);">3ch → 16ch</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3×3 = 27</td><td style="padding:0.3rem;border:1px solid var(--border);">16×(27+1)</td><td style="padding:0.3rem;border:1px solid var(--border);text-align:right;color:var(--amber);">448</td></tr>
+        <tr><td style="padding:0.3rem;border:1px solid var(--border);color:var(--cyan);">Stem</td><td style="padding:0.3rem;border:1px solid var(--border);">16ch → 32ch</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3×16 = 144</td><td style="padding:0.3rem;border:1px solid var(--border);">32×(144+1)</td><td style="padding:0.3rem;border:1px solid var(--border);text-align:right;color:var(--amber);">4,640</td></tr>
+        <tr><td style="padding:0.3rem;border:1px solid var(--border);color:var(--amber);">L1-L2</td><td style="padding:0.3rem;border:1px solid var(--border);">32ch → 64ch</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3×32 = 288</td><td style="padding:0.3rem;border:1px solid var(--border);">64×(288+1)</td><td style="padding:0.3rem;border:1px solid var(--border);text-align:right;color:var(--amber);">18,496</td></tr>
+        <tr><td style="padding:0.3rem;border:1px solid var(--border);color:var(--magenta);">L3 (P3)</td><td style="padding:0.3rem;border:1px solid var(--border);">64ch → 128ch</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3×64 = 576</td><td style="padding:0.3rem;border:1px solid var(--border);">128×(576+1)</td><td style="padding:0.3rem;border:1px solid var(--border);text-align:right;color:var(--amber);">73,856</td></tr>
+        <tr><td style="padding:0.3rem;border:1px solid var(--border);color:var(--violet);">L4 (P4)</td><td style="padding:0.3rem;border:1px solid var(--border);">128ch → 256ch</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3×128 = 1,152</td><td style="padding:0.3rem;border:1px solid var(--border);">256×(1152+1)</td><td style="padding:0.3rem;border:1px solid var(--border);text-align:right;color:var(--amber);">295,168</td></tr>
+        <tr><td style="padding:0.3rem;border:1px solid var(--border);color:var(--red);">L5 (P5)</td><td style="padding:0.3rem;border:1px solid var(--border);">256ch → 512ch</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3</td><td style="padding:0.3rem;border:1px solid var(--border);">3×3×256 = 2,304</td><td style="padding:0.3rem;border:1px solid var(--border);">512×(2304+1)</td><td style="padding:0.3rem;border:1px solid var(--border);text-align:right;color:var(--amber);">1,180,160</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.6rem;text-align:center;line-height:1.8;">
+      <strong style="color:var(--amber);">Formula: params = out_channels × (filter_h × filter_w × in_channels + 1)</strong><br>
+      <span style="color:var(--tmut);">= out_channels × (kernel_weights + 1 bias per filter)</span><br><br>
+      <span style="color:var(--cyan);">Most of the 3.15M params are in the DEEP layers (L3-L5) where channels are large.</span><br>
+      <span style="color:var(--tmut);">A 3×3 conv from 256→512 channels = <strong>1.18 million parameters alone!</strong></span><br>
+      <span style="color:var(--tmut);">(Plus multiple conv layers per level, 1×1 convs, neck, and head = ~3.15M total)</span>
+    </div>
+  </div>
 
   <!-- CODE -->
   <div class="code" id="codeBox"></div>
