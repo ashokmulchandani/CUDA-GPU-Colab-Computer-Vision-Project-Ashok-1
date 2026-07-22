@@ -66,6 +66,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
 .st2 .val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700}
 .st2 .lbl{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut)}
 
+.fs.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
 @media(max-width:800px){.ig td{width:10px;height:10px}.oh td{width:6px;height:6px}.ft2 td{width:28px;height:28px;font-size:0.5rem}}
 </style>
 </head>
@@ -93,7 +94,15 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
     <!-- FILTER + OUTPUT -->
     <div style="display:flex;flex-direction:column;gap:0.8rem;">
       <div class="panel" style="border-top:3px solid var(--amber);">
-        <div class="panel-label">🔍 5×5 FILTER 1 (edge detector)</div>
+        <div class="panel-label">🔍 5×5 FILTER — Choose one</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.2rem;justify-content:center;margin-bottom:0.4rem;">
+          <button class="btn fs active" onclick="switchF(0,this)" style="font-size:0.45rem;padding:0.2rem 0.5rem;">↕Vert</button>
+          <button class="btn fs" onclick="switchF(1,this)" style="font-size:0.45rem;padding:0.2rem 0.5rem;">↔Horiz</button>
+          <button class="btn fs" onclick="switchF(2,this)" style="font-size:0.45rem;padding:0.2rem 0.5rem;">↗Diag</button>
+          <button class="btn fs" onclick="switchF(3,this)" style="font-size:0.45rem;padding:0.2rem 0.5rem;">🔲Blur</button>
+          <button class="btn fs" onclick="switchF(4,this)" style="font-size:0.45rem;padding:0.2rem 0.5rem;">✨Sharp</button>
+          <button class="btn fs" onclick="switchF(5,this)" style="font-size:0.45rem;padding:0.2rem 0.5rem;">▦Emboss</button>
+        </div>
         <table class="ft2" id="filterGrid"></table>
       </div>
       <div class="panel" style="border-top:3px solid var(--green);">
@@ -142,14 +151,17 @@ for(let r=0;r<28;r++){img[r]=[];for(let c=0;c<28;c++){
   img[r][c]=Math.min(1,val);
 }}
 
-// Filter: vertical edge detector
-const filt=[
-  [ 0.15, 0.30, 0.10,-0.20,-0.12],
-  [ 0.22, 0.40, 0.08,-0.18,-0.18],
-  [ 0.08, 0.25, 0.05,-0.22,-0.10],
-  [-0.06,-0.12,-0.25,-0.35,-0.30],
-  [-0.10,-0.18,-0.22,-0.32,-0.28]
+// Multiple filter types
+const allFilters=[
+  {name:'Vertical Edge',data:[[0.15,0.30,0.10,-0.20,-0.12],[0.22,0.40,0.08,-0.18,-0.18],[0.08,0.25,0.05,-0.22,-0.10],[-0.06,-0.12,-0.25,-0.35,-0.30],[-0.10,-0.18,-0.22,-0.32,-0.28]]},
+  {name:'Horizontal Edge',data:[[0.15,0.22,0.08,-0.06,-0.10],[0.30,0.40,0.25,-0.12,-0.18],[0.10,0.08,0.05,-0.25,-0.22],[-0.20,-0.18,-0.22,-0.35,-0.32],[-0.12,-0.18,-0.10,-0.30,-0.28]]},
+  {name:'Diagonal TL-BR',data:[[0.30,0.15,0.05,-0.10,-0.22],[0.15,0.25,0.10,-0.08,-0.18],[0.05,0.10,0.20,-0.15,-0.12],[-0.10,-0.08,-0.15,-0.20,-0.30],[-0.22,-0.18,-0.12,-0.30,-0.32]]},
+  {name:'Box Blur',data:[[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04],[0.04,0.04,0.04,0.04,0.04]]},
+  {name:'Sharpen',data:[[0,0,0,0,0],[0,-0.1,-0.1,-0.1,0],[0,-0.1,2.5,-0.1,0],[0,-0.1,-0.1,-0.1,0],[0,0,0,0,0]]},
+  {name:'Emboss SE-NW',data:[[-0.12,-0.10,-0.08,0,0.10],[-0.10,-0.06,0,0.08,0.12],[-0.08,0,0.10,0.15,0.10],[0,0.08,0.15,0.20,0.12],[0.10,0.12,0.10,0.12,0.08]]}
 ];
+let filt=allFilters[0].data;
+let filtIdx=0;
 
 const outputs=Array(24).fill().map(()=>Array(24).fill(null));
 let curR=0,curC=0,autoTimer=null,spd=60;
@@ -253,6 +265,15 @@ function toggleAuto() {
   autoTimer=setInterval(step,spd);
 }
 
+function switchF(idx,btn){
+  filtIdx=idx;filt=allFilters[idx].data;
+  document.querySelectorAll('.fs').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  for(let r=0;r<24;r++)for(let c=0;c<24;c++)outputs[r][c]=null;
+  curR=0;curC=0;renderInput();renderFilter();renderOutput();
+  document.getElementById('compBox').innerHTML='Filter changed to <strong>'+allFilters[idx].name+'</strong>. Press Play to recompute all positions.';
+  document.getElementById('posLbl').textContent='0/576';document.getElementById('mulLbl').textContent='0';document.getElementById('outLbl').textContent='0.00';
+}
 function resetAll(){
   if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary');}
   for(let r=0;r<24;r++)for(let c=0;c<24;c++)outputs[r][c]=null;
