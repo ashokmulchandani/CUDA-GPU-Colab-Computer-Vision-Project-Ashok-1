@@ -276,16 +276,140 @@ const slides = [
     render() { return `
 <div class="slide"><div class="card">
   <h2><span class="num">3.1</span> The Architecture — 784 → 128 → 64 → 10</h2>
-  <p>The network is a <strong style="color:var(--cyan)">funnel</strong> — wide at the top (all the raw pixels), narrow at the bottom (just the answer). Each layer compresses information into more useful patterns.</p>
+  <p>The network is a <strong style="color:var(--cyan)">funnel</strong> — wide at the top (all the raw pixels), narrow at the bottom (just the answer). Each layer compresses information into more useful patterns. Every arrow is a <strong style="color:var(--amber)">weight matrix</strong> connecting every neuron in one layer to every neuron in the next.</p>
 
-  <div class="funnel">
-    <div><div class="funnel-bar">784 pixels</div><div class="funnel-label">INPUT: Raw 28×28 image</div></div>
-    <div style="color:var(--cyan);font-size:1.2rem;margin:0.2rem 0">⬇ Matmul + ReLU</div>
-    <div><div class="funnel-bar">128 neurons</div><div class="funnel-label">HIDDEN 1: Edges, curves, lines</div></div>
-    <div style="color:var(--cyan);font-size:1.2rem;margin:0.2rem 0">⬇ Matmul + ReLU</div>
-    <div><div class="funnel-bar">64 neurons</div><div class="funnel-label">HIDDEN 2: Loops, strokes, corners</div></div>
-    <div style="color:var(--cyan);font-size:1.2rem;margin:0.2rem 0">⬇ Matmul + Softmax</div>
-    <div><div class="funnel-bar">10 digits</div><div class="funnel-label">OUTPUT: "96% it's a 5!"</div></div>
+  <!-- DETAILED ARCHITECTURE DIAGRAM -->
+  <div style="background:var(--bg-raised);border:2px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;overflow-x:auto;">
+
+    <!-- Layer boxes row -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;min-width:700px;">
+
+      <!-- INPUT LAYER -->
+      <div style="text-align:center;">
+        <div style="background:var(--bg-card);border:2px solid var(--magenta);border-radius:12px;padding:1rem 1.2rem;min-width:120px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--magenta);margin-bottom:0.3rem;">INPUT LAYER</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--text);">784</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">neurons</div>
+          <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">28×28 pixels</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">flattened to 1D</div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);margin-top:0.3rem;">No weights here</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">Just raw pixels</div>
+      </div>
+
+      <!-- Arrow 1: W1 -->
+      <div style="text-align:center;padding:0 0.3rem;flex-shrink:0;">
+        <div style="font-size:1.5rem;color:var(--cyan);">→</div>
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.3rem 0.6rem;margin:0.2rem 0;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--amber);font-weight:600;">W₁: 784×128</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">100,352 weights</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.4rem;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">+ b₁: 128</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);margin-top:0.2rem;">→ ReLU</div>
+      </div>
+
+      <!-- HIDDEN LAYER 1 -->
+      <div style="text-align:center;">
+        <div style="background:var(--bg-card);border:2px solid var(--cyan);border-radius:12px;padding:1rem 1.2rem;min-width:120px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--cyan);margin-bottom:0.3rem;">HIDDEN LAYER 1</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--text);">128</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">neurons</div>
+          <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--green);">ReLU(max(0,x))</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Detects: edges,</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">curves, lines</div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);margin-top:0.3rem;">100,352 + 128</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);">= 100,480 params</div>
+      </div>
+
+      <!-- Arrow 2: W2 -->
+      <div style="text-align:center;padding:0 0.3rem;flex-shrink:0;">
+        <div style="font-size:1.5rem;color:var(--cyan);">→</div>
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.3rem 0.6rem;margin:0.2rem 0;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--amber);font-weight:600;">W₂: 128×64</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">8,192 weights</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.4rem;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">+ b₂: 64</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);margin-top:0.2rem;">→ ReLU</div>
+      </div>
+
+      <!-- HIDDEN LAYER 2 -->
+      <div style="text-align:center;">
+        <div style="background:var(--bg-card);border:2px solid var(--cyan);border-radius:12px;padding:1rem 1.2rem;min-width:120px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--cyan);margin-bottom:0.3rem;">HIDDEN LAYER 2</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--text);">64</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">neurons</div>
+          <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--green);">ReLU(max(0,x))</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Detects: loops,</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">strokes, corners</div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);margin-top:0.3rem;">8,192 + 64</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);">= 8,256 params</div>
+      </div>
+
+      <!-- Arrow 3: W3 -->
+      <div style="text-align:center;padding:0 0.3rem;flex-shrink:0;">
+        <div style="font-size:1.5rem;color:var(--cyan);">→</div>
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.3rem 0.6rem;margin:0.2rem 0;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--amber);font-weight:600;">W₃: 64×10</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">640 weights</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.4rem;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">+ b₃: 10</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--violet);margin-top:0.2rem;">→ Softmax</div>
+      </div>
+
+      <!-- OUTPUT LAYER -->
+      <div style="text-align:center;">
+        <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:12px;padding:1rem 1.2rem;min-width:120px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--green);margin-bottom:0.3rem;">OUTPUT LAYER</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--text);">10</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">digits (0-9)</div>
+          <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--violet);">Softmax → %</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">"96% it's a 5!"</div>
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);margin-top:0.3rem;">640 + 10</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);">= 650 params</div>
+      </div>
+
+    </div>
+
+    <!-- Summary bar -->
+    <div style="margin-top:1.2rem;padding-top:1rem;border-top:2px solid var(--border);display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">TOTAL WEIGHTS</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--amber);">109,184</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">100,352 + 8,192 + 640</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">TOTAL BIASES</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--amber);">202</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">128 + 64 + 10</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">TOTAL PARAMETERS</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;color:var(--cyan);">109,386</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">~109K knobs to tune</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-muted);">ACTIVATIONS</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:700;color:var(--green);">ReLU → ReLU</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:700;color:var(--violet);">→ Softmax</div>
+      </div>
+    </div>
   </div>
 
   <h3>🧠 Why This Shape?</h3>
