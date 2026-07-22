@@ -741,19 +741,108 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
     }
 }</div>
 
-  <h3>🧵 Thread Organization — 3D Grid</h3>
-  <div class="compare-grid two-col">
-    <div class="compare-card pick-b"><h4>🔵 Grid Dimensions</h4>
-      <p><strong>blockIdx.x</strong> = output column (0..23)<br>
-      <strong>blockIdx.y</strong> = output row (0..23)<br>
-      <strong>blockIdx.z</strong> = (batch × filter) index (0..511)</p>
-      <p style="margin-top:0.5rem;">dim3 threads(16,16)<br>dim3 blocks(2,2,512)<br><span style="color:var(--cyan);">BATCH=64, NUM_FILTERS=8 → 64×8=512</span></p>
+  <h3>🧵 Thread Organization — Where Does 294,912 Come From?</h3>
+  <p>Each thread computes <strong style="color:var(--cyan);">one output pixel for one filter for one image</strong>. The total threads = all combinations of (output row × output col × batch image × filter).</p>
+
+  <div style="background:var(--bg-raised);border:2px solid var(--violet);border-radius:var(--radius);padding:1.2rem;margin:1rem 0;overflow-x:auto;">
+
+    <!-- The formula breakdown -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;text-align:center;margin-bottom:1rem;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Output columns</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;color:var(--cyan);">24</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">28 − 5 + 1</div>
+      </div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--text-muted);display:flex;align-items:center;justify-content:center;">×</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Output rows</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;color:var(--cyan);">24</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">28 − 5 + 1</div>
+      </div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--text-muted);display:flex;align-items:center;justify-content:center;">×</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Batch images</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;color:var(--amber);">64</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">BATCH_SIZE</div>
+      </div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--text-muted);display:flex;align-items:center;justify-content:center;">×</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Filters</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;color:var(--amber);">8</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">NUM_FILTERS</div>
+      </div>
     </div>
-    <div class="compare-card pick-c"><h4>🟢 Total Threads in Flight</h4>
-      <p>24 × 24 × 64 × 8 = <strong style="color:var(--green);font-size:1.1em;">294,912 threads</strong></p>
-      <p style="margin-top:0.5rem;font-size:0.78rem;">Each thread does 25 multiplications + 24 additions = 49 FLOPs.</p>
-      <p style="font-size:0.78rem;">Total: 294,912 × 49 ≈ <strong style="color:var(--amber);">14.5 million FLOPs per forward pass</strong></p>
+
+    <div style="text-align:center;margin-bottom:1rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;font-weight:700;color:var(--green);">= 294,912 threads</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">All running the same inner loops simultaneously</div>
     </div>
+
+    <!-- 3D Grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.8rem;">
+      <div style="background:var(--bg-card);border:1px solid var(--cyan);border-radius:8px;padding:0.8rem;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.5rem;">🗺️ 3D Grid (how threads are grouped)</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:2;color:var(--tdim);">
+          dim3 <strong style="color:var(--green);">threads</strong>(<strong style="color:var(--amber);">16</strong>, <strong style="color:var(--amber);">16</strong>)<br>
+          &nbsp;&nbsp;→ 256 threads per block<br>
+          dim3 <strong style="color:var(--green);">blocks</strong>(<strong style="color:var(--amber);">2</strong>, <strong style="color:var(--amber);">2</strong>, <strong style="color:var(--amber);">512</strong>)<br>
+          &nbsp;&nbsp;→ 2×2×512 = 2,048 blocks<br>
+          Total launched = <strong style="color:var(--violet);">524,288</strong><br>
+          <span style="font-size:0.48rem;color:var(--tmut);">(294,912 do work, rest are bounds guards)</span>
+        </div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--cyan);border-radius:8px;padding:0.8rem;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.5rem;">📐 blockIdx.z = (batch × filter)</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:2;color:var(--tdim);">
+          <strong style="color:var(--cyan);">blockIdx.x</strong> = 0..1 → column tile<br>
+          <strong style="color:var(--cyan);">blockIdx.y</strong> = 0..1 → row tile<br>
+          <strong style="color:var(--cyan);">blockIdx.z</strong> = 0..511<br>
+          &nbsp;&nbsp;= 64 batches × 8 filters<br>
+          <strong style="color:var(--cyan);">threadIdx</strong> = pixel within tile
+        </div>
+      </div>
+    </div>
+
+    <!-- Analogy -->
+    <div style="background:rgba(255,179,71,0.08);border:1px solid var(--amber);border-radius:8px;padding:0.8rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🧠 Human Analogy</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:1.8;">
+        <strong style="color:var(--cyan);">64 students</strong> × <strong style="color:var(--amber);">8 highlighters</strong> × <strong style="color:var(--green);">576 grid cells</strong> = <strong style="color:var(--violet);">294,912 work items</strong><br>
+        CPU: one person does 294,912 one at a time → SLOW<br>
+        GPU: 294,912 tiny workers each do ONE → INSTANT
+      </div>
+    </div>
+
+    <!-- Per-thread stats -->
+    <div style="display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;margin-top:0.8rem;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Memory reads</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--amber);">51</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">25 in + 25 filt + 1 bias</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Memory writes</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--green);">1</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">one output pixel</div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Arith. ops</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--violet);">49</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">25 mul + 24 add</div>
+      </div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--tdim);display:flex;align-items:center;">× 294,912</div>
+      <div style="background:var(--bg-card);border:2px solid var(--amber);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Total FLOPs</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--amber);">~14.5M</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">per forward pass</div>
+      </div>
+    </div>
+
+    <!-- Link to animation -->
+    <div style="margin-top:0.8rem;text-align:center;">
+      <a href="inner_loops_animation.html" style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--cyan);text-decoration:none;">🔬 Interactive: Step through the inner loops →</a>
+    </div>
+
   </div>
 
   <h3>🔬 Inner Loops — 25 Multiplications Per Thread</h3>
@@ -763,20 +852,6 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
       <span style="color:var(--cyan);">  for (fw = 0; fw < 5; fw++)</span>        <span style="color:var(--text-muted);">// slide filter horizontally</span>
           sum += input[row+fh][col+fw] * filter[fh][fw];
     </div>
-    <div style="margin-top:0.5rem;display:flex;gap:0.8rem;flex-wrap:wrap;justify-content:center;">
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Memory reads per thread</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--amber);">25 + 25 + 1</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">(input + filter + bias)</div>
-      </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Memory writes per thread</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--green);">1</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">(one output pixel)</div>
-      </div>
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">Arithmetic ops per thread</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--violet);">49</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">(25 mul + 24 add)</div>
       </div>
     </div>
