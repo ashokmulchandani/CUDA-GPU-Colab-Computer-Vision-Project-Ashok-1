@@ -140,6 +140,134 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
     <input type="range" min="80" max="800" value="300" oninput="spd=parseInt(this.value)" style="accent-color:var(--cyan);width:100px;">
   </div>
 
+  <!-- THREAD ORGANIZATION DIAGRAM -->
+  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:left;max-width:750px;margin-left:auto;margin-right:auto;font-size:0.6rem;">
+
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--violet);margin-bottom:1rem;text-align:center;">🧵 Thread Hierarchy — Grid → Blocks → Threads</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+      <!-- LEFT: Block diagram -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.6rem;">📐 24×24 Output Grid → 2×2 Blocks</div>
+
+        <!-- Visual 24x24 divided into 2x2 blocks -->
+        <div style="display:inline-block;position:relative;">
+          <table style="border-collapse:collapse;margin:0 auto;">
+            <tr>
+              <td style="width:60px;height:60px;border:2px solid var(--cyan);background:var(--cyan-bg);text-align:center;vertical-align:middle;">
+                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);">BLOCK<br>(0,0)</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>pixels 0-15</div>
+              </td>
+              <td style="width:60px;height:60px;border:2px solid var(--amber);background:rgba(255,179,71,0.08);text-align:center;vertical-align:middle;">
+                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">BLOCK<br>(1,0)</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>pixels 16-23</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="width:60px;height:60px;border:2px solid var(--amber);background:rgba(255,179,71,0.08);text-align:center;vertical-align:middle;">
+                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">BLOCK<br>(0,1)</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>rows 16-23</div>
+              </td>
+              <td style="width:60px;height:60px;border:2px solid var(--amber);background:rgba(255,179,71,0.08);text-align:center;vertical-align:middle;">
+                <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);">BLOCK<br>(1,1)</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);">16×16<br>remainder</div>
+              </td>
+            </tr>
+          </table>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;">
+            24 output cols ÷ 16 threads = <strong style="color:var(--cyan);">2 blocks</strong> in X<br>
+            24 output rows ÷ 16 threads = <strong style="color:var(--cyan);">2 blocks</strong> in Y<br>
+            <span style="color:var(--tmut);">(24 isn't divisible by 16 → 2nd block has idle threads)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Z-dimension and total -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.6rem;">📦 Z-Dimension → 512 Stacked Slices</div>
+
+        <!-- Visual stack -->
+        <div style="position:relative;display:inline-block;">
+          <div style="width:80px;height:8px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;margin:0 auto 2px;opacity:0.3;"></div>
+          <div style="width:85px;height:8px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;margin:0 auto 2px;opacity:0.5;"></div>
+          <div style="width:90px;height:8px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;margin:0 auto 2px;opacity:0.7;"></div>
+          <div style="width:80px;height:30px;background:var(--cyan-bg);border:2px solid var(--cyan);border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--cyan);font-weight:700;">×512</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-top:0.5rem;line-height:1.8;">
+          64 batch images × 8 filters = <strong style="color:var(--cyan);">512</strong><br>
+          <span style="color:var(--tmut);">Each (batch, filter) = one 2×2 block grid</span><br>
+          <span style="color:var(--tmut);">= 512 × 4 blocks =</span> <strong style="color:var(--amber);">2,048 blocks total</strong><br>
+        </div>
+      </div>
+    </div>
+
+    <!-- THE FULL FORMULA -->
+    <div style="margin-top:1rem;background:var(--card);border:2px solid var(--violet);border-radius:8px;padding:1rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--violet);margin-bottom:0.6rem;">🧮 The Full Launch Formula</div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--tdim);">
+        <!-- blocks.x -->
+        <div style="background:var(--raised);border:1px solid var(--cyan);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
+          <div style="font-size:0.45rem;color:var(--tmut);">blocks.x</div>
+          <div style="font-size:0.9rem;font-weight:700;color:var(--cyan);">2</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">ceil(24/16)</div>
+        </div>
+        <span style="color:var(--tmut);">×</span>
+        <!-- blocks.y -->
+        <div style="background:var(--raised);border:1px solid var(--cyan);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
+          <div style="font-size:0.45rem;color:var(--tmut);">blocks.y</div>
+          <div style="font-size:0.9rem;font-weight:700;color:var(--cyan);">2</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">ceil(24/16)</div>
+        </div>
+        <span style="color:var(--tmut);">×</span>
+        <!-- blocks.z -->
+        <div style="background:var(--raised);border:1px solid var(--amber);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
+          <div style="font-size:0.45rem;color:var(--tmut);">blocks.z</div>
+          <div style="font-size:0.9rem;font-weight:700;color:var(--amber);">512</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">64×8</div>
+        </div>
+        <span style="color:var(--tmut);">×</span>
+        <!-- threads -->
+        <div style="background:var(--raised);border:1px solid var(--green);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;">
+          <div style="font-size:0.45rem;color:var(--tmut);">threads/block</div>
+          <div style="font-size:0.9rem;font-weight:700;color:var(--green);">256</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">16×16</div>
+        </div>
+      </div>
+
+      <div style="margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--tdim);line-height:2;">
+        <strong style="color:var(--violet);">2 × 2 × 512 = 2,048 blocks</strong><br>
+        2,048 blocks × <strong style="color:var(--green);">256 threads</strong> = <strong style="color:var(--violet);">524,288 threads launched</strong><br>
+        <span style="font-size:0.55rem;color:var(--tmut);">Of which <strong style="color:var(--green);">294,912</strong> do real work (24×24×64×8). The rest are bounds-check guards.</span>
+      </div>
+    </div>
+
+    <!-- Hierarchy visual -->
+    <div style="margin-top:0.8rem;display:flex;align-items:center;justify-content:center;gap:0.8rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
+      <div style="background:var(--card);border:2px solid var(--violet);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
+        <div style="color:var(--tmut);font-size:0.45rem;">1 GRID</div>
+        <div style="font-size:0.7rem;color:var(--violet);font-weight:700;">dim3(2,2,512)</div>
+      </div>
+      <span style="font-size:1.2rem;color:var(--tmut);">→</span>
+      <div style="background:var(--card);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
+        <div style="color:var(--tmut);font-size:0.45rem;">2,048 BLOCKS</div>
+        <div style="font-size:0.7rem;color:var(--cyan);font-weight:700;">each dim3(16,16)</div>
+      </div>
+      <span style="font-size:1.2rem;color:var(--tmut);">→</span>
+      <div style="background:var(--card);border:2px solid var(--green);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
+        <div style="color:var(--tmut);font-size:0.45rem;">524,288 THREADS</div>
+        <div style="font-size:0.7rem;color:var(--green);font-weight:700;">294,912 active</div>
+      </div>
+      <span style="font-size:1.2rem;color:var(--tmut);">→</span>
+      <div style="background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;text-align:center;">
+        <div style="color:var(--tmut);font-size:0.45rem;">EACH THREAD</div>
+        <div style="font-size:0.7rem;color:var(--amber);font-weight:700;">1 output pixel</div>
+      </div>
+    </div>
+
+  </div>
+
   <div class="thread-info">
     294,912 threads × 49 FLOPs each = <strong style="color:var(--amber);">~14.5 million FLOPs</strong> per forward pass — all running simultaneously on the GPU
   </div>
