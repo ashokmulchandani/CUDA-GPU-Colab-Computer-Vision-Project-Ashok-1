@@ -118,7 +118,125 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
   </div>
 
   <div style="margin-top:0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);line-height:1.6;">
-    Threads per image: 24×24×8 = <strong style="color:var(--cyan);">294,912 threads</strong> all running this same loop simultaneously
+    Threads per forward pass: 24×24×64×8 = <strong style="color:var(--cyan);">294,912 threads</strong> × 49 FLOPs ≈ <strong style="color:var(--amber);">14.5 million FLOPs</strong>
+  </div>
+
+  <!-- THREAD ORGANIZATION BREAKDOWN -->
+  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:left;max-width:700px;margin-left:auto;margin-right:auto;font-size:0.6rem;">
+
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--violet);margin-bottom:0.8rem;text-align:center;">🧵 Thread Organization — Where Does 294,912 Come From?</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+      <!-- LEFT: The 4 numbers -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.5rem;">🔢 The 4 Multipliers</div>
+        <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">Output columns</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--cyan);font-weight:700;">24</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">28−5+1</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">Output rows</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--cyan);font-weight:700;">24</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">28−5+1</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">Images per batch</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--amber);font-weight:700;">64</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">BATCH_SIZE</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">Filters</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--amber);font-weight:700;">8</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">NUM_FILTERS</td>
+          </tr>
+          <tr>
+            <td colspan="3" style="padding:0.4rem;text-align:center;color:var(--cyan);font-weight:700;font-size:0.65rem;">
+              24 × 24 × 64 × 8 = 294,912
+            </td>
+          </tr>
+        </table>
+        <div style="margin-top:0.5rem;font-size:0.5rem;color:var(--tmut);line-height:1.5;">
+          <strong style="color:var(--amber);">Each thread</strong> = 1 output pixel for 1 filter for 1 image<br>
+          <strong style="color:var(--amber);">All 294,912</strong> run simultaneously on the GPU
+        </div>
+      </div>
+
+      <!-- RIGHT: Grid breakdown -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.5rem;">🗺️ 3D Grid = How Threads Are Organized</div>
+        <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">blockIdx.x</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--green);">0..1</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">column tile</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">× blockIdx.y</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--green);">0..1</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">row tile</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">× blockIdx.z</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--green);">0..511</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">(batch, filter) pair</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.3rem;color:var(--tdim);">× threadIdx</td>
+            <td style="padding:0.3rem;text-align:right;color:var(--green);">16×16=256</td>
+            <td style="padding:0.3rem;font-size:0.45rem;color:var(--tmut);">per block</td>
+          </tr>
+          <tr>
+            <td colspan="3" style="padding:0.4rem;text-align:center;color:var(--cyan);font-weight:700;font-size:0.65rem;">
+              2 × 2 × 512 × 256 = 524,288<br>
+              <span style="font-size:0.5rem;color:var(--tmut);font-weight:400;">(only 294,912 do work — rest are guards)</span>
+            </td>
+          </tr>
+        </table>
+        <div style="margin-top:0.5rem;font-size:0.5rem;color:var(--tmut);line-height:1.5;">
+          <strong style="color:var(--green);">blockIdx.x,y</strong> = "which 16×16 tile of pixels?"<br>
+          <strong style="color:var(--green);">blockIdx.z</strong> = "which image? which filter?"<br>
+          <strong style="color:var(--green);">threadIdx.x,y</strong> = "which pixel in this tile?"
+        </div>
+      </div>
+    </div>
+
+    <!-- THE ANALOGY -->
+    <div style="margin-top:1rem;background:var(--amber-bg, rgba(255,179,71,0.08));border:1px solid var(--amber);border-radius:8px;padding:0.8rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🧠 Analogy: Why 294,912 Threads?</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+        Imagine you have <strong style="color:var(--cyan);">64 students</strong> (batch). Each student looks at <strong style="color:var(--cyan);">ONE image</strong>.<br>
+        Each student uses <strong style="color:var(--amber);">8 highlighters</strong> (filters) to mark different patterns.<br>
+        Each highlighter marks a <strong style="color:var(--green);">24×24 = 576 grid</strong> (output positions).<br><br>
+        <strong style="color:var(--cyan);">Total work items = 64 students × 8 highlighters × 576 grid cells = 294,912</strong><br><br>
+        In a CPU: one person does all 294,912 one at a time. Slow.<br>
+        In a GPU: <strong style="color:var(--green);">294,912 tiny workers each do ONE grid cell simultaneously.</strong> Instant!
+      </div>
+    </div>
+
+    <!-- FLOPs -->
+    <div style="margin-top:0.8rem;display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 1rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Per Thread</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);">49 FLOPs</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">25 mul + 24 add</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--tmut);display:flex;align-items:center;">×</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 1rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Threads</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);">294,912</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">24×24×64×8</div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--tmut);display:flex;align-items:center;">=</div>
+      <div style="background:var(--card);border:2px solid var(--amber);border-radius:6px;padding:0.5rem 1rem;text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);">Per Forward Pass</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--amber);">~14.5M</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">FLOPs just for conv!</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
