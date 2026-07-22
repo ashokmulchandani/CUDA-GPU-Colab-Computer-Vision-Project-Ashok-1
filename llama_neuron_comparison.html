@@ -311,6 +311,63 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
   </div>
 </div>
 
+<!-- WHY 4096 EVERYWHERE -->
+<div class="section-title">🤔 Why Does Llama Keep 4096 Everywhere? — "The Residual Stream"</div>
+<div class="side-grid">
+  <div class="model-card mlp">
+    <h3>🔵 MLP — The "Funnel" (Shrinking)</h3>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:2;color:var(--text-dim);text-align:center;">
+      784 → 128 → 64 → 10<br>
+      <span style="color:var(--cyan);">SHRINKS at every layer</span>
+    </div>
+    <div style="margin-top:0.8rem;font-size:0.75rem;color:var(--text-dim);">
+      <strong style="color:var(--cyan);">Why?</strong> The goal is to COMPRESS information down to <strong>one answer</strong> (a single digit). Each layer throws away irrelevant details. By the output layer, you just have 10 numbers — "which digit?"
+    </div>
+    <div style="margin-top:0.5rem;font-size:0.7rem;color:var(--text-muted);">
+      Like a detective narrowing suspects:<br>
+      784 clues → 128 patterns → 64 theories → 1 answer
+    </div>
+  </div>
+  <div class="model-card llama">
+    <h3>🟣 Llama — The "Residual Stream" (Constant Width)</h3>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:2;color:var(--text-dim);text-align:center;">
+      4096 → 4096 → 4096 → ... (×32)<br>
+      <span style="color:var(--violet);">STAYS THE SAME throughout</span>
+    </div>
+    <div style="margin-top:0.8rem;font-size:0.75rem;color:var(--text-dim);">
+      <strong style="color:var(--violet);">Why?</strong> The goal is to <strong>REFINE</strong> information, not compress it. Llama needs to predict the NEXT token at every position — it needs FULL information at all times. You can't predict the next word from a 10-number summary!
+    </div>
+    <div style="margin-top:0.5rem;font-size:0.7rem;color:var(--text-muted);">
+      Like editing an essay 32 times:<br>
+      4096-word draft → refined → refined → ... → final draft<br>
+      <strong>Same length throughout. Just better each pass.</strong>
+    </div>
+  </div>
+</div>
+
+<div class="eq-box">
+<span style="color:var(--text-muted);">// THE KEY INSIGHT: The FFN expands INTERNALLY, then compresses back</span>
+
+<span style="color:var(--violet);">Each Llama block does:</span>
+  4096 ──→ <span style="color:var(--amber);">FFN expands to 11,008</span> ──→ <span style="color:var(--violet);">FFN compresses back to 4096</span>
+
+<span style="color:var(--text-muted);">The 11,008-neuron hidden layer IS a funnel inside each block! 4096→11008→4096.</span>
+<span style="color:var(--text-muted);">But the RESIDUAL CONNECTION (x + block(x)) requires same size in and out.</span>
+<span style="color:var(--text-muted);">So the RESIDUAL STREAM stays at 4096, but the FFN internally expands to 11,008.</span>
+
+<span style="color:var(--amber);">Analogy:</span> Think of the 4096 as a <strong>highway</strong> — constant width, carries information across all 32 blocks.
+<span style="color:var(--amber);">        </span>Each FFN is an <strong>off-ramp</strong> — expands to a WIDER processing area (11,008),
+<span style="color:var(--amber);">        </span>does intensive computation, then merges back onto the highway at the SAME width (4096).
+
+<span style="color:var(--cyan);">MLP:</span>  Highway starts wide (784), gets narrow (128, 64), ends at exit (10).
+<span style="color:var(--violet);">Llama:</span> Highway stays at constant width (4096) for 32 exits, off-ramps expand/contract, merge back.</div>
+
+<div class="data-types">
+  <div class="data-type-card"><div class="dt-icon">🔵</div><h4>MLP: Compress to Answer</h4><p>Each layer has FEWER neurons. Information is LOST at every step — but that's OK because only the final answer matters. 784→128→64→10.</p></div>
+  <div class="data-type-card"><div class="dt-icon">🟣</div><h4>Llama: Refine at Full Resolution</h4><p>Every layer keeps 4096 neurons. The residual connection ADDS the block's output to the input. Information is never lost — only refined. 4096→4096→4096.</p></div>
+  <div class="data-type-card"><div class="dt-icon">💡</div><h4>The FFN IS a mini-funnel!</h4><p>Inside each block, the FFN expands 4096→11008 then compresses 11008→4096. The expansion gives it "thinking space." The compression brings it back to highway width.</p></div>
+</div>
+
 <!-- THE UNIVERSAL FORMULA -->
 <div class="insight">
   <h3>🧮 THE UNIVERSAL FORMULA — Same Math, Different Scale</h3>
