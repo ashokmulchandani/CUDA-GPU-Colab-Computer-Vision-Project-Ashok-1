@@ -637,7 +637,7 @@ Visual, slide-based learning modules following the same pattern as the [MLOPS Sy
 
 | Phase | Module | Slides | Topics |
 |-------|--------|--------|--------|
-| **3** | [phase3_mlp_mnist.html](phase3_mlp_mnist.html) | 13 slides | Fixed vs Choice, Accuracy, Cross-Entropy Loss + ranges, R²/MAE/RMSE regression metrics, ReLU, Softmax, Full pipeline walkthrough, Detective analogy, CUDA kernels |
+| **3** | [phase3_mlp_mnist.html](phase3_mlp_mnist.html) | 15 slides | Fixed vs Choice, Accuracy, Cross-Entropy Loss + p_correct visual, R²/MAE/RMSE, Precision/Recall/F1, ReLU, Softmax, Full pipeline, Detective analogy, CUDA kernels |
 | **3** | [🧮 LR → Epochs Estimator](phase3_lr_convergence_calc.html) | interactive | Adjust learning rate → see estimated epochs, accuracy trajectory bars, 17-row reference table, rules of thumb |
 | **4** | [phase4_yolo_cuda.html](phase4_yolo_cuda.html) | 8 slides | YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS kernel, 137 FPS pipeline, Triton serving |
 | **6** | [phase6_production_cuda.html](phase6_production_cuda.html) | 10 slides | 6A TensorRT, 6B Triton Server, 6C Nsight Profiling, 6D Multi-Stream 7×, CUDA Graphs, 6E Custom Kernels + pybind11, 6F Docker/K8s Deployment |

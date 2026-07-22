@@ -491,6 +491,39 @@ Accuracy = correct_count / 10000 × 100
 <span style="color:var(--text-muted)">// For a BATCH of images, average the individual losses:</span>
 <span style="color:var(--cyan);font-weight:bold;">Batch Loss = (1/N) × Σ −log(p_correct_i)</span></div>
 
+  <h3>👁️ Visualizing p_correct — "Which Number Do I Look At?"</h3>
+  <p>The Softmax output is <strong style="color:var(--cyan)">10 numbers</strong> — one probability per digit. p_correct is simply the probability at the position of the <strong style="color:var(--green)">TRUE label</strong>. You look at the answer key, find the right digit, and check how much probability the model gave it.</p>
+
+  <div class="eq-box">
+<span style="color:var(--text-muted)">╔══════════════════════════════════════════════════════════════════════════╗</span>
+<span style="color:var(--text-muted)">║  FULL SOFTMAX OUTPUT (10 probabilities, sum = 1.0)                       ║</span>
+<span style="color:var(--text-muted)">╠══════════════════════════════════════════════════════════════════════════╣</span>
+<span style="color:var(--text-muted)">║                                                                          ║</span>
+<span style="color:var(--text-muted)">║   DIGIT:    [0]     [1]     [2]     [3]     [4]     [5]     [6]     [7]     [8]     [9]    ║</span>
+<span style="color:var(--text-muted)">║   PROB:   0.002   0.000   0.001   0.000   0.000   </span><span style="color:var(--green);font-weight:bold;font-size:1.1em">0.960</span><span style="color:var(--text-muted)">   0.000   0.000   0.035   0.002   ║</span>
+<span style="color:var(--text-muted)">║                     ↑                    ↑                     ↑          ║</span>
+<span style="color:var(--text-muted)">║                  digit 2              digit 5               digit 8       ║</span>
+<span style="color:var(--text-muted)">║                 (only 0.1%)          (96%! ⭐)              (3.5%)        ║</span>
+<span style="color:var(--text-muted)">║                                                                          ║</span>
+<span style="color:var(--text-muted)">╚══════════════════════════════════════════════════════════════════════════╝</span>
+
+<span style="color:var(--text-muted)">// NOW — p_correct depends on what the TRUE label is:</span>
+
+<span style="color:var(--green)">If TRUE label = 5:</span>  p_correct = Softmax[5] = <span style="color:var(--green);font-weight:bold;">0.960</span>
+                        Loss = −log(0.960) = <span style="color:var(--green);font-weight:bold;">0.041</span> ✅ Great! Model was confident and right.
+
+<span style="color:var(--amber)">If TRUE label = 8:</span>  p_correct = Softmax[8] = <span style="color:var(--amber);font-weight:bold;">0.035</span>
+                        Loss = −log(0.035) = <span style="color:var(--amber);font-weight:bold;">3.352</span> ⚠️ Model thought it was a 5, not an 8!
+
+<span style="color:var(--red)">If TRUE label = 2:</span>  p_correct = Softmax[2] = <span style="color:var(--red);font-weight:bold;">0.001</span>
+                        Loss = −log(0.001) = <span style="color:var(--red);font-weight:bold;">6.908</span> ❌ Model was 96% sure it was a 5. Catastrophic miss.</div>
+
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">🔑</div><h4>The Key Insight</h4><p>p_correct is NOT the highest probability. It's the probability of the <strong>CORRECT</strong> answer. If the model is confidently wrong (high probability on wrong digit), p_correct will be tiny → huge loss → big learning signal.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🎯</div><h4>p_correct = "How much did the model bet on the right answer?"</h4><p>Think of it as: the model has $1.00 to bet across 10 digits. p_correct is how many cents it put on the ACTUAL correct digit. 96 cents = great. 0.1 cents = terrible.</p></div>
+    <div class="data-type-card"><div class="dt-icon">🔄</div><h4>Training uses p_correct, not argmax</h4><p>Accuracy takes the argmax (highest probability digit) and checks if it matches. Loss takes p_correct — even if the model got it right, it's penalized for low confidence. This pushes the model toward BOTH accuracy AND confidence.</p></div>
+  </div>
+
   <h3>🔢 How −log(p) Works — The Penalty Curve</h3>
   <div class="eq-box">
 <span style="color:var(--text-muted)">// −log(p) converts probability into a PENALTY:</span>
@@ -719,6 +752,94 @@ to be careful about overconfident wrong answers.</span></div>
     <div class="option" data-correct="true" onclick="checkQuiz('quiz_reg', this)">B. RMSE — because 300² = 90,000, which will dominate the average and blow up the RMSE. This is exactly what RMSE is DESIGNED to catch: a few catastrophic predictions hiding among mostly-decent ones.</div>
     <div class="option" onclick="checkQuiz('quiz_reg', this)">C. R² — because it compares to the average price</div>
   </div><div class="feedback" id="quiz_reg-fb"></div></div>
+</div></div>`; }
+  },
+
+  // ═══════ SLIDE precrec: Precision, Recall, F1 ═══════
+  {
+    id: 'precision_recall',
+    title: 'Precision, Recall & F1 — When Accuracy Lies',
+    fact: '<strong>A model that always says "NO CANCER" gets 99% accuracy</strong> — and kills every patient. Precision and Recall expose what accuracy hides: false positives (false alarms) and false negatives (missed detections).',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">precrec</span> Precision, Recall & F1 — When "Right vs Wrong" Isn't Enough</h2>
+  <p>Accuracy = correct / total. Simple. But <strong style="color:var(--red)">when one type of mistake is WAY worse than the other</strong>, accuracy becomes dangerous. Precision and Recall separate "false alarms" from "missed detections."</p>
+
+  <h3>🩺 The Cancer Detector That Kills People</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Dataset: 10,000 patients. Only 100 have cancer (1%). 9,900 are healthy.</span>
+
+<span style="color:var(--red);font-weight:bold;">BAD MODEL: Always predict "NO CANCER"</span>
+  Correct: 9,900 healthy patients correctly labeled "NO CANCER" ✅
+  Wrong:   100 cancer patients labeled "NO CANCER" ❌ (they go home untreated)
+
+  <span style="color:var(--red);font-weight:bold;">Accuracy = 9900/10000 = 99%  ← Looks AMAZING!</span>
+  <span style="color:var(--red);font-weight:bold;">But it MISSED EVERY SINGLE CANCER PATIENT.</span>
+
+<span style="color:var(--green);font-weight:bold;">GOOD MODEL: Actually detects cancer</span>
+  Correctly finds 90/100 cancers ✅
+  Correctly clears 9,800/9,900 healthy ✅
+  False alarms: 100 healthy flagged as cancer ⚠️ (they get extra tests — annoying but safe)
+
+  Accuracy = (90+9800)/10000 = <span style="color:var(--green)">98.9%</span> ← Slightly LOWER than the bad model!
+  <span style="color:var(--amber);">But it actually SAVES LIVES.</span></div>
+
+  <h3>🧮 The 2×2 Confusion Matrix — "4 Buckets of Predictions"</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">╔═══════════════════════╦══════════════════════╦══════════════════════╗</span>
+<span style="color:var(--text-muted)">║                       ║  PREDICTED POSITIVE   ║  PREDICTED NEGATIVE  ║</span>
+<span style="color:var(--text-muted)">╠═══════════════════════╬══════════════════════╬══════════════════════╣</span>
+<span style="color:var(--text-muted)">║  ACTUALLY POSITIVE    ║  </span><span style="color:var(--green);font-weight:bold;">TP = 90</span>            <span style="color:var(--text-muted)">║  </span><span style="color:var(--red);font-weight:bold;">FN = 10</span>  (MISSED!)     <span style="color:var(--text-muted)">║</span>
+<span style="color:var(--text-muted)">║  (has cancer)         ║  "Found it!" ✅       ║  "Told they're fine" ❌║</span>
+<span style="color:var(--text-muted)">╠═══════════════════════╬══════════════════════╬══════════════════════╣</span>
+<span style="color:var(--text-muted)">║  ACTUALLY NEGATIVE    ║  </span><span style="color:var(--amber);font-weight:bold;">FP = 100</span> (false alarm)<span style="color:var(--text-muted)">║  </span><span style="color:var(--green);font-weight:bold;">TN = 9800</span>           <span style="color:var(--text-muted)">║</span>
+<span style="color:var(--text-muted)">║  (healthy)            ║  "Extra tests needed"  ║  "You're fine!" ✅    ║</span>
+<span style="color:var(--text-muted)">╚═══════════════════════╩══════════════════════╩══════════════════════╝</span>
+
+<span style="color:var(--cyan);font-weight:bold;">TP (True Positive)</span>  = 90   ← caught the cancer!
+<span style="color:var(--red);font-weight:bold;">FN (False Negative)</span> = 10   ← MISSED cancer (the deadly mistake)
+<span style="color:var(--amber);font-weight:bold;">FP (False Positive)</span> = 100  ← scared a healthy person (annoying but fixable)
+<span style="color:var(--green);font-weight:bold;">TN (True Negative)</span>  = 9800 ← correctly said "you're fine"</div>
+
+  <h3>📐 The Formulas</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">🎯</div><h4>Precision</h4><p><strong style="color:var(--cyan);">TP / (TP + FP)</strong><br>= 90 / (90+100)<br>= <strong>47.4%</strong></p><p style="margin-top:0.3rem;font-size:0.7rem;">"When I say CANCER, how often am I right?"<br><strong style="color:var(--amber);">High precision = few false alarms.</strong></p></div>
+    <div class="data-type-card"><div class="dt-icon">🔍</div><h4>Recall</h4><p><strong style="color:var(--green);">TP / (TP + FN)</strong><br>= 90 / (90+10)<br>= <strong>90%</strong></p><p style="margin-top:0.3rem;font-size:0.7rem;">"Of all the cancers, how many did I find?"<br><strong style="color:var(--green);">High recall = few missed cases.</strong></p></div>
+    <div class="data-type-card"><div class="dt-icon">⚖️</div><h4>F1 Score</h4><p><strong style="color:var(--violet);">2 × (P×R) / (P+R)</strong><br>= 2 × (0.474×0.90) / 1.374<br>= <strong>62.1%</strong></p><p style="margin-top:0.3rem;font-size:0.7rem;">Harmonic mean of P and R. Balances both.<br><strong>F1 = 100% only when BOTH are perfect.</strong></p></div>
+  </div>
+
+  <h3>🎯 The Tradeoff — You Can't Have Both</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 High Precision, Low Recall</h4><p>"I only speak when I'm VERY sure."</p><p style="margin-top:0.5rem;color:var(--cyan);font-size:0.78rem"><strong>Example:</strong> Only flag cancer when 99%+ sure. You'll have almost no false alarms — but you'll miss many real cancers.<br><strong>Use when:</strong> False alarms are expensive (spam filter — you don't want real emails in spam).</p></div>
+    <div class="compare-card pick-c"><h4>🟢 High Recall, Lower Precision</h4><p>"If there's ANY doubt, flag it."</p><p style="margin-top:0.5rem;color:var(--green);font-size:0.78rem"><strong>Example:</strong> Flag ANYTHING that MIGHT be cancer. You'll catch almost every cancer — but also send many healthy people for extra tests.<br><strong>Use when:</strong> Missing is deadly (cancer screening, airport security, fraud detection).</p></div>
+  </div>
+
+  <h3>📏 Good Ranges</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Precision + Recall ranges (both 0% to 100%):</span>
+
+<span style="color:var(--red);">Below 30%:</span>   Essentially random. Model is broken.
+<span style="color:var(--amber);">30-60%:</span>       Weak. Needs more training or better architecture.
+<span style="color:var(--cyan);">60-85%:</span>       Decent. Usable for non-critical applications.
+<span style="color:var(--green);">85-95%:</span>       Good. Production-ready for most use cases.
+<span style="color:var(--green);">Above 95%:</span>    Excellent. Near-human performance.
+
+<span style="color:var(--text-muted)">// F1 threshold depends on your problem:</span>
+<span style="color:var(--magenta);">Cancer detection:</span> F1 > 90% expected. Recall matters more than precision.
+<span style="color:var(--magenta);">Spam filter:</span>     F1 > 95% expected. Precision matters more than recall.
+<span style="color:var(--magenta);">MNIST (balanced):</span> F1 ≈ Accuracy. When classes are balanced, F1 offers little extra.</div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 In MNIST, accuracy = 95%. Is F1 also 95%?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Yes, roughly.</strong> MNIST is perfectly balanced (~1000 images per digit). When classes are balanced, accuracy ≈ F1. Precision and Recall matter most when one class is RARE — like cancer (1%), fraud (0.1%), or a rare bird species in 10,000 photos. That's when accuracy lies and you NEED precision/recall.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz_pr"><div class="question">🧪 A fraud detector flags 10 transactions, 8 are actually fraud (TP=8, FP=2). But 12 frauds went undetected (FN=12). What are Precision and Recall?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz_pr', this)">A. Precision = 8/10 = 80% (when it flags, it's usually right). Recall = 8/20 = 40% (it missed most frauds!). High precision, low recall — it's too conservative.</div>
+    <div class="option" onclick="checkQuiz('quiz_pr', this)">B. Precision = 8/20 = 40%. Recall = 8/10 = 80%.</div>
+    <div class="option" onclick="checkQuiz('quiz_pr', this)">C. Both are 80% because 8 out of 10 flagged were correct</div>
+  </div><div class="feedback" id="quiz_pr-fb"></div></div>
 </div></div>`; }
   },
 
