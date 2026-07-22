@@ -82,8 +82,28 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
   <div class="stats">
     <div class="st" style="border-top:3px solid var(--cyan);"><div class="val" id="memR" style="color:var(--cyan);">0</div><div class="lbl">Mem Reads</div></div>
     <div class="st" style="border-top:3px solid var(--green);"><div class="val" id="memW" style="color:var(--green);">0</div><div class="lbl">Mem Writes</div></div>
-    <div class="st" style="border-top:3px solid var(--amber);"><div class="val" id="arith" style="color:var(--amber);">0</div><div class="lbl">Arith Ops</div></div>
+    <div class="st" style="border-top:3px solid var(--cyan);"><div class="val" id="mulCnt" style="color:var(--cyan);">0</div><div class="lbl">Multiplies</div></div>
+    <div class="st" style="border-top:3px solid var(--amber);"><div class="val" id="addCnt" style="color:var(--amber);">0</div><div class="lbl">Additions</div></div>
     <div class="st" style="border-top:3px solid var(--violet);"><div class="val" id="sumVal" style="color:var(--violet);">0.00</div><div class="lbl">Running Sum</div></div>
+  </div>
+
+  <!-- PER-THREAD FLOPs BREAKDOWN -->
+  <div style="display:flex;gap:0.6rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:0.3rem 0;">
+    <div style="background:var(--card);border:2px solid var(--cyan);border-radius:8px;padding:0.4rem 0.8rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--cyan);font-weight:700;" id="mulDisp">0</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">MUL: input × filter</div>
+    </div>
+    <span style="font-size:1rem;color:var(--tmut);">+</span>
+    <div style="background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.4rem 0.8rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--amber);font-weight:700;" id="addDisp">0</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">ADD: sum += product</div>
+    </div>
+    <span style="font-size:1rem;color:var(--tmut);">=</span>
+    <div style="background:var(--card);border:2px solid var(--violet);border-radius:8px;padding:0.4rem 0.8rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--violet);font-weight:700;" id="totDisp">0</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">FLOPs per thread</div>
+    </div>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);">× 294,912 threads = <strong style="color:var(--amber);">~14.5M FLOPs</strong></span>
   </div>
 
   <!-- 3 PANELS -->
@@ -338,10 +358,16 @@ function update(s) {
   // Stats
   let reads=s===0?0:1+Math.min(s,25)*2;
   let writes=s>25?1:0;
-  let ops=s===0?0:s>25?49:s;
+  let mulC=s>25?25:Math.min(s,25);
+  let addC=s>25?25:(s>0?Math.min(s,25):0); // same as mulC — each iteration is 1 mul + 1 add
+  let totalFLOPs=mulC+addC;
   document.getElementById('memR').textContent=reads;
   document.getElementById('memW').textContent=writes;
-  document.getElementById('arith').textContent=ops;
+  document.getElementById('mulCnt').textContent=mulC+'/25';
+  document.getElementById('addCnt').textContent=addC+'/25';
+  document.getElementById('mulDisp').textContent=mulC;
+  document.getElementById('addDisp').textContent=addC;
+  document.getElementById('totDisp').textContent=totalFLOPs;
   document.getElementById('sumVal').textContent=sum.toFixed(4);
   document.getElementById('sumVal').style.color=Math.abs(sum)>1?'var(--green)':Math.abs(sum)<0.3?'var(--tmut)':'var(--amber)';
 
