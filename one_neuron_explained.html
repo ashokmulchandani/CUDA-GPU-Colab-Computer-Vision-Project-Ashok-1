@@ -12,9 +12,18 @@
   --red: #f85149; --magenta: #ff6ec7; --violet: #a371f7;
   --heading: #fff;
 }
+body.light {
+  --bg: #f4f6f9; --surface: #ffffff; --surface2: #eef1f5;
+  --border: #d1d9e0; --text: #1a1f2e; --text2: #5a6477;
+  --cyan: #0077b6; --amber: #9a6700; --green: #0d7d6e;
+  --red: #c92a2a; --magenta: #bf3989; --violet: #5f3dc4;
+  --heading: #111827;
+}
+body.light .math-box { background: #f0f2f5; }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; transition: background 0.3s, color 0.3s; }
 header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; text-align: center; position: sticky; top: 0; z-index: 10; }
+header { position: relative; }
 header h1 { font-size: 1.2rem; color: var(--heading); }
 header h1 span { color: var(--cyan); }
 main { max-width: 1000px; margin: 0 auto; padding: 24px; }
@@ -53,7 +62,7 @@ td strong { color: var(--text); }
 </head>
 <body>
 
-<header><h1>🔬 What <span>"Each Has 784 Weights + 1 Bias"</span> Actually Means</h1></header>
+<header><h1>🔬 What <span>"Each Has 784 Weights + 1 Bias"</span> Actually Means</h1><button id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="position:absolute;top:14px;right:24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:1rem;">🌙</button></header>
 
 <main>
 
@@ -180,5 +189,20 @@ output = <span class="grn">max(0, 0.52) = 0.52</span>  ← passed to Layer 2</di
 </div>
 
 </main>
+
+<script>
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  var btn = document.getElementById('themeToggle');
+  btn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
+  localStorage.setItem('neuron-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+}
+(function() {
+  if (localStorage.getItem('neuron-theme') === 'light') {
+    document.body.classList.add('light');
+    document.getElementById('themeToggle').textContent = '☀️';
+  }
+})();
+</script>
 </body>
 </html>
