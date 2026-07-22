@@ -412,6 +412,135 @@ const slides = [
     </div>
   </div>
 
+  <!-- ZOOM-IN: Per-Neuron View -->
+  <h3 style="margin-top:1.5rem;">🔬 Zoom In: What ONE Neuron Actually Looks Like</h3>
+  <p style="font-size:0.85rem;">The architecture diagram shows layers. But <strong style="color:var(--amber);">inside each layer, every neuron connects to EVERY neuron in the previous layer</strong>. This is the part that confuses everyone — let's zoom into one neuron and see its actual wires.</p>
+
+  <div style="background:var(--bg-raised);border:2px solid var(--amber);border-radius:var(--radius);padding:1.5rem;margin:1rem 0;overflow-x:auto;">
+
+    <!-- Hidden Layer 1 neuron zoom -->
+    <div style="margin-bottom:1.5rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--amber);margin-bottom:0.8rem;">🔍 ONE NEURON IN HIDDEN LAYER 1 (any of the 128 neurons)</div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+
+        <!-- Input side -->
+        <div style="flex:1;min-width:200px;background:var(--bg-card);border:1px solid var(--magenta);border-radius:8px;padding:0.8rem;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--magenta);">784 INPUT PIXELS</div>
+          <div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin:0.5rem 0;">
+            <div style="width:8px;height:8px;background:var(--magenta);border-radius:1px;opacity:0.6;" title="pixel 1"></div>
+            <div style="width:8px;height:8px;background:var(--magenta);border-radius:1px;opacity:0.7;" title="pixel 2"></div>
+            <div style="width:8px;height:8px;background:var(--magenta);border-radius:1px;opacity:0.5;" title="pixel 3"></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);line-height:8px;">···</div>
+            <div style="width:8px;height:8px;background:var(--magenta);border-radius:1px;opacity:0.8;" title="pixel 784"></div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">p₁, p₂, p₃, ..., p₇₈₄</div>
+        </div>
+
+        <!-- The neuron computation -->
+        <div style="text-align:center;min-width:60px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);">× wᵢ</div>
+          <div style="font-size:1rem;color:var(--cyan);">→</div>
+        </div>
+
+        <!-- Weights box -->
+        <div style="background:var(--bg-card);border:2px solid var(--amber);border-radius:8px;padding:0.8rem 1rem;text-align:center;min-width:160px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);font-weight:600;">784 WEIGHTS</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-dim);margin-top:0.3rem;">w₁, w₂, w₃, ..., w₇₈₄</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-dim);">+ 1 BIAS (b)</div>
+          <div style="margin-top:0.4rem;padding-top:0.4rem;border-top:1px solid var(--border);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);">Σ(pᵢ × wᵢ) + b</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text-muted);">sum of 784 products</div>
+          </div>
+        </div>
+
+        <div style="text-align:center;min-width:50px;">
+          <div style="font-size:1.2rem;color:var(--green);">→</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--green);">ReLU</div>
+        </div>
+
+        <!-- Output -->
+        <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.8rem 1rem;text-align:center;min-width:100px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--green);">OUTPUT</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--text);font-weight:600;margin-top:0.3rem;">1 number</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">e.g., 3.5 or 0.0</div>
+        </div>
+      </div>
+
+      <!-- Per-neuron summary -->
+      <div style="display:flex;gap:1rem;margin-top:0.8rem;justify-content:center;flex-wrap:wrap;">
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem 1rem;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);font-weight:600;">785 knobs per neuron</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">(784 weights + 1 bias)</div>
+        </div>
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem 1rem;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--amber);font-weight:600;">× 128 neurons</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">in Hidden Layer 1</div>
+        </div>
+        <div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:6px;padding:0.5rem 1rem;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);font-weight:600;">= 100,480 params</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">for Layer 1 alone!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="border-top:1px solid var(--border);margin:1rem 0;"></div>
+
+    <!-- All 3 layers per-neuron summary -->
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);margin-bottom:0.8rem;">📋 PER-NEURON BREAKDOWN — ALL 3 LAYERS</div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.65rem;">
+        <thead>
+          <tr style="background:var(--bg-card);">
+            <th style="padding:0.5rem;border:1px solid var(--border);text-align:left;color:var(--text-dim);">Layer</th>
+            <th style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--text-dim);">Neurons</th>
+            <th style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--text-dim);">Weights PER neuron</th>
+            <th style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--text-dim);">Bias PER neuron</th>
+            <th style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--text-dim);">Knobs PER neuron</th>
+            <th style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);">TOTAL params</th>
+          </tr>
+          <tr>
+            <td style="padding:0.5rem;border:1px solid var(--border);color:var(--cyan);">Hidden 1</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">128</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">784 (from input)</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">1</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);">784+1 = 785</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);font-weight:700;">128 × 785 = 100,480</td>
+          </tr>
+          <tr>
+            <td style="padding:0.5rem;border:1px solid var(--border);color:var(--cyan);">Hidden 2</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">64</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">128 (from H1)</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">1</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);">128+1 = 129</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);font-weight:700;">64 × 129 = 8,256</td>
+          </tr>
+          <tr>
+            <td style="padding:0.5rem;border:1px solid var(--border);color:var(--green);">Output</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">10</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">64 (from H2)</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;">1</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);">64+1 = 65</td>
+            <td style="padding:0.5rem;border:1px solid var(--border);text-align:center;color:var(--amber);font-weight:700;">10 × 65 = 650</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="display:flex;gap:1rem;margin-top:0.8rem;justify-content:center;flex-wrap:wrap;">
+        <div style="background:var(--cyan-bg);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem 1.2rem;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--cyan);">GRAND TOTAL</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--cyan);">109,386</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-dim);">trainable parameters (knobs to tune)</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:0.6rem 1.2rem;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);">MNEMONIC</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--green);margin-top:0.2rem;">neurons × (inputs + 1)</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--text-muted);">128×(784+1) + 64×(128+1) + 10×(64+1)</div>
+        </div>
+      </div>
+    </div>
+
   <h3>🧠 Why This Shape?</h3>
   <div class="data-types">
     <div class="data-type-card"><div class="dt-icon">📐</div><h4>SHRINKING</h4><p>Each layer has FEWER neurons than the one before. Information gets compressed from raw pixels → patterns → answer.</p></div>
