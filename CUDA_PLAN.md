@@ -631,7 +631,7 @@ CUDA_Projects-Ashok/
 
 Visual, slide-based learning modules following the same pattern as the [MLOPS System Design](https://github.com/ashokmulchandani/MLOPS-End-End-Prediction-Pipeline-Ashok-1) project. Each module has keyboard navigation (← →), quizzes, dark/light themes, and code walkthroughs.
 
-> 📂 **Quick Launch:** Open [INDEX.html](INDEX.html) for a clickable dashboard of all modules.
+> 📂 **Quick Launch:** Open [index.html](index.html) for a clickable dashboard of all modules.
 
 | Phase | Module | Slides | Topics |
 |-------|--------|--------|--------|
