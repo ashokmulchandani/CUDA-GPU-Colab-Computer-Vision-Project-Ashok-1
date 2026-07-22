@@ -625,6 +625,8 @@ const slides = [
     <h2><span class="num">4.1</span> What is YOLO? — You Only Look Once</h2>
     <p>YOLO is a <strong style="color:var(--cyan)">single-shot object detector</strong>. Instead of sliding a window across the image thousands of times (like older R-CNN approaches), YOLO divides the image into a grid and predicts all bounding boxes + class probabilities <em>in one forward pass</em> through a CNN.</p>
 
+  <div class="callout-box"><span style="font-size:1.2rem;">📦</span><span><strong style="color:var(--cyan);">Interactive Visual:</strong> See bounding boxes, IoU, NMS, and grid cells in action — <a href="bounding_box_visualizer.html" style="color:var(--cyan);">Bounding Box Visualizer</a>. 4 tabs: Box Anatomy, IoU calculation, NMS demonstration, Grid Cells.</span></div>
+
     <h3>🧠 The Core Idea: Grid Cells</h3>
     <p>YOLO splits the input image (640×640) into an S×S grid. Each grid cell is responsible for detecting objects whose <strong style="color:var(--cyan)">center falls inside that cell</strong>. Every cell predicts:</p>
 

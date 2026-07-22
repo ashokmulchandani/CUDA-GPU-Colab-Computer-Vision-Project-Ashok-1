@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bounding Boxes, IoU & NMS — Visual Explainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:950px;margin:0 auto;padding:1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin-bottom:0.8rem}
+
+.tabs{display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin-bottom:0.8rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.tab:hover{border-color:var(--cyan);color:var(--cyan)}
+.tab.active{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+
+.panel{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+.canvas-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:0.5rem;position:relative}
+canvas{border-radius:8px;display:block}
+.info-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;max-width:320px;text-align:left}
+.info-card h3{font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);margin-bottom:0.5rem}
+.info-card .param{font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);padding:0.2rem 0;display:flex;justify-content:space-between}
+.info-card .param .val{color:var(--text);font-weight:600}
+.iou-big{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;text-align:center;margin:0.5rem 0}
+
+.controls{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem auto;max-width:700px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4}
+.comp .hl{color:var(--cyan)}.comp .gr{color:var(--green)}.comp .cm{color:#6a9955}
+
+.summary{font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);margin-top:0.5rem;line-height:1.6}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Bounding Boxes, IoU & NMS — Visual Explainer</h1>
+  <p class="subtitle">Understand the 3 key concepts behind YOLO's output: how boxes are represented, how overlap is measured, and how duplicates are removed.</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0,this)">📦 Box Anatomy</button>
+    <button class="tab" onclick="switchTab(1,this)">📐 IoU</button>
+    <button class="tab" onclick="switchTab(2,this)">🧹 NMS</button>
+    <button class="tab" onclick="switchTab(3,this)">🎯 Grid Cells</button>
+  </div>
+
+  <div class="panel">
+    <div class="canvas-wrap"><canvas id="cv" width="500" height="400"></canvas></div>
+    <div class="info-card" id="infoCard">
+      <h3 id="infoTitle">📦 Box Anatomy</h3>
+      <div id="infoContent"></div>
+    </div>
+  </div>
+
+  <div class="comp" id="compBox"></div>
+  <div class="summary" id="summaryBox"></div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('bbox-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('bbox-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let tab=0;
+
+// Demo boxes
+const imgBox={x:100,y:80,w:300,h:240}; // image boundary
+const box1={x:150,y:120,w:180,h:140,label:'Box A',conf:0.95,color:'#39d2ff'};
+const box2={x:250,y:160,w:160,h:120,label:'Box B',conf:0.78,color:'#ffb347'};
+const multiBoxes=[
+  {x:200,y:100,w:200,h:180,conf:0.45,label:'bus 0.45',color:'var(--red)'},
+  {x:210,y:110,w:180,h:160,conf:0.78,label:'bus 0.78',color:'var(--amber)'},
+  {x:195,y:105,w:200,h:175,conf:0.95,label:'bus 0.95',color:'var(--green)'},
+  {x:220,y:115,w:170,h:150,conf:0.61,label:'bus 0.61',color:'var(--red)'},
+  {x:310,y:250,w:80,h:60,conf:0.88,label:'car 0.88',color:'var(--cyan)'},
+  {x:350,y:240,w:90,h:70,conf:0.71,label:'person 0.71',color:'var(--magenta)'}
+];
+
+function drawGrid(cx,cy,step,label){
+  ctx.strokeStyle='rgba(72,79,88,0.15)';ctx.lineWidth=1;
+  for(let x=cx;x<=imgBox.x+imgBox.w;x+=step){ctx.beginPath();ctx.moveTo(x,imgBox.y);ctx.lineTo(x,imgBox.y+imgBox.h);ctx.stroke()}
+  for(let y=cy;y<=imgBox.y+imgBox.h;y+=step){ctx.beginPath();ctx.moveTo(imgBox.x,y);ctx.lineTo(imgBox.x+imgBox.w,y);ctx.stroke()}
+}
+
+function drawBox(bx,by,bw,bh,color,label,conf,dashed){
+  ctx.strokeStyle=color;ctx.lineWidth=3;if(dashed)ctx.setLineDash([8,4]);else ctx.setLineDash([]);
+  ctx.strokeRect(bx,by,bw,bh);
+  // Label
+  ctx.fillStyle=color;ctx.font='bold 13px JetBrains Mono';
+  ctx.fillText(label+' '+(conf!==undefined?(conf*100).toFixed(0)+'%':''),bx+4,by-6);
+}
+
+function computeIoU(b1,b2){
+  let x1=Math.max(b1.x,b2.x),y1=Math.max(b1.y,b2.y);
+  let x2=Math.min(b1.x+b1.w,b2.x+b2.w),y2=Math.min(b1.y+b1.h,b2.y+b2.h);
+  let inter=Math.max(0,x2-x1)*Math.max(0,y2-y1);
+  let a1=b1.w*b1.h,a2=b2.w*b2.h;
+  return inter/(a1+a2-inter);
+}
+
+function nms(boxes,threshold){
+  let sorted=[...boxes].sort((a,b)=>b.conf-a.conf);
+  let keep=[];
+  for(let i=0;i<sorted.length;i++){
+    let suppressed=false;
+    for(let j=0;j<keep.length;j++){if(computeIoU(sorted[i],keep[j])>threshold){suppressed=true;break}}
+    if(!suppressed)keep.push(sorted[i]);
+  }
+  return keep;
+}
+
+function render(){
+  ctx.clearRect(0,0,cv.width,cv.height);let il=document.body.classList.contains('light');
+  ctx.fillStyle=il?'#f6f8fa':'#06090f';ctx.fillRect(0,0,cv.width,cv.height);
+
+  // Image background
+  ctx.fillStyle=il?'#e8ecf0':'#161b22';ctx.fillRect(imgBox.x,imgBox.y,imgBox.w,imgBox.h);
+  ctx.strokeStyle=il?'#d0d7de':'#21262d';ctx.lineWidth=2;ctx.strokeRect(imgBox.x,imgBox.y,imgBox.w,imgBox.h);
+  ctx.fillStyle=il?'#656d76':'#8b949e';ctx.font='11px JetBrains Mono';
+  ctx.fillText('IMAGE ('+imgBox.w+'x'+imgBox.h+')',imgBox.x+4,imgBox.y-6);
+
+  // Tab content
+  let infoHTML='',compHTML='',summaryHTML='';
+  document.getElementById('infoTitle').textContent=document.querySelectorAll('.tab')[tab].textContent.trim();
+
+  if(tab===0){
+    // BOX ANATOMY
+    drawGrid(imgBox.x,imgBox.y,40);
+    // Draw box with center + dimensions
+    let b=box1;
+    drawBox(b.x,b.y,b.w,b.h,b.color,b.label,b.conf);
+    // Center point
+    let cx=b.x+b.w/2,cy=b.y+b.h/2;
+    ctx.fillStyle=b.color;ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+    // Center lines
+    ctx.setLineDash([3,5]);ctx.strokeStyle=b.color;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx,b.y);ctx.lineTo(cx,b.y+b.h);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(b.x,cy);ctx.lineTo(b.x+b.w,cy);ctx.stroke();
+    ctx.setLineDash([]);
+    // Label center
+    ctx.fillStyle=b.color;ctx.font='bold 11px JetBrains Mono';ctx.fillText('center',cx-22,cy-10);
+
+    infoHTML=`<div class="param"><span>x_center</span><span class="val">${cx.toFixed(1)}</span></div>
+<div class="param"><span>y_center</span><span class="val">${cy.toFixed(1)}</span></div>
+<div class="param"><span>width</span><span class="val">${b.w}</span></div>
+<div class="param"><span>height</span><span class="val">${b.h}</span></div>
+<div class="param"><span>confidence</span><span class="val" style="color:var(--green);">${(b.conf*100).toFixed(0)}%</span></div>
+<div style="font-size:0.5rem;color:var(--tmut);margin-top:0.4rem;">YOLO outputs 5 numbers per box:<br>x, y, w, h, confidence</div>
+<div style="font-size:0.5rem;color:var(--tmut);margin-top:0.3rem;">x,y are CENTER (not top-left)<br>w,h are relative to image size<br>All normalized 0..1 in YOLO</div>`;
+    compHTML='<span class="cm">Each box = </span><span class="hl">[x_center, y_center, width, height, confidence]</span>\n<span class="cm">YOLOv8n outputs 8,400 such boxes per image.</span>\n<span class="cm">After filtering low-confidence boxes (~10-50 remain).</span>\n<span class="cm">After NMS ~5-10 final detections remain.</span>';
+    summaryHTML='<strong style="color:var(--cyan);">Key:</strong> Box position is defined by its CENTER (x,y) and SIZE (w,h). NOT by corners. Confidence = how sure the model is that this box contains an object.';
+  }
+  else if(tab===1){
+    // IoU
+    drawBox(box1.x,box1.y,box1.w,box1.h,box1.color,box1.label,box1.conf);
+    drawBox(box2.x,box2.y,box2.w,box2.h,box2.color,box2.label,box2.conf);
+
+    // Intersection area
+    let ix=Math.max(box1.x,box2.x),iy=Math.max(box1.y,box2.y);
+    let ix2=Math.min(box1.x+box1.w,box2.x+box2.w),iy2=Math.min(box1.y+box1.h,box2.y+box2.h);
+    if(ix2>ix&&iy2>iy){
+      ctx.fillStyle='rgba(255,179,71,0.3)';ctx.fillRect(ix,iy,ix2-ix,iy2-iy);
+      ctx.fillStyle='var(--amber)';ctx.font='bold 12px JetBrains Mono';ctx.fillText('Intersection',ix+4,iy+16);
+    }
+
+    let iou=computeIoU(box1,box2);
+    infoHTML=`<div class="param"><span>Box A area</span><span class="val">${box1.w*box1.h}</span></div>
+<div class="param"><span>Box B area</span><span class="val">${box2.w*box2.h}</span></div>
+<div class="param"><span>Intersection</span><span class="val">${Math.max(0,(ix2-ix)*(iy2-iy)).toFixed(0)}</span></div>
+<div class="param"><span>Union</span><span class="val">${(box1.w*box1.h+box2.w*box2.h-Math.max(0,(ix2-ix)*(iy2-iy))).toFixed(0)}</span></div>
+<div class="iou-big" style="color:${iou>0.5?'var(--red)':'var(--green)'};">IoU = ${(iou*100).toFixed(1)}%</div>
+<div style="font-size:0.5rem;color:var(--tmut);">${iou>0.5?'NMS would SUPPRESS the lower-confidence box (>50% overlap)':'Boxes are different enough to keep both (<50% overlap)'}</div>`;
+    compHTML='<span class="cm">IoU = Area(Intersection) / Area(Union)</span>\n<span class="hl">IoU = '+iou.toFixed(3)+'</span>\n<span class="cm">If IoU > threshold (0.5): boxes overlap too much → suppress the lower-confidence one.</span>';
+    summaryHTML='<strong style="color:var(--amber);">IoU measures overlap.</strong> 0% = no overlap. 100% = identical. >50% = NMS will remove the weaker box. This is how YOLO avoids detecting the same object 5 times.';
+  }
+  else if(tab===2){
+    // NMS
+    let kept=nms(multiBoxes,0.5);
+    // Draw all boxes
+    multiBoxes.forEach((b,i)=>{
+      let isKept=kept.some(k=>k.x===b.x&&k.y===b.y);
+      drawBox(b.x,b.y,b.w,b.h,isKept?'var(--green)':'rgba(248,81,73,0.5)',b.label,b.conf,!isKept);
+    });
+    ctx.fillStyle='var(--green)';ctx.font='bold 11px JetBrains Mono';
+    ctx.fillText(multiBoxes.length+' boxes → '+kept.length+' kept (NMS threshold=0.5)',imgBox.x+4,imgBox.y+imgBox.h+20);
+
+    infoHTML=`<div style="font-size:0.6rem;color:var(--tdim);">${multiBoxes.length} boxes → NMS → ${kept.length} kept</div>`;
+    kept.forEach(b=>{infoHTML+=`<div class="param"><span style="color:var(--green);">✅ ${b.label}</span><span class="val">${(b.conf*100).toFixed(0)}%</span></div>`});
+    let suppressed=multiBoxes.filter(b=>!kept.some(k=>k.x===b.x));
+    suppressed.forEach(b=>{infoHTML+=`<div class="param"><span style="color:var(--red);text-decoration:line-through;">❌ ${b.label}</span><span class="val">suppressed</span></div>`});
+    compHTML='<span class="cm">NMS Algorithm:</span>\n<span class="hl">1. Sort by confidence (highest first)</span>\n<span class="hl">2. Keep the top box</span>\n<span class="hl">3. Remove all boxes with IoU > 0.5</span>\n<span class="hl">4. Repeat with next surviving box</span>\n<span class="cm">4 bus boxes → 1 kept (0.95). Car + person separate → both kept.</span>';
+    summaryHTML='<strong style="color:var(--green);">NMS cleans up duplicate detections.</strong> 4 overlapping "bus" boxes → only the best one (0.95) survives. Non-overlapping boxes (car, person) are untouched. Result: 1 bus + 1 car + 1 person = clean output.';
+  }
+  else if(tab===3){
+    // GRID CELLS
+    drawGrid(imgBox.x,imgBox.y,60);
+    // Draw mock grid with cell highlighting
+    let gs=60,gw=5,gh=4;
+    for(let r=0;r<gh;r++){for(let c=0;c<gw;c++){
+      ctx.strokeStyle='rgba(57,210,255,0.2)';ctx.lineWidth=1;
+      ctx.strokeRect(imgBox.x+c*gs,imgBox.y+r*gs,gs,gs);
+    }}
+    // Highlight a cell
+    let hc=2,hr=1;
+    ctx.fillStyle='rgba(57,210,255,0.15)';ctx.fillRect(imgBox.x+hc*gs,imgBox.y+hr*gs,gs,gs);
+    ctx.strokeStyle='var(--cyan)';ctx.lineWidth=2;ctx.strokeRect(imgBox.x+hc*gs,imgBox.y+hr*gs,gs,gs);
+    ctx.fillStyle='var(--cyan)';ctx.font='bold 12px JetBrains Mono';ctx.fillText('Cell (2,1)',imgBox.x+hc*gs+4,imgBox.y+hr*gs+16);
+    // Draw box centered in this cell
+    let cb={x:imgBox.x+hc*gs+10,y:imgBox.y+hr*gs+8,w:40,h:44};
+    drawBox(cb.x,cb.y,cb.w,cb.h,'var(--green)','person',0.92);
+
+    infoHTML=`<div class="param"><span>Grid size</span><span class="val">${gw}x${gh} (demo)</span></div>
+<div class="param"><span>Real YOLO grids</span><span class="val">80x80, 40x40, 20x20</span></div>
+<div class="param"><span>Boxes per cell</span><span class="val">3 (different shapes)</span></div>
+<div class="param"><span>Total boxes</span><span class="val">8400</span></div>
+<div style="font-size:0.5rem;color:var(--tmut);margin-top:0.4rem;">Each cell predicts 3 boxes at different aspect ratios (tall, wide, square). Whatever cell contains an object's CENTER is responsible for detecting it.</div>`;
+    compHTML='<span class="cm">YOLO divides the image into a grid. Each grid cell predicts bounding boxes.</span>\n<span class="hl">80x80 fine grid</span><span class="cm"> → detects small objects (birds, balls)</span>\n<span class="hl">40x40 medium grid</span><span class="cm"> → detects medium objects (people)</span>\n<span class="hl">20x20 coarse grid</span><span class="cm"> → detects large objects (buses, buildings)</span>\n<span class="cm">3 scales × 3 anchors = 9 predictions per position. Total: ~8,400 boxes.</span>';
+    summaryHTML='<strong style="color:var(--cyan);">Multi-scale detection.</strong> YOLO uses 3 grid sizes to detect objects of all sizes. Small grid = fine detail for small objects. Large grid = coarse for big objects. The cell containing the object CENTER is "responsible" for detecting it.';
+  }
+
+  document.getElementById('infoContent').innerHTML=infoHTML;
+  document.getElementById('compBox').innerHTML=compHTML;
+  document.getElementById('summaryBox').innerHTML=summaryHTML;
+}
+
+function switchTab(i,btn){
+  tab=i;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');render();
+}
+
+render();
+</script>
+</body>
+</html>
