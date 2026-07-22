@@ -386,6 +386,83 @@ const slides = [
 </div></div>`; }
   },
 
+  // ═══════ SLIDE 3A: Accuracy — The Formula ═══════
+  {
+    id: 'accuracy',
+    title: 'Accuracy — "How Many Did I Get Right?"',
+    fact: '<strong>Accuracy is NOT a hyperparameter you set — it\'s the result you measure.</strong> You don\'t say "I want 95% accuracy." You train the network, and accuracy tells you how well it learned. The formula is dead simple.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">accuracy</span> Accuracy — "How Many Did I Get Right?"</h2>
+  <p>Accuracy is the <strong style="color:var(--cyan)">simplest metric in ML</strong>. After the network makes a prediction for every image, you just count how many it got right. That's it.</p>
+
+  <h3>🧮 The Formula</h3>
+  <div class="big-stat">
+    <div class="number">correct ÷ total</div>
+    <div class="label">Accuracy = (Number of Correct Predictions) / (Total Predictions) × 100</div>
+  </div>
+
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// Step-by-step example with 10 test images:</span>
+<span style="color:var(--text-muted)">// After Softmax, take the digit with the HIGHEST probability (argmax)</span>
+<span style="color:var(--text-muted)">// Compare it to the true label</span>
+
+<span style="color:var(--cyan)">Image 1:</span>  Predicted <span style="color:var(--green)">5</span>, True label <span style="color:var(--green)">5</span>  →  ✅ CORRECT  (Softmax said 96% for "5")
+<span style="color:var(--cyan)">Image 2:</span>  Predicted <span style="color:var(--green)">3</span>, True label <span style="color:var(--green)">3</span>  →  ✅ CORRECT  (Softmax said 88% for "3")
+<span style="color:var(--cyan)">Image 3:</span>  Predicted <span style="color:var(--red)">8</span>, True label <span style="color:var(--green)">3</span>  →  ❌ WRONG    (Softmax said 72% for "8" — it was confused)
+<span style="color:var(--cyan)">Image 4:</span>  Predicted <span style="color:var(--green)">1</span>, True label <span style="color:var(--green)">1</span>  →  ✅ CORRECT
+<span style="color:var(--cyan)">Image 5:</span>  Predicted <span style="color:var(--green)">0</span>, True label <span style="color:var(--green)">0</span>  →  ✅ CORRECT
+<span style="color:var(--cyan)">Image 6:</span>  Predicted <span style="color:var(--green)">7</span>, True label <span style="color:var(--green)">7</span>  →  ✅ CORRECT
+<span style="color:var(--cyan)">Image 7:</span>  Predicted <span style="color:var(--green)">4</span>, True label <span style="color:var(--green)">4</span>  →  ✅ CORRECT
+<span style="color:var(--cyan)">Image 8:</span>  Predicted <span style="color:var(--green)">9</span>, True label <span style="color:var(--green)">9</span>  →  ✅ CORRECT
+<span style="color:var(--cyan)">Image 9:</span>  Predicted <span style="color:var(--red)">2</span>, True label <span style="color:var(--green)">7</span>  →  ❌ WRONG    (the 7 looked like a 2)
+<span style="color:var(--cyan)">Image 10:</span> Predicted <span style="color:var(--green)">5</span>, True label <span style="color:var(--green)">5</span>  →  ✅ CORRECT
+
+<span style="color:var(--text-muted)">============================================</span>
+<span style="color:var(--cyan);font-weight:bold;">Accuracy = 8 correct / 10 total = 0.80 = 80%</span></div>
+
+  <h3>📊 Accuracy vs Loss — Two Different Things</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 Loss (Cross-Entropy)</h4><p><strong>HOW FAR</strong> were the predictions from the truth? Measures <em>confidence</em> of wrong answers too. A prediction of "5 with 51% confidence" when the answer is "3" adds more loss than "5 with 98% confidence" when wrong.</p><p style="margin-top:0.5rem;color:var(--cyan);font-size:0.78rem">Loss = 0.23 means "fairly close"<br>Loss = 2.1 means "way off"</p></div>
+    <div class="compare-card pick-c"><h4>🟢 Accuracy</h4><p><strong>HOW MANY</strong> were right? Just counts correct vs wrong. Doesn't care HOW confident the model was. A correct prediction at 51% confidence counts the SAME as one at 99% confidence.</p><p style="margin-top:0.5rem;color:var(--green);font-size:0.78rem">Accuracy = 95% means "95 out of 100 correct"<br>It's what humans care about.</p></div>
+  </div>
+
+  <h3>🎯 Where Accuracy Fits in the MNIST Pipeline</h3>
+  <div class="eq-box">
+<span style="color:var(--text-muted)">// AFTER training each epoch, run ALL 10,000 test images through the network</span>
+<span style="color:var(--text-muted)">// WITHOUT updating weights — just measure performance:</span>
+
+<span style="color:var(--magenta)">for</span> each test_image:
+    1. Forward pass (Matmul → ReLU → Matmul → ReLU → Matmul → Softmax)
+    2. Get argmax of Softmax output → predicted digit
+    3. Compare predicted digit to true label
+    4. <span style="color:var(--magenta)">if</span> predicted == true: correct_count++
+
+Accuracy = correct_count / 10000 × 100
+
+<span style="color:var(--text-muted)">// This is how we got: Epoch 1 = 11%, Epoch 5 = 85%, Epoch 10 = 95.55%</span></div>
+
+  <h3>⚠️ When Accuracy is NOT Enough</h3>
+  <div class="checklist">
+    <div class="check-item"><span class="check-box">🎲</span> <strong>Imbalanced data:</strong> If 99% of images are digit "0" and 1% are "1", a model that ALWAYS predicts "0" gets 99% accuracy — but is useless. Use precision/recall instead.</div>
+    <div class="check-item"><span class="check-box">🏥</span> <strong>Medical diagnosis:</strong> Missing a tumor (false negative) is WAY worse than a false alarm. Accuracy hides this. Look at recall/sensitivity.</div>
+    <div class="check-item"><span class="check-box">✅</span> <strong>MNIST is balanced:</strong> ~1000 images per digit. Accuracy works fine here — no hidden traps.</div>
+  </div>
+
+  <div class="flashcard-wrap" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+    <div class="flashcard"><div class="front"><span>🤔 Can accuracy be 100% but the model is terrible?</span><span class="hint">Click to reveal ↻</span></div>
+    <div class="back"><strong>Yes!</strong> Imagine a cancer detector where only 1 in 10,000 patients has cancer. A model that always says "NO CANCER" gets 99.99% accuracy — and kills every patient. This is why doctors look at recall (did we miss any cancers?) not just accuracy.</div></div>
+  </div>
+
+  <div class="quiz" id="quiz_accuracy"><div class="question">🧪 A model predicts "cat" for 90 out of 100 cat images. What's the accuracy?</div>
+  <div class="options">
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz_accuracy', this)">A. 90% — 90 correct out of 100 total. The formula is always: correct ÷ total.</div>
+    <div class="option" onclick="checkQuiz('quiz_accuracy', this)">B. 10% — accuracy is the error rate</div>
+    <div class="option" onclick="checkQuiz('quiz_accuracy', this)">C. Cannot be determined — we need to know the loss value too</div>
+  </div><div class="feedback" id="quiz_accuracy-fb"></div></div>
+</div></div>`; }
+  },
+
   // ═══════ SLIDE 4: ReLU — Kill the Negatives ═══════
   {
     id: '3.4',
