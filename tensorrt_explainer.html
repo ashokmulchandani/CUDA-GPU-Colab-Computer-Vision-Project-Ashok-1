@@ -88,6 +88,22 @@ function render(){
     v=`<div style="text-align:center;padding:1rem;">
       <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--tdim);margin-bottom:1rem;">PyTorch Model — 225 Separate Operations</div>
       <div class="layer-row"><span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">ReLU</span>→<span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">ReLU</span>→<span class="layer cv">Conv</span>→<span class="layer bn">BN</span>→<span class="layer relu">SiLU</span>→<span class="layer cv">Conv</span><span style="font-size:0.5rem;color:var(--tmut);">...</span></div>
+
+      <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:0.8rem;">
+        <div style="background:var(--bg-card);border:1px solid var(--cyan);border-radius:6px;padding:0.4rem 0.6rem;text-align:center;max-width:140px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--cyan);">Conv = Convolution</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">Slides a 3×3 filter, does weighted sum. Has learnable weights. Same operation as our Phase 3.5 animations.</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--amber);border-radius:6px;padding:0.4rem 0.6rem;text-align:center;max-width:140px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--amber);">BN = Batch Norm</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">Normalizes Conv output to mean=0, std=1. Then scales and shifts. Makes training stable and faster.</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--green);border-radius:6px;padding:0.4rem 0.6rem;text-align:center;max-width:140px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--green);">ReLU/SiLU = Activation</div>
+          <div style="font-size:0.4rem;color:var(--tmut);">ReLU = max(0,x) — kills negatives.<br>SiLU = x×sigmoid(x) — smooth version used in YOLOv8.</div>
+        </div>
+      </div>
+
       <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">Each box = 1 GPU kernel launch (~5μs overhead each)</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);margin-top:0.3rem;">225 launches × 5μs = <strong>1.1ms wasted just on launch overhead!</strong></div>
       <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.8rem;">Also: dropout layers, gradient computation, optimizer state — all still present but useless for inference.</div>
