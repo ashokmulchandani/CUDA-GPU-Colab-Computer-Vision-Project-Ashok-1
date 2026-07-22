@@ -698,6 +698,67 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
     </div>
   </div>
 
+  <h3>🔢 Why 8 Filters? — How Was This Number Chosen?</h3>
+  <p>There's no magic formula. <strong style="color:var(--amber);">8 is a reasonable starting point</strong> — very similar to how you chose 128 and 64 neurons in the MLP. It's a hyperparameter like any other: start small, increase if accuracy is too low, decrease if overfitting or too slow.</p>
+
+  <div style="overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.6rem;margin:0.8rem 0;">
+    <thead>
+      <tr style="background:var(--bg-raised);">
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">Filters</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">Conv Params</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">FC Input Size</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">FC Params</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">Total Params</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">Accuracy</th>
+        <th style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim);">Verdict</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">2</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">5×5×2+2=52</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">12×12×2=288</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">2,890</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">2,942</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">~91%</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.55rem;color:var(--red);">Too few patterns → underfit</td>
+      </tr>
+      <tr style="background:rgba(63,185,80,0.06);">
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);font-weight:700;">8 ✅</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">208</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">1,152</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">11,530</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">11,738</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--green);">96.29%</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.55rem;color:var(--green);">Sweet spot for MNIST</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">16</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">5×5×16+16=416</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">12×12×16=2,304</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">23,050</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">23,466</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">~96-97%</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.55rem;color:var(--amber);">More params, diminishing returns</td>
+      </tr>
+      <tr>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">32</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">5×5×32+32=832</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">12×12×32=4,608</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">46,090</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">46,922</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--red);">~96-97%</td>
+        <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.55rem;color:var(--red);">4× more params, no accuracy gain → overfit risk</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="background:var(--amber-bg, rgba(255,179,71,0.08));border:1px solid var(--amber);border-radius:8px;padding:0.8rem 1rem;margin:0.5rem 0;font-size:0.7rem;color:var(--tdim);line-height:1.7;">
+    <strong style="color:var(--amber);">🧠 The Rule of Thumb:</strong> Start with <strong style="color:var(--cyan);">8</strong> for small images (MNIST). Double it (16, 32, 64) as images get larger. Real CNNs use: AlexNet=96, VGG=64→512, ResNet=64→512. The number grows because larger images have MORE patterns to detect. But for MNIST's simple 28×28 digits, <strong style="color:var(--green);">8 is plenty — 96.29% proves it.</strong>
+  </div>
+
   <div style="background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.8rem 1.2rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;">
     <span style="font-size:1.2rem;">🎬</span>
     <span style="font-size:0.75rem;color:var(--text-dim);"><strong style="color:var(--cyan);">Interactive Animation:</strong> Watch a filter slide across an input grid in real time — <a href="filter_sliding_animation.html" style="color:var(--cyan);">Filter Sliding Animation</a>. 6 filter types, Play/Pause controls, shows every multiplication.</span>
