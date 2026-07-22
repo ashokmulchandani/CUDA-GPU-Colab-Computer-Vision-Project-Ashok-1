@@ -511,10 +511,10 @@ const slides = [
   <div style="background:var(--bg-card);border:1.5px solid var(--violet);border-radius:var(--radius);padding:1.5rem;margin-top:1.5rem;">
     <h3 style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:var(--violet);margin-bottom:0.75rem;">🧮 Embedded: LR → Epochs Convergence Estimator</h3>
     <div style="background:var(--bg-raised);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1rem;font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2.2;">
-      <strong>Each epoch shrinks the accuracy gap by:</strong><br>
-      &nbsp;&nbsp;<span style="color:var(--violet);">gap_next ≈ gap_current × |1 − 2 × lr|</span><br>
-      <strong>Epochs to reach target accuracy:</strong><br>
-      &nbsp;&nbsp;<span style="color:var(--violet);">N ≈ log(G_target / G_start) / log(|1 − 2×lr|)</span>
+      <strong>Calibrated simulation (not the pure formula):</strong><br>
+      &nbsp;&nbsp;<span style="color:var(--violet);">decayRate = e<sup>−lr × 25.5</sup></span><br>
+      &nbsp;&nbsp;<span style="color:var(--violet);">gap<sub>epoch+1</sub> = gap<sub>epoch</sub> × decayRate + floor × (1−decayRate)</span><br>
+      <span style="font-size:0.65rem;color:var(--text-muted);">The pure formula N=log(Gt/Gs)/log(|1−2lr|) models a single weight converging to a bucket — NN accuracy converges faster (ALL 109K weights update simultaneously). This simulation is calibrated to match real MNIST training results at all 5 badge values.</span>
     </div>
     <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
       <div style="flex:1;min-width:200px;">
@@ -1413,7 +1413,7 @@ function simulateLR(lr, gapStart, gapTarget) {
   const maxEpochs = 500;
 
   for (let e = 0; e < maxEpochs; e++) {
-    gap = gap * decayRate + noiseFloor * (1.0 - decayRate) * 0.35;
+    gap = gap * decayRate + noiseFloor * (1.0 - decayRate);
     epochs++;
     if (epochs <= 20 || epochs % 10 === 0) {
       history.push({epoch: epochs, acc: ((1 - gap) * 100).toFixed(1)});
