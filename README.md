@@ -37,7 +37,7 @@ See [CUDA_PLAN.md](CUDA_PLAN.md) for the full 9-phase learning plan.
 
 | Phase | Module | Slides |
 |-------|--------|--------|
-| **3** | [🎓 MLP on MNIST — ReLU & Softmax](phase3_mlp_mnist.html) | 12 slides — Architecture 784→128→64→10, ReLU, Softmax, Accuracy & Loss formulas, pipeline walkthrough, detective analogy |
+| **3** | [🎓 MLP on MNIST — ReLU & Softmax](phase3_mlp_mnist.html) | 13 slides — Architecture, ReLU, Softmax, Accuracy, Loss, R²/MAE/RMSE, pipeline walkthrough, detective analogy |
 | **3** | [🧮 LR → Epochs Calculator](phase3_lr_convergence_calc.html) | Interactive — adjust learning rate, see epochs needed, accuracy trajectory bars, reference table |
 | **4** | [🎓 YOLO + CUDA Pipeline](phase4_yolo_cuda.html) | 8 slides — YOLO architecture, CUDA preprocess kernel (419×), TensorRT FP16, CUDA NMS, 137 FPS pipeline, Triton serving |
 | **6** | [🎓 Production CUDA (6A-6F)](phase6_production_cuda.html) | 10 slides — TensorRT, Triton, Nsight, Multi-Stream 7×, CUDA Graphs, Custom Kernels + pybind11, Docker/K8s |

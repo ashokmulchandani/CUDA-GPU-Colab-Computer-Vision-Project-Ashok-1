@@ -610,6 +610,118 @@ to be careful about overconfident wrong answers.</span></div>
 </div></div>`; }
   },
 
+  // ═══════ SLIDE regress: R², MAE, RMSE — Regression Metrics ═══════
+  {
+    id: 'regression',
+    title: 'R², MAE, RMSE — Metrics for Predicting NUMBERS',
+    fact: '<strong>Accuracy only works when the answer is "right" or "wrong."</strong> When you\'re predicting a NUMBER (price, temperature, age), you need different metrics. These three are the universal standard for regression problems.',
+    render() { return `
+<div class="slide"><div class="card">
+  <h2><span class="num">regression</span> R², MAE, RMSE — Metrics for Predicting Numbers</h2>
+  <p>MNIST is <strong style="color:var(--cyan)">classification</strong> — the answer is a category (digit 0-9). Accuracy works here: "Did I get the right digit?" But what if you're predicting a <strong style="color:var(--amber)">continuous number</strong> — like a house price ($342,000), a temperature (72.5°F), or a person's age (34.2 years)? Then "right vs wrong" makes no sense. You need different metrics.</p>
+
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 Classification (Phase 3)</h4><p><strong>Problem:</strong> "What digit?" (0-9)<br><strong>Output:</strong> Category<br><strong>Metric:</strong> Accuracy, Loss</p><p style="margin-top:0.5rem;color:var(--cyan);font-size:0.78rem">Either right or wrong.<br>No "close" — predicting "6" when it's "5" is just as wrong as predicting "9."</p></div>
+    <div class="compare-card pick-c"><h4>🟢 Regression (Phase 5)</h4><p><strong>Problem:</strong> "What price?" ($)<br><strong>Output:</strong> Continuous number<br><strong>Metrics:</strong> R², MAE, RMSE</p><p style="margin-top:0.5rem;color:var(--green);font-size:0.78rem">"Close" matters! Predicting $340K for a $350K house is MUCH better than predicting $200K. Error has magnitude.</p></div>
+  </div>
+
+  <h3>🧮 MAE — Mean Absolute Error ("How Far Off, on Average?")</h3>
+  <div class="eq-box">
+<span style="color:var(--cyan);font-weight:bold;">MAE = (1/n) × Σ |predicted − actual|</span>
+
+<span style="color:var(--text-muted)">// Simple: take each error, make it positive (abs), average them.</span>
+<span style="color:var(--text-muted)">// Result is in the SAME UNITS as your target (e.g., dollars, degrees).</span>
+
+<span style="color:var(--text-muted)">Example — House Prices (3 houses):</span>
+  House A: Predicted $340K, Actual $350K  →  |−10K| = <span style="color:var(--green)">$10K</span>
+  House B: Predicted $280K, Actual $250K  →  |+30K| = <span style="color:var(--amber)">$30K</span>
+  House C: Predicted $500K, Actual $490K  →  |+10K| = <span style="color:var(--green)">$10K</span>
+
+  <span style="color:var(--cyan);font-weight:bold;">MAE = (10 + 30 + 10) / 3 = $16,667</span>
+
+<span style="color:var(--green)">Interpretation: "On average, my price predictions are off by ~$17K."</span></div>
+
+  <h3>📐 RMSE — Root Mean Squared Error ("Punish the Big Mistakes")</h3>
+  <div class="eq-box">
+<span style="color:var(--cyan);font-weight:bold;">RMSE = √( (1/n) × Σ (predicted − actual)² )</span>
+
+<span style="color:var(--text-muted)">// Step 1: Square each error → makes big errors MUCH bigger</span>
+<span style="color:var(--text-muted)">// Step 2: Average the squared errors</span>
+<span style="color:var(--text-muted)">// Step 3: Take square root → back to original units</span>
+
+<span style="color:var(--text-muted)">Same 3 houses:</span>
+  Error: −10K  →  (−10)² = <span style="color:var(--green)">100</span>   (small)
+  Error: +30K  →  (+30)² = <span style="color:var(--red)">900</span>   (BIG — the square amplifies it!)
+  Error: +10K  →  (+10)² = <span style="color:var(--green)">100</span>   (small)
+
+  MSE = (100 + 900 + 100) / 3 = 366.67 (in squared $K² — meaningless units)
+  <span style="color:var(--cyan);font-weight:bold;">RMSE = √366.67 = $19,149</span>
+
+<span style="color:var(--amber)">Note: RMSE ($19.1K) > MAE ($16.7K). The $30K mistake got PUNISHED by squaring.</span>
+<span style="color:var(--green)">Use RMSE when BIG errors are especially bad (medical dosing, safety-critical).</span></div>
+
+  <h3>📊 MAE vs RMSE — When to Use Which</h3>
+  <div class="compare-grid two-col">
+    <div class="compare-card pick-b"><h4>🔵 MAE</h4><p><strong>All errors treated equally.</strong> A $10K miss and a $50K miss contribute proportionally.</p><p style="margin-top:0.5rem;color:var(--cyan);font-size:0.78rem"><strong>Use when:</strong> All errors have similar cost. You want a simple, human-readable number in the original units.</p><div class="tag-row"><span class="tag low">Robust to outliers</span><span class="tag low">Easy to explain</span></div></div>
+    <div class="compare-card pick-c"><h4>🟢 RMSE</h4><p><strong>Big errors punished severely.</strong> A $50K miss hurts 25× more than a $10K miss (because 50²/10² = 25).</p><p style="margin-top:0.5rem;color:var(--green);font-size:0.78rem"><strong>Use when:</strong> Large errors are catastrophic. You want to aggressively minimize worst-case predictions.</p><div class="tag-row"><span class="tag high">Sensitive to outliers</span><span class="tag med">Standard in competitions</span></div></div>
+  </div>
+
+  <h3>⭐ R² — "How Much Better Than Just Guessing the Average?"</h3>
+  <div class="eq-box">
+<span style="color:var(--cyan);font-weight:bold;">R² = 1 − (SS_residual / SS_total)</span>
+
+<span style="color:var(--text-muted)">SS_residual = Σ (predicted − actual)²    ← "How much error does my model make?"</span>
+<span style="color:var(--text-muted)">SS_total    = Σ (average − actual)²      ← "How much error if I just guessed the mean every time?"</span>
+
+<span style="color:var(--text-muted)">// R² answers: "What % of the variation in prices does my model explain?"</span>
+
+<span style="color:var(--text-muted)">Example — 3 house prices: $350K, $250K, $490K. Average = $363K.</span>
+
+<span style="color:var(--text-muted)">Dumb baseline (always guess $363K):</span>
+  SS_total = (363−350)² + (363−250)² + (363−490)² = 169 + 12,769 + 16,129 = <span style="color:var(--red)">29,067</span>
+
+<span style="color:var(--text-muted)">My model (predictions: $340K, $280K, $500K):</span>
+  SS_residual = (340−350)² + (280−250)² + (500−490)² = 100 + 900 + 100 = <span style="color:var(--green)">1,100</span>
+
+<span style="color:var(--cyan);font-weight:bold;">R² = 1 − (1,100 / 29,067) = 1 − 0.038 = 0.962</span>
+
+<span style="color:var(--green)">Interpretation: "My model explains 96.2% of the variation in house prices."</span></div>
+
+  <h3>📏 Good Ranges for Regression Metrics (House Prices Example)</h3>
+  <div class="data-types">
+    <div class="data-type-card"><div class="dt-icon">⭐</div><h4>R²</h4><p><strong style="color:var(--red);">R² < 0:</strong> Worse than guessing the average!<br>
+    <strong style="color:var(--amber);">0.5-0.7:</strong> Decent. Explains half the variation.<br>
+    <strong style="color:var(--cyan);">0.7-0.85:</strong> Good. Our prices predictor should hit this.<br>
+    <strong style="color:var(--green);">0.85-0.95:</strong> Excellent. Near state-of-the-art for housing.<br>
+    <strong style="color:var(--violet);">>0.95:</strong> Suspicious — check for data leakage.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📏</div><h4>MAE</h4><p><strong>Units = same as target.</strong><br>If houses are $100K-$500K:<br>
+    <strong style="color:var(--red);">>$100K:</strong> Terrible — random guessing.<br>
+    <strong style="color:var(--amber);">$30-100K:</strong> Okay, but too rough for real use.<br>
+    <strong style="color:var(--cyan);">$15-30K:</strong> Decent. Getting useful.<br>
+    <strong style="color:var(--green);"><$15K:</strong> Good! Our target for Phase 5.<br>
+    <strong style="color:var(--green);"><$10K:</strong> Excellent on Ames data.</p></div>
+    <div class="data-type-card"><div class="dt-icon">📐</div><h4>RMSE</h4><p><strong>Always ≥ MAE</strong> (squaring punishes outliers).<br>If MAE = $17K:<br>
+    <strong style="color:var(--green);">RMSE ~ $19K:</strong> Normal — slightly higher due to squaring.<br>
+    <strong style="color:var(--red);">RMSE ~ $45K:</strong> Problem! A few predictions are WAY off. Model has outlier vulnerability.<br>
+    <strong>Rule:</strong> If RMSE >> MAE, you have big mistakes on a few predictions.</p></div>
+  </div>
+
+  <h3>🗺️ Which Metric for Which Phase?</h3>
+  <div class="ladder">
+    <div class="ladder-rung"><div class="rung-icon">🔢</div><div class="rung-bar" style="background:var(--cyan)"></div><div class="rung-label">Phase 3 (MNIST)</div><div class="rung-metric">Accuracy + Loss</div><div class="rung-example">Classification: "Is it a 5?"</div></div>
+    <div class="ladder-rung"><div class="rung-icon">🏠</div><div class="rung-bar" style="background:var(--amber)"></div><div class="rung-label">Phase 5 (Prices)</div><div class="rung-metric">R² + MAE + RMSE</div><div class="rung-example">Regression: "How much does it cost?"</div></div>
+    <div class="ladder-rung"><div class="rung-icon">📦</div><div class="rung-bar" style="background:var(--magenta)"></div><div class="rung-label">Phase 4 (YOLO)</div><div class="rung-metric">mAP + IoU + F1</div><div class="rung-example">Detection: "Where + what is it?"</div></div>
+  </div>
+
+  <div class="quiz" id="quiz_reg"><div class="question">🧪 Your house price model predicts $350K for a $345K house, and $200K for a $500K house. Which metric will expose the $300K miss the most?</div>
+  <div class="options">
+    <div class="option" onclick="checkQuiz('quiz_reg', this)">A. MAE — because it averages all errors equally</div>
+    <div class="option" data-correct="true" onclick="checkQuiz('quiz_reg', this)">B. RMSE — because 300² = 90,000, which will dominate the average and blow up the RMSE. This is exactly what RMSE is DESIGNED to catch: a few catastrophic predictions hiding among mostly-decent ones.</div>
+    <div class="option" onclick="checkQuiz('quiz_reg', this)">C. R² — because it compares to the average price</div>
+  </div><div class="feedback" id="quiz_reg-fb"></div></div>
+</div></div>`; }
+  },
+
   // ═══════ SLIDE 4: ReLU — Kill the Negatives ═══════
   {
     id: '3.4',
