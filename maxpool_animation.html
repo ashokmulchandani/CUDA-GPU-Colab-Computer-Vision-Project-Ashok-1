@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Max Pooling — How 2×2 Downsampling Works</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:700px;padding:1.5rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.7rem;margin-bottom:1rem}
+
+/* Layout */
+.panels{display:flex;gap:1rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:0.8rem 0}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
+.panel-label{font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);letter-spacing:0.04em;margin-bottom:0.4rem}
+
+/* Grid tables */
+.gt{border-collapse:collapse;margin:0 auto}
+.gt td{width:55px;height:55px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;border:2px solid var(--border);transition:0.2s}
+.gt td.in-window{border:3px solid var(--cyan)!important;background:var(--cyan-bg)!important}
+.gt td.is-max{border:4px solid var(--green)!important;background:rgba(63,185,80,0.35)!important;font-size:0.85rem;font-weight:700}
+.gt td.was-max{background:rgba(63,185,80,0.15);border-color:var(--green)}
+.gt td.out-filled{background:rgba(63,185,80,0.25);border-color:var(--green);color:var(--green);font-weight:700}
+.gt td.out-active{border:3px solid var(--cyan)!important;background:var(--cyan-bg)!important}
+
+/* Arrow */
+.arrow{font-size:1.5rem;color:var(--cyan);animation:arrowPulse 1.5s infinite}
+@keyframes arrowPulse{0%,100%{opacity:0.4}50%{opacity:1}}
+
+/* Comp box */
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.7rem 1rem;margin:0.6rem auto;max-width:500px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.8;color:#d4d4d4}
+.comp .hl{color:var(--green);font-weight:700}
+.comp .cm{color:#6a9955}
+
+/* Controls */
+.ctrls{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.6rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:0.4rem 1rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+.btn:disabled{opacity:0.3;cursor:not-allowed}
+
+.info{font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.3rem}
+
+@media(max-width:600px){.gt td{width:42px;height:42px;font-size:0.65rem}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Max Pooling — 2×2 Window, Keep the MAX</h1>
+  <p class="subtitle">After Conv+ReLU: 24×24×8 = 4,608 values → too many for FC layer. MaxPool compresses each map 4× to 12×12. <strong>Only the strongest activation survives.</strong></p>
+
+  <div class="panels">
+    <!-- INPUT 6x6 -->
+    <div class="panel" style="border-top:3px solid var(--cyan);">
+      <div class="panel-label">📥 INPUT (6×6 after Conv+ReLU)</div>
+      <table class="gt" id="inputGrid"></table>
+    </div>
+
+    <!-- ARROW -->
+    <div class="arrow">→</div>
+
+    <!-- OUTPUT 3x3 -->
+    <div class="panel" style="border-top:3px solid var(--green);">
+      <div class="panel-label">📤 OUTPUT (3×3 after MaxPool 2×2)</div>
+      <table class="gt" id="outputGrid"></table>
+      <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">6/2 = 3 | 4× compression</div>
+    </div>
+  </div>
+
+  <!-- COMPUTATION -->
+  <div class="comp" id="compBox">Press ▶ Play to see MaxPool slide across all 9 windows</div>
+
+  <!-- CONTROLS -->
+  <div class="ctrls">
+    <button class="btn" onclick="prev()" id="prevBtn">◀ Prev</button>
+    <button class="btn primary" onclick="togglePlay()" id="playBtn">▶ Play</button>
+    <button class="btn" onclick="next()" id="nextBtn">Next ▶</button>
+    <button class="btn" onclick="resetAll()">↺ Reset</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);" id="stepLbl">0 / 9</span>
+  </div>
+  <div style="margin-top:0.3rem;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">Speed:</span>
+    <input type="range" min="200" max="1500" value="700" oninput="spd=parseInt(this.value)" style="width:100px;accent-color:var(--cyan);">
+  </div>
+
+  <div class="info">
+    24×24 → 12×12 (4× compression) | Real CNN: 8 filters × 12×12 = <strong style="color:var(--cyan);">1,152 values</strong> for FC layer<br>
+    <strong style="color:var(--green);">The index of the max is SAVED</strong> — used in backprop to route gradient to the winning position only
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('mp-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('mp-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+const inp=[
+  [3,7,2,1,5,0],
+  [1,5,9,4,2,3],
+  [2,0,4,8,1,6],
+  [6,3,1,12,0,2],
+  [0,8,2,3,7,1],
+  [4,1,5,0,3,9]
+];
+const outs=Array(3).fill().map(()=>Array(3).fill(null));
+let step=0,timer=null,spd=700;
+
+function renderAll(sr,sc){
+  // Input grid
+  let ih='';
+  for(let r=0;r<6;r++){ih+='<tr>';
+    for(let c=0;c<6;c++){
+      let inW=(r>=sr&&r<sr+2&&c>=sc&&c<sc+2);
+      let isMax=(inW&&inp[r][c]===Math.max(inp[sr][sc],inp[sr][sc+1],inp[sr+1][sc],inp[sr+1][sc+1]));
+      let wasMax=false;
+      for(let orr=0;orr<3;orr++)for(let occ=0;occ<3;occ++)if(outs[orr][occ]!==null&&inp[r][c]===outs[orr][occ]&&r>=orr*2&&r<orr*2+2&&c>=occ*2&&c<occ*2+2)wasMax=true;
+      let cls='';
+      if(isMax)cls='is-max';
+      else if(inW)cls='in-window';
+      else if(wasMax)cls='was-max';
+      ih+=`<td class="${cls}">${inp[r][c]}</td>`;
+    }ih+='</tr>';}
+  document.getElementById('inputGrid').innerHTML=ih;
+
+  // Output grid
+  let oh='';
+  for(let r=0;r<3;r++){oh+='<tr>';
+    for(let c=0;c<3;c++){
+      let v=outs[r][c],cls='',disp='·';
+      if(v!==null){cls='out-filled';if(r===sr/2&&c===sc/2&&step>0)cls='out-active';disp=v;}
+      else if(r===sr/2&&c===sc/2&&step>0)cls='out-active';
+      oh+=`<td class="${cls}">${disp}</td>`;
+    }oh+='</tr>';}
+  document.getElementById('outputGrid').innerHTML=oh;
+
+  // Computation box
+  if(step===0){document.getElementById('compBox').innerHTML='Press ▶ Play to see MaxPool slide across all 9 windows';}
+  else{
+    let w=[inp[sr][sc],inp[sr][sc+1],inp[sr+1][sc],inp[sr+1][sc+1]];
+    let mx=Math.max(...w),mi=w.indexOf(mx);
+    let pos=[['top-left','top-right','bottom-left','bottom-right'][mi]];
+    let comp=`<span class="cm">Window (${sr},${sc}) — 2×2 → 1 value</span>\n`;
+    comp+=`Values: [<span style="color:${w[0]===mx?'var(--green)':'var(--tdim)'};">${w[0]}</span>, <span style="color:${w[1]===mx?'var(--green)':'var(--tdim)'};">${w[1]}</span>, <span style="color:${w[2]===mx?'var(--green)':'var(--tdim)'};">${w[2]}</span>, <span style="color:${w[3]===mx?'var(--green)':'var(--tdim)'};">${w[3]}</span>]\n`;
+    comp+=`<span class="hl">MAX = ${mx}</span> (${pos}) → output[${sr/2}][${sc/2}] = ${mx}\n`;
+    comp+=`<span class="cm">Index (${mi}) saved for backprop → only this position gets gradient</span>`;
+    document.getElementById('compBox').innerHTML=comp;
+  }
+
+  document.getElementById('stepLbl').textContent=step+' / 9';
+  document.getElementById('prevBtn').disabled=step===0;
+  document.getElementById('nextBtn').disabled=step===9;
+}
+
+function moveTo(s){
+  step=s;
+  if(step===0){renderAll(-1,-1);return;}
+  let sr=Math.floor((step-1)/3)*2,sc=((step-1)%3)*2;
+  if(outs[sr/2][sc/2]===null){let w=[inp[sr][sc],inp[sr][sc+1],inp[sr+1][sc],inp[sr+1][sc+1]];outs[sr/2][sc/2]=Math.max(...w);}
+  renderAll(sr,sc);
+}
+
+function next(){if(step<9)moveTo(step+1)}
+function prev(){if(step>0)moveTo(step-1)}
+function togglePlay(){
+  if(timer){clearInterval(timer);timer=null;document.getElementById('playBtn').textContent='▶ Play';document.getElementById('playBtn').classList.remove('primary');return;}
+  if(step>=9)resetAll();
+  document.getElementById('playBtn').textContent='⏸ Pause';document.getElementById('playBtn').classList.add('primary');
+  timer=setInterval(function(){if(step<9)moveTo(step+1);else{clearInterval(timer);timer=null;document.getElementById('playBtn').textContent='▶ Play';document.getElementById('playBtn').classList.remove('primary');}},spd);
+}
+function resetAll(){if(timer){clearInterval(timer);timer=null;document.getElementById('playBtn').textContent='▶ Play';document.getElementById('playBtn').classList.remove('primary');}for(let r=0;r<3;r++)for(let c=0;c<3;c++)outs[r][c]=null;moveTo(0);}
+
+moveTo(0);document.getElementById('prevBtn').disabled=true;
+</script>
+</body>
+</html>
