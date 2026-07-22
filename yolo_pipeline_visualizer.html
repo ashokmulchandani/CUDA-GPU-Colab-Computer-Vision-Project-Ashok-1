@@ -210,19 +210,79 @@ function render(){
   else if(curStage===1){
     if(curSub===0){ // CNN Backbone
       v=`<div style="text-align:center;">
-        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">CNN Backbone — 225 Layers</div>
-        <div style="display:flex;gap:0.3rem;align-items:center;justify-content:center;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
-          <div style="background:var(--raised);border:1px solid var(--cyan);border-radius:4px;padding:0.3rem 0.5rem;">640³</div><span>→</span>
-          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">320²</div><span>→</span>
-          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">160²</div><span>→</span>
-          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">80²</div><span>→</span>
-          <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;">40²</div><span>→</span>
-          <div style="background:var(--raised);border:1px solid var(--amber);border-radius:4px;padding:0.3rem 0.5rem;">20²</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.6rem;">CNN Backbone — 225 Layers, 3.15M Parameters</div>
+
+        <!-- Pipeline with 5 stages -->
+        <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:center;">
+
+          <!-- Stage 1: Input -->
+          <div style="display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:2px solid var(--cyan);border-radius:8px;padding:0.5rem 1rem;width:95%;max-width:600px;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);min-width:80px;">🟦 INPUT</div>
+            <div style="flex:1;text-align:left;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text);"><strong>640 × 640 × 3</strong></div>
+              <div style="font-size:0.45rem;color:var(--tmut);">RGB image after CUDA preprocess. 1,228,800 pixels.</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">0 params</div>
+          </div>
+
+          <!-- Arrow -->
+          <div style="color:var(--cyan);font-size:0.8rem;">⬇</div>
+
+          <!-- Stage 2: CONV Block 1 -->
+          <div style="display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:2px solid var(--amber);border-radius:8px;padding:0.5rem 1rem;width:95%;max-width:600px;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);min-width:80px;">🔲 STEM</div>
+            <div style="flex:1;text-align:left;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text);"><strong>640 → 320 → 160</strong></div>
+              <div style="font-size:0.45rem;color:var(--tmut);">First few layers. Detect <strong style="color:var(--amber);">edges, lines, simple textures</strong>. Spatial size drops fast, channels grow.</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">~50K params</div>
+          </div>
+
+          <div style="color:var(--cyan);font-size:0.8rem;">⬇</div>
+
+          <!-- Stage 3: DEEP CONV -->
+          <div style="display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:2px solid var(--magenta);border-radius:8px;padding:0.5rem 1rem;width:95%;max-width:600px;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--magenta);min-width:80px;">🔳 DEEP</div>
+            <div style="flex:1;text-align:left;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text);"><strong>160 → 80 → 40 → 20</strong></div>
+              <div style="font-size:0.45rem;color:var(--tmut);">Bulk of the 225 layers. Detect <strong style="color:var(--magenta);">shapes, patterns, object parts</strong>. Channels grow 64→128→256→512.</div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">~3M params</div>
+          </div>
+
+          <div style="color:var(--cyan);font-size:0.8rem;">⬇</div>
+
+          <!-- Stage 4: NECK -->
+          <div style="display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:2px solid var(--violet);border-radius:8px;padding:0.5rem 1rem;width:95%;max-width:600px;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--violet);min-width:80px;">🧩 NECK</div>
+            <div style="flex:1;text-align:left;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text);"><strong>Feature Pyramid (FPN+PAN)</strong></div>
+              <div style="font-size:0.45rem;color:var(--tmut);">Merges features from 3 scales (80², 40², 20²). Top-down + bottom-up paths. <strong style="color:var(--violet);">Rich features at ALL resolutions.</strong></div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">~100K params</div>
+          </div>
+
+          <div style="color:var(--cyan);font-size:0.8rem;">⬇</div>
+
+          <!-- Stage 5: HEAD -->
+          <div style="display:flex;align-items:center;gap:0.8rem;background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.5rem 1rem;width:95%;max-width:600px;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--green);min-width:80px;">🎯 HEAD</div>
+            <div style="flex:1;text-align:left;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--text);"><strong>Detection: (1, 84, 8400)</strong></div>
+              <div style="font-size:0.45rem;color:var(--tmut);">Each of the 8,400 cells → 84 numbers. <strong style="color:var(--green);">4 coords + 80 class scores.</strong></div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">~50K params</div>
+          </div>
+
         </div>
-        <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;">Each step: Conv → BatchNorm → SiLU. Spatial size shrinks, channels grow.</div>
-        <div style="font-size:0.45rem;color:var(--tmut);">Early layers: edges. Middle: textures. Deep: object parts.</div>
+
+        <!-- Key insight -->
+        <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem 1rem;margin-top:0.6rem;width:95%;max-width:600px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+          <strong style="color:var(--amber);">💡 Why 225 layers but only 3.15M params?</strong> Most layers are 3×3 convolutions with small channel counts. The spatial size SHRINKS (640→20) while channels GROW (3→512). This is the classic CNN tradeoff: lose spatial detail, gain semantic understanding.
+        </div>
+
       </div>`;
-      c='<span class="cm">// TensorRT fuses Conv+BN+SiLU into ONE kernel</span>\n<span class="cm">// FP16 precision → 2× faster on Tensor Cores</span>\n<span style="color:#4ec9b0;">PyTorch:</span> 13.8 ms (73 FPS)\n<span style="color:#4ec9b0;">TensorRT:</span> 11.3 ms (89 FPS) <span class="cm">// 1.2× faster</span>';
+      c='<span class="cm">// YOLOv8n backbone: CSPDarknet53-like architecture</span>\n<span class="hl">225 layers, 3.15M params, 8.7 GFLOPs</span>\n<span class="cm">// Each Conv block: Conv2D → BatchNorm → SiLU activation</span>\n<span class="cm">// TensorRT fuses these 3 ops into ONE kernel = 1.2× faster</span>\n<span style="color:#4ec9b0;">PyTorch:</span> 13.8 ms / <span style="color:#4ec9b0;">TensorRT:</span> 11.3 ms (FP16)';
     }
     else if(curSub===1){ // Feature Pyramid
       v=`<div style="text-align:center;">
