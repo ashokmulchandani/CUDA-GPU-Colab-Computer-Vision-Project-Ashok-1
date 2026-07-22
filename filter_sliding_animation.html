@@ -85,7 +85,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient
         <button class="filter-btn" onclick="selectFilter(4,this)" id="fbtn4">✨ Sharp</button>
         <button class="filter-btn" onclick="selectFilter(5,this)" id="fbtn5">▦ Emboss</button>
       </div>
-      <div id="filterDesc" style="font-size:0.55rem;color:var(--amber);margin-top:0.3rem;text-align:center;max-width:180px;">Detects vertical edges<br>Left=+1, Right=−1</div>
+      <div id="filterDesc" style="font-size:0.55rem;color:var(--amber);margin-top:0.3rem;text-align:center;max-width:180px;min-height:2.5rem;">Detects vertical edges<br>Left=+1, Right=−1</div>
       <div style="display:flex;align-items:center;gap:0.3rem;">
         <table class="filter-table" id="filterGrid"></table>
       </div>
@@ -93,7 +93,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient
 
     <!-- OUTPUT GRID -->
     <div class="output-section">
-      <div class="section-label" id="outputLabel">OUTPUT (3×3) — feature map</div>
+      <div class="section-label" id="outputLabel" style="min-height:1rem;">OUTPUT (3×3) — feature map</div>
       <div class="grid-wrap">
         <table class="grid-table" id="outputGrid"></table>
       </div>
@@ -103,12 +103,12 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.3rem;background:linear-gradient
   </div>
 
   <!-- OUTPUT INTERPRETATION -->
-  <div style="background:var(--raised);border:1px solid var(--violet);border-radius:10px;padding:0.7rem 1rem;margin-top:0.8rem;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:1.6;" id="interpretBox">
+  <div style="background:var(--raised);border:1px solid var(--violet);border-radius:10px;padding:0.7rem 1rem;margin-top:0.8rem;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:1.6;min-height:3rem;" id="interpretBox">
     <span style="color:var(--violet);font-weight:600;">🔍 INTERPRETING THE OUTPUT:</span> High positive values = vertical edge detected (left side brighter than right). High negative values = reverse edge (right brighter than left). Values near zero = flat region with no vertical contrast. This is a <strong style="color:var(--amber);">feature map</strong> — a heatmap of where this pattern appears.
   </div>
 
   <!-- COMPUTATION -->
-  <div class="comp-box" id="compBox">
+  <div class="comp-box" id="compBox" style="min-height:180px;">
     <div class="row">Press ▶ Play to start sliding</div>
   </div>
 
