@@ -99,6 +99,16 @@ body {
 .code-cell .copy-btn.copied { border-color: var(--green); color: var(--green); }
 .code-cell pre { margin: 0; padding: 1rem 1.2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; line-height: 1.7; color: #e6edf3; white-space: pre-wrap; overflow-x: auto; }
 
+/* Fine-tuning repo style code boxes */
+.code-box { background: #1e1e1e; border: 1px solid #333; border-left: 3px solid var(--violet); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.8; white-space: pre-wrap; overflow-x: auto; color: #d4d4d4; position: relative; }
+.code-wrapper { position: relative; margin: 1rem 0; }
+.copy-btn2 { position: absolute; top: 8px; right: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 600; padding: 0.35em 0.8em; border: 1px solid #555; border-radius: 6px; background: #2d2d2d; color: #ccc; cursor: pointer; transition: 0.15s; opacity: 0; z-index: 5; }
+.code-wrapper:hover .copy-btn2 { opacity: 1; }
+.copy-btn2:hover { background: #333; color: var(--violet); border-color: var(--violet); }
+.copy-btn2.copied { background: #2d2d2d; color: var(--green); border-color: var(--green); opacity: 1; }
+.cell-num { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 700; color: #fff; background: var(--violet); display: inline-block; padding: 0.2em 0.7em; border-radius: 4px 4px 0 0; margin-bottom: 0.5rem; letter-spacing: 0.06em; }
+
+
 .compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0; }
 .compare-grid.two-col { grid-template-columns: 1fr 1fr; }
 .compare-card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.2rem; transition: var(--transition); }
@@ -1068,16 +1078,16 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
   <h2><span class="num">3.5.10</span> 🖐️ Exercise 1 — Open Colab + Compute Convolution by Hand</h2>
 
   <h3>💻 Step 1: Open the Notebook in Colab</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">📍 Colab Notebook URL</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre>https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/1_Ashok_CUDA.ipynb</pre>
-  </div>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">🖥️ Colab Setup Steps</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre>1. Runtime → Change runtime type → GPU → Tesla T4
-2. Run the first cell: !nvidia-smi → verify Tesla T4
-3. Scroll to the CNN section (approximately cells 70-110)
-4. Bookmark this notebook — you'll use it for all 4 exercises</pre>
+  <div class="code-box">
+    <span class="cell-num">CELL — Open Colab</span>
+    <span style="color:#6a9955;"># Open this notebook in Google Colab (free Tesla T4 GPU)</span>
+<span style="color:#4ec9b0;">https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/1_Ashok_CUDA.ipynb</span>
+
+<span style="color:#6a9955;"># Steps after opening:</span>
+<span style="color:#569cd6;">1.</span> Runtime → Change runtime type → GPU → Tesla T4
+<span style="color:#569cd6;">2.</span> Run the first cell: !nvidia-smi → verify Tesla T4
+<span style="color:#569cd6;">3.</span> Scroll to the CNN section (approximately cells 70-110)
+<span style="color:#569cd6;">4.</span> Bookmark this notebook — you'll use it for all 4 exercises
   </div>
 
   <h3>✏️ Step 2: Compute One Convolution Output by Hand (5 min)</h3>
@@ -1141,30 +1151,30 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
   <p>In Colab, find the cell starting with <code style="color:var(--cyan);">%%writefile cnn_mnist.cu</code>. Run it. This writes all 10 kernels to a file.</p>
 
   <h3>🔨 Step 2: Compile</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">🔨 Cell: Compile with nvcc</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre>!nvcc cnn_mnist.cu -o cnn_mnist -lm
-
-# Expected: (silence = success)
-# If errors: check that %%writefile cell above ran successfully</pre>
+  <div class="code-box">
+    <span class="cell-num">CELL — Compile</span>
+    <span style="color:#6a9955;"># Compile cnn_mnist.cu — if this succeeds (no output), you're good</span>
+!nvcc cnn_mnist.cu -o cnn_mnist -lm
   </div>
 
   <h3>▶️ Step 3: Train!</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">▶️ Cell: Run Training</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre>!./cnn_mnist
+  <div class="code-box">
+    <span class="cell-num">CELL — Train</span>
+    <span style="color:#6a9955;"># Run the CNN training — 10 epochs, ~13 seconds on Tesla T4</span>
+!./cnn_mnist
 
-# === CNN on MNIST (CUDA from scratch) ===
-# Input(28x28) -> Conv(8 filters, 5x5) -> ReLU -> Pool(2x2) -> FC(1152->10) -> Softmax
-# Batch: 64, LR: 0.010, Epochs: 10
-# Data loaded: 60k train, 10k test
+<span style="color:#6a9955;"># Expected output:</span>
+<span style="color:#4ec9b0;">=== CNN on MNIST (CUDA from scratch) ===</span>
+<span style="color:#4ec9b0;">Input(28x28) -> Conv(8 filters, 5x5) -> ReLU -> Pool(2x2) -> FC(1152->10) -> Softmax</span>
+<span style="color:#4ec9b0;">Batch: 64, LR: 0.010, Epochs: 10</span>
+<span style="color:#4ec9b0;">Data loaded: 60k train, 10k test</span>
 
-# Epoch  1 | Test Accuracy: 89.52% (8952/10000)
-# Epoch  2 | Test Accuracy: 90.83% (9083/10000)
-# ...
-# Epoch 10 | Test Accuracy: 96.29% (9629/10000)
+Epoch  1 | Test Accuracy: <span style="color:#ce9178;">89.52%</span> (8952/10000)
+Epoch  2 | Test Accuracy: <span style="color:#ce9178;">90.83%</span> (9083/10000)
+<span style="color:#6a9955;">...</span>
+Epoch 10 | Test Accuracy: <span style="color:#ce9178;">96.29%</span> (9629/10000)
 
-# Training time: 12.9 seconds</pre>
+<span style="color:#4ec9b0;">Training time: 12.9 seconds</span>
   </div>
 
   <h3>📊 Record Your Results</h3>
@@ -1207,13 +1217,13 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
   <p>At the top of <code style="color:var(--cyan);">cnn_mnist.cu</code>, you'll find <code style="color:var(--amber);">#define</code> constants. Change them, recompile, and re-run. Each experiment takes ~2 minutes.</p>
 
   <h3>🔬 Experiment 1: Number of Filters</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">🔬 Cell: Change Filters + Recompile</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre># Change at top of cnn_mnist.cu:
-#define NUM_FILTERS 4   // try 4, 8, 16
+  <div class="code-box">
+    <span class="cell-num">CELL — Experiment: Filters</span>
+    <span style="color:#6a9955;"># Change this line at the top of cnn_mnist.cu:</span>
+<span style="color:#569cd6;">#define</span> <span style="color:#4ec9b0;">NUM_FILTERS</span> <span style="color:#ce9178;">4</span>   <span style="color:#6a9955;">// try 4, 8, 16</span>
 
-# Then recompile & run:
-!nvcc cnn_mnist.cu -o cnn_mnist -lm && !./cnn_mnist</pre>
+<span style="color:#6a9955;"># Then recompile &amp; run:</span>
+!nvcc cnn_mnist.cu -o cnn_mnist -lm && !./cnn_mnist
   </div>
   <div style="overflow-x:auto;">
   <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.6rem;margin:0.5rem 0;">
@@ -1226,13 +1236,13 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
   <p style="font-size:0.7rem;color:var(--text-muted);">💡 More filters = more pattern detectors = higher accuracy but more params and slower. Find the sweet spot!</p>
 
   <h3>🔬 Experiment 2: Learning Rate</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">🔬 Cell: Change Learning Rate</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre># Change at top of cnn_mnist.cu:
-#define LR 0.001f   // try 0.001, 0.01, 0.05
+  <div class="code-box">
+    <span class="cell-num">CELL — Experiment: Learning Rate</span>
+    <span style="color:#6a9955;"># Change this line at the top of cnn_mnist.cu:</span>
+<span style="color:#569cd6;">#define</span> <span style="color:#4ec9b0;">LR</span> <span style="color:#ce9178;">0.001f</span>   <span style="color:#6a9955;">// try 0.001, 0.01, 0.05</span>
 
-# Then recompile & run:
-!nvcc cnn_mnist.cu -o cnn_mnist -lm && !./cnn_mnist</pre>
+<span style="color:#6a9955;"># Then recompile &amp; run:</span>
+!nvcc cnn_mnist.cu -o cnn_mnist -lm && !./cnn_mnist
   </div>
   <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.6rem;margin:0.5rem 0;">
     <tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">LR</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Epoch 5 Acc</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Final Acc</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Observation</th></tr>
@@ -1242,15 +1252,15 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
   </table>
 
   <h3>🔬 Experiment 3 (Bonus): Filter Size</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">🔬 Cell: Change Kernel Size (Bonus)</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre># Change at top of cnn_mnist.cu:
-#define K 3   // try 3, 5, 7
-#define CONV_H (28 - K + 1)   // MUST update these too!
-#define CONV_W (28 - K + 1)
+  <div class="code-box">
+    <span class="cell-num">CELL — Experiment: Kernel Size (Bonus)</span>
+    <span style="color:#6a9955;"># Change these lines at the top of cnn_mnist.cu:</span>
+<span style="color:#569cd6;">#define</span> <span style="color:#4ec9b0;">K</span> <span style="color:#ce9178;">3</span>   <span style="color:#6a9955;">// try 3, 5, 7</span>
+<span style="color:#569cd6;">#define</span> <span style="color:#4ec9b0;">CONV_H</span> (<span style="color:#ce9178;">28</span> - K + <span style="color:#ce9178;">1</span>)   <span style="color:#6a9955;">// MUST update these too!</span>
+<span style="color:#569cd6;">#define</span> <span style="color:#4ec9b0;">CONV_W</span> (<span style="color:#ce9178;">28</span> - K + <span style="color:#ce9178;">1</span>)
 
-# Then recompile & run:
-!nvcc cnn_mnist.cu -o cnn_mnist -lm && !./cnn_mnist</pre>
+<span style="color:#6a9955;"># Then recompile &amp; run:</span>
+!nvcc cnn_mnist.cu -o cnn_mnist -lm && !./cnn_mnist
   </div>
   <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.6rem;margin:0.5rem 0;">
     <tr style="background:var(--bg-raised);"><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Kernel</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Conv Out</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">FC Input</th><th style="padding:0.4rem;border:1px solid var(--border);color:var(--text-dim);">Accuracy</th></tr>
@@ -1277,19 +1287,20 @@ Output:  24 × 24 × 8  (8 filters = 8 feature maps)
   <h2><span class="num">3.5.13</span> 🖐️ Exercise 4 — Profile with Nsight Compute + Reflect</h2>
 
   <h3>🔍 Step 1: Profile the conv2d_forward Kernel</h3>
-  <div class="code-cell">
-    <div class="cell-header"><span class="cell-label">🔍 Cell: Profile conv2d_forward with Nsight Compute</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-    <pre>!ncu --kernel-name conv2d_forward --launch-skip 0 --launch-count 1 \
+  <div class="code-box">
+    <span class="cell-num">CELL — Profile</span>
+    <span style="color:#6a9955;"># Profile the conv2d_forward kernel with Nsight Compute (takes ~20s)</span>
+!ncu --kernel-name conv2d_forward --launch-skip 0 --launch-count 1 \
   --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed \
   ./cnn_mnist
 
-# Expected output (takes ~20 seconds — Nsight adds overhead):
-# conv2d_forward(float *, float *, float *, float *, int) (2, 2, 512)x(16, 16, 1)
-# -------------------------------------------------- ----------- ------------
-# Metric Name                                        Metric Unit Metric Value
-# -------------------------------------------------- ----------- ------------
-# dram__throughput.avg.pct_of_peak_sustained_elapsed           %         1.08
-# sm__throughput.avg.pct_of_peak_sustained_elapsed             %        61.61</pre>
+<span style="color:#6a9955;"># Expected output:</span>
+<span style="color:#4ec9b0;">conv2d_forward(float *, float *, float *, float *, int) (2, 2, 512)x(16, 16, 1)</span>
+<span style="color:#6a9955;">-------------------------------------------------- ----------- ------------</span>
+<span style="color:#6a9955;">Metric Name                                        Metric Unit Metric Value</span>
+<span style="color:#6a9955;">-------------------------------------------------- ----------- ------------</span>
+<span style="color:#ce9178;">dram__throughput.avg.pct_of_peak_sustained_elapsed           %         1.08</span>
+<span style="color:#ce9178;">sm__throughput.avg.pct_of_peak_sustained_elapsed             %        61.61</span>
   </div>
 
   <h3>📊 Interpret Your Results</h3>
@@ -1347,6 +1358,33 @@ function renderSlide(index) {
     nextBtn.textContent = 'Next →'; nextBtn.style.background = 'var(--cyan-bg)'; nextBtn.style.borderColor = 'var(--cyan)'; nextBtn.style.color = 'var(--cyan)';
   }
   document.getElementById('slideContainer').scrollIntoView({behavior:'smooth', block:'start'});
+  // Inject copy buttons + cell labels into code-box elements (fine-tuning repo pattern)
+  setTimeout(function() {
+    document.querySelectorAll('.code-box').forEach(function(box) {
+      var parent = box.parentElement;
+      // Only wrap if not already wrapped
+      if (!parent.classList.contains('code-wrapper')) {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'code-wrapper';
+        parent.insertBefore(wrapper, box);
+        wrapper.appendChild(box);
+        var btn = document.createElement('button');
+        btn.className = 'copy-btn2';
+        btn.textContent = 'Copy';
+        btn.onclick = function() {
+          var clone = box.cloneNode(true);
+          var labels = clone.querySelectorAll('.cell-num');
+          labels.forEach(function(l) { l.remove(); });
+          navigator.clipboard.writeText(clone.textContent.trim()).then(function() {
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+          });
+        };
+        wrapper.appendChild(btn);
+      }
+    });
+  }, 50);
 }
 
 function goTo(index) { if (index >= 0 && index < slides.length) renderSlide(index); }
