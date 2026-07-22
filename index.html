@@ -70,7 +70,7 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
   <div class="stat-card"><div class="num">3</div><div class="lbl">CUDA Phases</div></div>
   <div class="stat-card"><div class="num">2</div><div class="lbl">ML/DL Modules</div></div>
   <div class="stat-card"><div class="num">1</div><div class="lbl">Tool</div></div>
-  <div class="stat-card"><div class="num">8</div><div class="lbl">Total HTMLs</div></div>
+  <div class="stat-card"><div class="num">9</div><div class="lbl">Total HTMLs</div></div>
 </div>
 
 <div class="grid">
@@ -135,6 +135,15 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
     <h3>ONE Neuron Explained -- 784 Weights + 1 Bias</h3>
     <p>What "each neuron has 785 knobs" actually means. Walkthrough: sum-of-products (w x p) + bias to output. Full Layer 1/2/3 parameter table with neuron counts and total knobs. Bias explained with visual examples.</p>
     <div class="slides">1 page | Parameter tables | Flow diagrams | Layer comparison</div>
+  </a>
+
+  <div class="section-title" style="grid-column:1/-1;">LLMs & Transformers</div>
+
+  <a href="llama_neuron_comparison.html" class="card">
+    <span class="tag tag-dl">LLM Architecture</span>
+    <h3>Where Are the Neurons in Llama? -- MLP vs Transformer</h3>
+    <p>Side-by-side comparison: MLP neuron math (128x784=100K) vs Llama 7B (11,008x4,096=45M). Full transformer block diagram with all 7 matrices (Q,K,V,O,gate,up,down). Why Llama keeps 4096 everywhere (residual stream). Per-block parameter breakdown: 202M params x 32 blocks = 6.5B. Complete math verification table.</p>
+    <div class="slides">1 page | Block diagram | Neuron tables | Math verification | Dark/Light theme</div>
   </a>
 
 </div>
