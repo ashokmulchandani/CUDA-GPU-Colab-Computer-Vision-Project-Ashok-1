@@ -156,9 +156,9 @@ function update(){
               </div>`).join('')}
           </div>
         </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">10 neurons × (1,152 weights + 1 bias) = <strong style="color:var(--amber);">11,530 parameters</strong></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;"><strong style="color:var(--green);">10 neurons</strong> — each neuron has <strong style="color:var(--cyan);">1,152 weights</strong> (one per input) + <strong style="color:var(--amber);">1 bias</strong><br>= 10 × (1,152 + 1) = 10 × 1,153 = <strong style="color:var(--amber);">11,530 parameters</strong></div>
       </div>`;
-    comp.innerHTML='<span class="hl">STEP 2: FULLY CONNECTED (1152 → 10)</span>\n<span class="cm">Each of the 10 output neurons computes:</span>\n<span class="cm">  score[d] = w[d][0]×x[0] + w[d][1]×x[1] + ... + w[d][1151]×x[1151] + bias[d]</span>\n<span class="cm">That is <strong>1,152 multiplications + 1,151 additions + 1 bias = 2,304 ops PER DIGIT</strong></span>\n<span class="cm">× 10 digits = 23,040 ops just for the FC layer.</span>';
+    comp.innerHTML='<span class="hl">STEP 2: FULLY CONNECTED (1152 → 10)</span>\n<span class="cm">10 neurons (digits 0-9). Each neuron has <strong>1,152 weights + 1 bias = 1,153 knobs</strong>.</span>\n<span class="cm">Neuron 5: score[5] = w[5][0]×x[0] + w[5][1]×x[1] + ... + w[5][1151]×x[1151] + bias[5]</span>\n<span class="cm">Same as the MLP! Each neuron does Σ(wᵢ × inputᵢ) + bias — just with 1,152 inputs instead of 784.</span>\n<span class="cm">10 neurons × 1,153 = <strong>11,530 parameters</strong>. That is 1,152 mults + 1,151 adds + 1 bias = 2,304 ops PER neuron.</span>';
   }
   else if(s===3){
     let sm=softmax(rawScores);let maxSc=Math.max(...rawScores);
