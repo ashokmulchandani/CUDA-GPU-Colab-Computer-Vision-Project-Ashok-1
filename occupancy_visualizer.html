@@ -371,18 +371,31 @@ function updateSim(){
     zh+=`<span style="color:var(--tmut);">■ ${MAX_WARPS_PER_SM-warpsPerSM} idle</span>`;
     zh+=`</div>`;
 
-    // Thread-level view
-    zh+=`<div style="margin-top:0.5rem;font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);">Each Warp = 32 Threads (showing first ${Math.min(blocksPerSM,4)} blocks)</div>`;
+    // Thread-level view — cleaner visual
+    zh+=`<div style="margin-top:0.8rem;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">`;
+    zh+=`<div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--cyan);margin-bottom:0.6rem;">🔍 Zoom into Blocks — Warps — Threads</div>`;
+    zh+=`<div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">1 Block = <strong style="color:var(--cyan);">${warpPerBlock} warps</strong> = <strong style="color:var(--green);">${thr} threads</strong>. 1 Warp = <strong style="color:var(--amber);">32 threads</strong> (always).</div>`;
     for(let b=0;b<Math.min(blocksPerSM,4);b++){
-      zh+=`<div style="margin:0.3rem 0;"><span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--cyan);">Block ${b}:</span> `;
-      for(let w=0;w<Math.min(warpPerBlock,4);w++){
-        zh+=`<span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--amber);">W${w}</span> `;
-        for(let t=0;t<Math.min(thr/warpPerBlock,8);t++){
-          zh+=`<span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:1px;margin:0 0.5px;" title="Thread ${b*warpPerBlock*32+w*32+t}"></span>`;
+      zh+=`<div style="margin:0.5rem 0;background:var(--bg-card);border-left:4px solid var(--cyan);border-radius:4px;padding:0.5rem 0.8rem;">`;
+      zh+=`<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.3rem;">📦 Block ${b}</div>`;
+      zh+=`<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">`;
+      for(let w=0;w<Math.min(warpPerBlock,6);w++){
+        zh+=`<div style="background:var(--raised);border:1px solid var(--amber);border-radius:6px;padding:0.3rem 0.5rem;text-align:center;">`;
+        zh+=`<div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--amber);">Warp ${w}</div>`;
+        zh+=`<div style="display:flex;gap:1px;margin-top:0.2rem;flex-wrap:wrap;max-width:80px;justify-content:center;">`;
+        for(let t=0;t<32;t++){
+          var isActive=t<Math.floor(thr/warpPerBlock);
+          var bg=isActive?'var(--green)':'var(--raised)';
+          var border=isActive?'1px solid var(--green)':'1px solid transparent';
+          zh+=`<div style="width:7px;height:7px;background:${bg};border:${border};border-radius:1px;" title="Thread ${b*warpPerBlock*32+w*32+t}: ${isActive?'ACTIVE':'INACTIVE'}"></div>`;
         }
-        if(thr/warpPerBlock>8)zh+=`<span style="font-size:0.35rem;color:var(--tmut);">+${Math.floor(thr/warpPerBlock)-8} more</span>`;
+        zh+=`</div>`;
+        zh+=`<div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">32 threads</div>`;
+        zh+=`</div>`;
       }
-      if(warpPerBlock>4)zh+=`<span style="font-size:0.4rem;color:var(--tmut);"> +${warpPerBlock-4} more warps</span>`;
+      if(warpPerBlock>6)zh+=`<div style="display:flex;align-items:center;font-size:0.5rem;color:var(--tmut);">+ ${warpPerBlock-6} more warps</div>`;
+      zh+=`</div>`;
+      zh+=`<div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">${warpPerBlock} warps × 32 threads = <strong style="color:var(--green);">${thr} threads</strong> in this block</div>`;
       zh+=`</div>`;
     }
     if(blocksPerSM>4)zh+=`<div style="font-size:0.4rem;color:var(--tmut);">+ ${blocksPerSM-4} more blocks...</div>`;
