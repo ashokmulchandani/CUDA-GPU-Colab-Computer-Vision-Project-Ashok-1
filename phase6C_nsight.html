@@ -209,13 +209,20 @@ const S=[{
 <span style="color:var(--text-muted);">Fix: Reduce registers (use fewer variables) OR reduce block size</span></div>
 
 <h3>⏸️ Warp Stall Reasons — Why Are Warps Waiting?</h3>
-<table class="param">
-<tr><th>Stall Reason</th><th>What It Means</th><th>Fix</th></tr>
-<tr><td style="color:var(--red);">Long Scoreboard</td><td>Waiting for global memory load</td><td>Shared memory tiling, coalesce reads</td></tr>
-<tr><td style="color:var(--amber);">Short Scoreboard</td><td>Waiting for shared memory or L1</td><td>Reduce bank conflicts</td></tr>
-<tr><td style="color:var(--amber);">Execution Dependency</td><td>Waiting for a previous instruction to finish</td><td>Increase instruction-level parallelism</td></tr>
-<tr><td style="color:var(--cyan);">Not Selected</td><td>Warp is ready but scheduler picked another</td><td>Normal — means GPU is busy!</td></tr>
-</table>
+<p>Each SM has 4 warp schedulers. At every clock cycle, each scheduler picks ONE ready warp to execute. <strong style="color:var(--cyan);">Warps that are NOT ready = stalled.</strong> Nsight tells you WHY.</p>
+
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn ws-pat active" onclick="showWarpStall(0,this)" style="font-size:0.45rem;">🔴 Long SB</button>
+  <button class="btn ws-pat" onclick="showWarpStall(1,this)" style="font-size:0.45rem;">🟡 Short SB</button>
+  <button class="btn ws-pat" onclick="showWarpStall(2,this)" style="font-size:0.45rem;">🟠 Exec Dep</button>
+  <button class="btn ws-pat" onclick="showWarpStall(3,this)" style="font-size:0.45rem;">🟢 Not Sel</button>
+</div>
+
+<div id="warpStallViz" style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.8rem;margin:0.5rem 0;text-align:center;min-height:140px;"></div>
+
+<div id="wsExplain" style="font-size:0.6rem;color:var(--tdim);text-align:center;margin:0.3rem 0;"></div>
+
+<div class="callout"><span style="font-size:1.1rem;">🎯</span><span><strong style="color:var(--cyan);">Our conv2d_forward (Phase 3.5):</strong> Block size = 256 threads, limited by registers (each thread needs ~40 registers for the inner loops). That's why SM throughput is 61.6% — could be higher with register optimization or loop unrolling.</span></div>
 
 <div class="callout"><span style="font-size:1.1rem;">🎯</span><span><strong style="color:var(--cyan);">Our conv2d_forward (Phase 3.5):</strong> Block size = 256 threads, limited by registers (each thread needs ~40 registers for the inner loops). That's why SM throughput is 61.6% — could be higher with register optimization or loop unrolling.</span></div>
 
@@ -368,6 +375,44 @@ function showPattern(i,btn){
   document.getElementById('patternExplain').innerHTML='<span style="color:var(--red);">■ GPU idle</span> <span style="color:var(--amber);">■ Memory copy</span> <span style="color:var(--green);">■ Kernel running</span> <span style="color:var(--violet);">■ Launch overhead</span>';
 }
 showPattern(0,document.querySelector('.ns-pat'));
+
+// ── Warp Stall Visualizer (Slide 6C.4) ──
+var wsIdx=0;
+function showWarpStall(i,btn){
+  wsIdx=i;document.querySelectorAll('.ws-pat').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  var stalls=[
+    {name:'Long Scoreboard — Waiting for GLOBAL Memory',color:'var(--red)',detail:'Warp issued a load instruction. Data is in HBM (far away). \nLatency: ~400-600 cycles. The warp CANNOT continue until data arrives.\nFix: shared memory tiling — load data once into fast on-chip memory.\nAlso: ensure coalesced access so multiple threads read adjacent addresses.'},
+    {name:'Short Scoreboard — Waiting for SHARED Memory / L1',color:'var(--amber)',detail:'Data is closer (shared memory or L1 cache) but still not ready.\nLatency: ~20-30 cycles. Shorter wait than global memory.\nFix: reduce bank conflicts — make sure threads in a warp access\ndifferent shared memory banks simultaneously.'},
+    {name:'Execution Dependency — Waiting for Previous Instruction',color:'var(--amber)',detail:'The next instruction needs the result of the PREVIOUS instruction\nwhich has not finished yet. Pipeline stall within the warp.\nFix: increase ILP (Instruction-Level Parallelism) — interleave\nindependent operations so the warp always has work to do.'},
+    {name:'Not Selected — Warp is READY but Scheduler Picked Another',color:'var(--green)',detail:'This is GOOD! The warp is ready to run, but the scheduler\nhad more ready warps than it could execute in one cycle.\nMeans the GPU is BUSY — this is what you WANT to see.\nMore "Not Selected" = higher utilization.'}
+  ];
+  var s=stalls[i];
+  // Visual: show warps with different states
+  var h='<div style="font-size:0.55rem;color:'+s.color+';font-weight:700;margin-bottom:0.5rem;">'+s.name+'</div>';
+  h+='<div style="font-family:Orbitron,sans-serif;font-size:0.45rem;color:var(--tmut);margin-bottom:0.4rem;">4 Warp Schedulers × 16 Warps Each</div>';
+  // Draw 4 schedulers with 16 warps each
+  for(var sch=0;sch<4;sch++){
+    h+='<div style="display:flex;align-items:center;gap:0.5rem;margin:0.2rem 0;">';
+    h+='<span style="font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--tmut);min-width:30px;">Sched '+sch+'</span>';
+    for(var w=0;w<16;w++){
+      var isStalled=(i<3&&w<[12,8,6,0][i]);
+      var bg=isStalled?s.color:'var(--green)';
+      var opac=isStalled?'0.8':'0.4';
+      var label='';
+      if(i===0&&w<12)label='⏳';else if(i===1&&w<8)label='⏳';else if(i===2&&w<6)label='⏳';else if(i===3)label='✅';
+      if(w===0&&i<3)label='▶';
+      h+='<div style="width:14px;height:14px;background:'+bg+';opacity:'+opac+';border-radius:2px;font-size:0.4rem;text-align:center;line-height:14px;" title="Warp '+w+': '+(isStalled?'STALLED - '+s.name:'READY')+'">'+label+'</div>';
+    }
+    h+='</div>';
+  }
+  h+='<div style="margin-top:0.5rem;font-size:0.45rem;color:var(--tdim);">';
+  h+='<span style="color:'+s.color+';">■ Stalled ('+[12,8,6,0][i]*4+'/'+64+' warps)</span> &nbsp;';
+  h+='<span style="color:var(--green);">■ Ready ('+(64-[12,8,6,0][i]*4)+'/'+64+' warps)</span>';
+  h+='</div>';
+  document.getElementById('warpStallViz').innerHTML=h;
+  document.getElementById('wsExplain').innerHTML='<div style="font-size:0.55rem;color:var(--tdim);white-space:pre-line;line-height:1.6;">'+s.detail+'</div>';
+}
+showWarpStall(0,document.querySelector('.ws-pat'));
 </script>
 </body>
 </html>
