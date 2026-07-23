@@ -290,15 +290,16 @@ const slides=[{
 <span style="color:#c586c0;">results</span>[<span style="color:#ce9178;">0</span>].<span style="color:#c586c0;">show</span>()  <span style="color:#6a9955;">// should show detected persons + tie</span>
 <span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"Model loaded! Ready to export."</span>)</div>
 
-<h3>🔨 Step 3: Export to All 3 Formats</h3>
-<div class="code-box"><span class="cell-num">CELL — Export Comparison</span>
-<span style="color:#6a9955;"># Export to ONNX</span>
-<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'onnx'</span>)          <span style="color:#6a9955;">// ~7s, 12.3 MB</span>
+<h3>🔨 Step 3: Export to 2 New Formats (ONNX + TensorRT)</h3>
+<p style="font-size:0.75rem;color:var(--tmut);">You already have <strong style="color:var(--amber);">format 1: PyTorch (.pt)</strong> — downloaded in Step 2. Now create the other two:</p>
+<div class="code-box"><span class="cell-num">CELL 3 — Export to ONNX + TensorRT</span>
+<span style="color:#6a9955;"># Format 2: Export to ONNX (universal intermediate format)</span>
+<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'onnx'</span>)          <span style="color:#6a9955;">// creates yolov8n.onnx (~7s, 12.3 MB)</span>
 
-<span style="color:#6a9955;"># Export to TensorRT FP16</span>
-<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'engine'</span>, half=<span style="color:#569cd6;">True</span>)  <span style="color:#6a9955;">// ~7min, 7.9 MB</span></div>
+<span style="color:#6a9955;"># Format 3: Export to TensorRT FP16 (optimized for YOUR GPU)</span>
+<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'engine'</span>, half=<span style="color:#569cd6;">True</span>)  <span style="color:#6a9955;">// creates yolov8n.engine (~7min, 7.9 MB)</span></div>
 
-<h3>📊 Step 3: Record Your Results</h3>
+<h3>📊 Step 5: Record Your Results Across All 3 Formats</h3>
 <table class="param">
 <tr><th>Format</th><th>File Size</th><th>Export Time</th><th>Inference Time</th><th>FPS</th></tr>
 <tr><td>PyTorch (.pt)</td><td>6.3 MB</td><td>—</td><td style="text-align:center;">___</td><td style="text-align:center;">___</td></tr>
