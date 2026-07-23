@@ -292,7 +292,8 @@ const slides=[{
 <div class="checklist">
 <div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to ONNX format</div>
 <div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to TensorRT FP16 engine</div>
-<div class="check-item"><span class="check-box">☐</span> Compared file sizes — noticed ONNX is largest, TRT is optimized smallest</div>
+<div class="check-item"><span class="check-box">☐</span> <strong style="color:var(--amber);">💾 Serialization check:</strong> Found <code>yolov8n.engine</code> in your files — that IS the serialized engine! Built once (7 min), loads forever (100ms).</div>
+<div class="check-item"><span class="check-box">☐</span> Compared file sizes — noticed ONNX is largest (12.3MB), TRT is optimized smallest (7.9MB)</div>
 <div class="check-item"><span class="check-box">☐</span> Ran inference with the TRT engine and recorded timing</div>
 </div>
 </div></div>`},{
