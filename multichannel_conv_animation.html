@@ -66,12 +66,25 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
 
   <!-- PARAM TABLE -->
   <table class="param-table" id="paramTable">
-    <tr style="background:var(--raised);"><th>YOLO Layer</th><th>Input</th><th>Filter</th><th>Wts/Filter</th><th>Out Ch</th><th>Total Params</th></tr>
-    <tr class="active-row"><td>L1</td><td>640x640x<strong>3</strong></td><td>3x3x<strong>3</strong></td><td>27</td><td>16</td><td style="color:var(--amber);">448</td></tr>
-    <tr><td>L2</td><td>320x320x<strong>16</strong></td><td>3x3x<strong>16</strong></td><td>144</td><td>32</td><td style="color:var(--amber);">4,640</td></tr>
-    <tr><td>L3 (P3)</td><td>80x80x<strong>64</strong></td><td>3x3x<strong>64</strong></td><td>576</td><td>128</td><td style="color:var(--amber);">73,856</td></tr>
-    <tr><td>L4 (P4)</td><td>40x40x<strong>128</strong></td><td>3x3x<strong>128</strong></td><td>1,152</td><td>256</td><td style="color:var(--red);">295,168</td></tr>
+    <tr style="background:var(--raised);"><th>Layer</th><th>Input (HxWxC)</th><th>Filter</th><th>How?</th><th>Wts/Filter</th><th>Out Ch</th><th>Total</th></tr>
+    <tr class="active-row"><td>L1</td><td>640³×<strong>3</strong></td><td>3×3×<strong>3</strong></td><td>3×3×3</td><td>27</td><td>16</td><td style="color:var(--amber);">448</td></tr>
+    <tr><td>L2</td><td>320²×<strong>16</strong></td><td>3×3×<strong>16</strong></td><td>3×3×16</td><td>144</td><td>32</td><td style="color:var(--amber);">4,640</td></tr>
+    <tr><td>L3</td><td>80²×<strong>64</strong></td><td>3×3×<strong>64</strong></td><td>3×3×64</td><td>576</td><td>128</td><td style="color:var(--amber);">73,856</td></tr>
+    <tr><td>L4</td><td>40²×<strong>128</strong></td><td>3×3×<strong>128</strong></td><td>3×3×128</td><td>1,152</td><td>256</td><td style="color:var(--red);">295,168</td></tr>
   </table>
+
+  <!-- CHAIN EXPLANATION -->
+  <div style="display:flex;gap:0.3rem;align-items:center;justify-content:center;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin:0.4rem 0;">
+    <span>L1 out: <strong style="color:var(--cyan);">16ch</strong></span>
+    <span style="color:var(--amber);">→</span>
+    <span>L2 filter = 3×3×<strong style="color:var(--cyan);">16</strong> = <strong style="color:var(--amber);">144</strong> wts</span>
+    <span style="color:var(--amber);">→</span>
+    <span>L2 params = 32 × (144+1) = <strong>4,640</strong></span>
+  </div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut);text-align:center;margin-top:0.2rem;">
+    💡 <strong>144 = 3×3×16.</strong> The 16 is L1's OUTPUT channels (how many channels the PREVIOUS layer produced).<br>
+    Every filter must span ALL input channels. <strong style="color:var(--cyan);">Filter depth = previous layer's output.</strong>
+  </div>
 
   <div class="panels">
     <div id="channelGrids" style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:center;"></div>
