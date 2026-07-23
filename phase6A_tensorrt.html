@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6A: TensorRT — Production Inference Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--cyan-bg:#39d2ff15;--amber:#ffb347;--amber-bg:#ffb34715;--green:#3fb950;--green-bg:#3fb95015;--magenta:#ff6ec7;--magenta-bg:#ff6ec715;--red:#f85149;--violet:#a371f7;--radius:14px;--radius-sm:8px;--transition:0.3s cubic-bezier(0.4,0,0.2,1)}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--cyan-bg:#ddf4ff;--amber:#9a6700;--amber-bg:#fff8c5;--green:#1a7f37;--green-bg:#dafbe1;--magenta:#bf3989;--magenta-bg:#fbefff;--red:#cf222e;--violet:#8250df}
+body.light .topbar{background:rgba(246,248,250,0.9)}body.light .eq-box{background:rgba(0,0,0,0.03)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;transition:background 0.3s,color 0.3s}
+.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+.theme-toggle{position:fixed;top:0.7rem;right:2rem;z-index:200;background:var(--raised);border:1px solid var(--border);color:var(--text);font-size:1.1rem;cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;transition:var(--transition);font-family:'JetBrains Mono',monospace}
+.theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.6rem 2rem;display:flex;align-items:center;gap:1rem;font-size:0.8rem}
+.topbar .logo{font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:0.15em;color:var(--cyan);white-space:nowrap}
+.topbar .step-dots{display:flex;gap:0.4rem;flex:1;justify-content:center}
+.topbar .step-dot{width:28px;height:4px;border-radius:2px;background:var(--border);transition:var(--transition);cursor:pointer}
+.topbar .step-dot.done{background:var(--green)}.topbar .step-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.topbar .step-dot:hover{background:var(--tdim)}
+.topbar .step-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tdim);white-space:nowrap}
+.header{text-align:center;padding:3rem 0 1rem}
+.header .phase-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;color:var(--green);border:1px solid var(--green-bg);border-radius:100px;padding:0.4em 1.4em;margin-bottom:1rem}
+.header h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.header .tagline{color:var(--tdim);font-size:0.9rem}
+.topic-list{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin:1.5rem 0 1rem}
+.topic-chip{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.04em;padding:0.3rem 0.7rem;border-radius:100px;border:1px solid var(--border);color:var(--tmut);cursor:pointer;transition:var(--transition);background:transparent}
+.topic-chip.visited{border-color:var(--green);color:var(--green);background:var(--green-bg)}.topic-chip.current{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg);box-shadow:0 0 10px var(--cyan-border)}
+.fun-fact{background:linear-gradient(135deg,var(--amber-bg),var(--magenta-bg));border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.65rem 1.2rem;margin-bottom:1.5rem;font-size:0.78rem;color:var(--tdim);display:flex;align-items:center;gap:0.6rem}
+.fun-fact .bulb{font-size:1.2rem;flex-shrink:0}.fun-fact strong{color:var(--amber)}
+.slide{animation:slideIn 0.35s ease}@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
+.card h2{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;color:var(--text)}
+.card h2 .num{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--cyan);background:var(--cyan-bg);border-radius:6px;padding:0.2em 0.6em}
+.card p{color:var(--tdim);margin-bottom:1rem;font-size:0.95rem}
+.card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;color:var(--cyan);margin:1.2rem 0 0.5rem}
+.data-types{display:grid;grid-template-columns:repeat(2,1fr);gap:0.8rem;margin:1rem 0}
+.data-type-card{background:var(--raised);border:1px solid var(--border);border-top:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem;transition:var(--transition);cursor:default}
+.data-type-card:nth-child(2){border-top-color:var(--amber)}.data-type-card:nth-child(3){border-top-color:var(--magenta)}.data-type-card:nth-child(4){border-top-color:var(--green)}
+.data-type-card:hover{transform:translateY(-3px);border-color:var(--border-active, #30363d)}
+.data-type-card .dt-icon{font-size:1.3rem;margin-bottom:0.3rem}.data-type-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.3rem;color:var(--cyan)}.data-type-card:nth-child(2) h4{color:var(--amber)}.data-type-card:nth-child(3) h4{color:var(--magenta)}.data-type-card:nth-child(4) h4{color:var(--green)}
+.data-type-card p{font-size:0.72rem!important;color:var(--tmut)!important;margin-bottom:0!important}
+.pipeline{display:flex;align-items:center;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:1.2rem 0}
+.pipeline-stage{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.7rem 0.9rem;text-align:center;transition:var(--transition);min-width:100px}
+.pipeline-stage.highlight{border-color:var(--cyan);background:var(--cyan-bg)}
+.pipeline-stage .stage-icon{font-size:1.3rem;margin-bottom:0.2rem}.pipeline-stage .stage-name{font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);line-height:1.3}.pipeline-stage .stage-desc{font-size:0.6rem;color:var(--tmut);margin-top:0.1rem}
+.pipeline-arrow{font-size:1.2rem;color:var(--cyan);animation:arrowPulse 1.5s ease-in-out infinite}@keyframes arrowPulse{0%,100%{opacity:0.4}50%{opacity:1}}
+.eq-box{background:rgba(0,0,0,0.4);border-left:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.8;color:var(--text);white-space:pre-wrap;overflow-x:auto}
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.8;white-space:pre-wrap;overflow-x:auto;color:#d4d4d4;position:relative}
+.code-wrapper{position:relative;margin:1rem 0}
+.copy-btn2{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;padding:0.3em 0.7em;border:1px solid #555;border-radius:6px;background:#2d2d2d;color:#ccc;cursor:pointer;transition:0.15s;opacity:0;z-index:5}
+.code-wrapper:hover .copy-btn2{opacity:1}.copy-btn2:hover{background:#333;color:var(--violet);border-color:var(--violet)}.copy-btn2.copied{background:#2d2d2d;color:var(--green);border-color:var(--green);opacity:1}
+.cell-num{font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:700;color:#fff;background:var(--violet);display:inline-block;padding:0.15em 0.6em;border-radius:4px 4px 0 0;margin-bottom:0.4rem}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin:1rem 0}
+.compare-card{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;transition:var(--transition)}
+.compare-card:hover{transform:translateY(-3px)}.compare-card.pick-a{border-left:3px solid var(--red)}.compare-card.pick-b{border-left:3px solid var(--cyan)}.compare-card.pick-c{border-left:3px solid var(--green)}
+.compare-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.5rem}.compare-card.pick-a h4{color:var(--red)}.compare-card.pick-b h4{color:var(--cyan)}.compare-card.pick-c h4{color:var(--green)}
+.compare-card p{font-size:0.72rem!important;color:var(--tdim)!important}
+.quiz{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;margin-top:1.5rem}
+.quiz .question{font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--text);margin-bottom:0.8rem}
+.quiz .options{display:flex;flex-direction:column;gap:0.4rem}
+.quiz .option{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.6rem 1rem;font-size:0.82rem;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.quiz .option:hover{border-color:var(--cyan);color:var(--cyan)}.quiz .option.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}.quiz .option.wrong{border-color:var(--red);background:#f8514920;color:var(--red)}
+.quiz .feedback{display:none;margin-top:0.8rem;padding:0.6rem 1rem;border-radius:6px;font-size:0.82rem}.quiz .feedback.show{display:block}.quiz .feedback.correct{background:var(--green-bg);color:var(--green);border:1px solid var(--green)}.quiz .feedback.wrong{background:#f8514920;color:var(--red);border:1px solid var(--red)}
+.checklist{margin:1rem 0}.checklist .check-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.8rem;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--tdim)}.checklist .check-box{font-size:1rem;flex-shrink:0}
+.big-stat{text-align:center;margin:1rem 0}.big-stat .number{font-family:'Orbitron',sans-serif;font-size:2.5rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.big-stat .label{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--tmut);margin-top:0.2rem}
+.nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
+.nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.callout{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.8rem 1.2rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.75rem;color:var(--tdim)}
+table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
+table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
+@media(max-width:768px){.app{padding:1rem}.compare-grid{grid-template-columns:1fr}.data-types{grid-template-columns:1fr}.pipeline{flex-direction:column}.pipeline-arrow{transform:rotate(90deg)}.header h1{font-size:1.2rem}.card{padding:1.2rem}}
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+<nav class="topbar"><span class="logo">CUDA — PHASE 6A</span><div class="step-dots" id="stepDots"></div><span class="step-label" id="stepLabel">1/7</span></nav>
+<div class="app">
+<header class="header"><div class="phase-badge">🚀 PHASE 6A — TENSORRT</div><h1>TensorRT — The Production Inference Engine</h1><p class="tagline">PyTorch trains. TensorRT deploys. 4 optimizations, 3 precision modes, 1 engine file. 1.2× to 15× faster inference.</p></header>
+<div class="topic-list" id="topicChips"></div>
+<div class="fun-fact" id="funFact"><span class="bulb">💡</span><span class="fact-text" id="funFactText"></span></div>
+<div id="slideContainer"></div>
+<div class="nav-row"><button class="nav-btn" id="prevBtn" onclick="goTo(currentSlide-1)">← Previous</button><button class="nav-btn primary" id="nextBtn" onclick="goTo(currentSlide+1)">Next →</button></div>
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.getElementById('themeToggle').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('p6a-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('p6a-theme')==='light'){document.body.classList.add('light');document.getElementById('themeToggle').textContent='🌙'}
+(function(){var c=document.getElementById('bgCanvas'),ctx=c.getContext('2d'),p=[];function r(){c.width=window.innerWidth;c.height=window.innerHeight}r();window.addEventListener('resize',r);for(var i=0;i<50;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,rr:Math.random()*2+0.5});function a(){ctx.clearRect(0,0,c.width,c.height);var il=document.body.classList.contains('light');var lc=il?'rgba(9,105,218,0.05)':'rgba(57,210,255,0.05)';var dc=il?'rgba(9,105,218,0.25)':'rgba(57,210,255,0.25)';p.forEach(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;if(pp.x<0)pp.x=c.width;if(pp.x>c.width)pp.x=0;if(pp.y<0)pp.y=c.height;if(pp.y>c.height)pp.y=0});for(var i=0;i<p.length;i++)for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x,dy=p[i].y-p[j].y;if(Math.sqrt(dx*dx+dy*dy)<100){ctx.beginPath();ctx.moveTo(p[i].x,p[i].y);ctx.lineTo(p[j].x,p[j].y);ctx.strokeStyle=lc;ctx.lineWidth=0.5;ctx.stroke()}}p.forEach(function(pp){ctx.beginPath();ctx.arc(pp.x,pp.y,pp.rr,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill()});requestAnimationFrame(a)}a()})()
+
+const slides=[{
+  id:'6A.1',title:'What is TensorRT? — A Compiler for Neural Networks',
+  fact:'<strong>TensorRT is NOT a runtime.</strong> It is a compiler — it takes your trained model and generates optimized machine code for YOUR specific GPU. Build once, run forever.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.1</span> What is TensorRT? — A Compiler for Neural Networks</h2>
+<p>PyTorch is a <strong style="color:var(--amber)">training framework</strong> — flexible, Python-first, great for research. TensorRT is an <strong style="color:var(--cyan)">inference compiler</strong> — it takes your trained model and generates the fastest possible GPU code for YOUR hardware. The output is a <strong style="color:var(--green)">serialized engine file</strong> you can deploy anywhere on the same GPU model.</p>
+
+<div class="callout"><span style="font-size:1.2rem;">📖</span><span><strong style="color:var(--cyan);">Phase 4 Reference:</strong> You already used TensorRT to optimize YOLOv8n (13.8ms → 11.3ms). See <a href="phase4_yolo_cuda.html" style="color:var(--cyan);">Phase 4 slide 4.5</a> and the <a href="tensorrt_explainer.html" style="color:var(--cyan);">TensorRT Explainer</a> for the interactive walkthrough.</span></div>
+
+<h3>🔧 4 Optimizations TensorRT Applies</h3>
+<div class="data-types">
+<div class="data-type-card"><div class="dt-icon">🔗</div><h4>1. Layer Fusion</h4><p>Conv+BN+ReLU → ONE kernel. No intermediate tensor writes to global memory. 3 memory round-trips become 1. 225 layers become ~75 fused ops.</p></div>
+<div class="data-type-card"><div class="dt-icon">🎯</div><h4>2. Kernel Auto-Tuning</h4><p>Tests 50+ CUDA kernel variants per layer on YOUR GPU. T4 gets different kernels than A100. Like tuning a race car for a specific track.</p></div>
+<div class="data-type-card"><div class="dt-icon">📉</div><h4>3. Precision Calibration</h4><p>FP32→FP16 (2× faster, <0.1% accuracy loss). FP32→INT8 (4× faster, <0.5% loss with calibration). Tensor Cores love low precision.</p></div>
+<div class="data-type-card"><div class="dt-icon">🗑️</div><h4>4. Dead Code Elimination</h4><p>Strips training-only ops: dropout layers, loss functions, gradient computation, optimizer state. Inference doesn't need ANY of it.</p></div>
+</div>
+
+<div class="quiz" id="quiz0"><div class="question">🧪 Why can't you just use the PyTorch model for production inference?</div>
+<div class="options">
+<div class="option" onclick="checkQuiz('quiz0',this)">A. PyTorch models are less accurate than TensorRT engines</div>
+<div class="option" data-correct="true" onclick="checkQuiz('quiz0',this)">B. PyTorch keeps training-only ops (dropout, gradients), uses FP32, launches 225 separate kernels with CPU overhead per launch, and uses generic kernels not tuned for your GPU. All of this adds up to 20-40% slower inference.</div>
+<div class="option" onclick="checkQuiz('quiz0',this)">C. PyTorch cannot run on NVIDIA GPUs in production</div>
+</div><div class="feedback" id="quiz0-fb"></div></div>
+</div></div>`},{
+  id:'6A.2',title:'The Export Pipeline — PyTorch → ONNX → TensorRT',
+  fact:'<strong>ONNX is the universal translator.</strong> PyTorch speaks PyTorch. TensorRT speaks TensorRT. ONNX is the middle language they both understand — like a .pdf for neural networks.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.2</span> The Export Pipeline — PyTorch → ONNX → TensorRT</h2>
+
+<div class="pipeline">
+<div class="pipeline-stage"><div class="stage-icon">🔥</div><div class="stage-name">PYTORCH</div><div class="stage-desc">yolov8n.pt<br>6.3 MB</div></div>
+<span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">🔷</div><div class="stage-name">ONNX</div><div class="stage-desc">model.onnx<br>12.3 MB</div></div>
+<span class="pipeline-arrow">→</span>
+<div class="pipeline-stage highlight"><div class="stage-icon">🚀</div><div class="stage-name">TENSORRT</div><div class="stage-desc">model.engine<br>7.9 MB (FP16)</div></div>
+</div>
+
+<h3>💻 Export Code (from Phase 4)</h3>
+<div class="code-box"><span class="cell-num">CELL — Export YOLO to TensorRT in Colab</span>
+<span style="color:#6a9955;"># Step 1: Load PyTorch model</span>
+<span style="color:#569cd6;">from</span> ultralytics <span style="color:#569cd6;">import</span> YOLO
+<span style="color:#c586c0;">model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.pt'</span>)  <span style="color:#6a9955;">// 3.15M params, 8.7 GFLOPs</span>
+
+<span style="color:#6a9955;"># Step 2: Export to TensorRT (FP16)</span>
+<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'engine'</span>, half=<span style="color:#569cd6;">True</span>)
+<span style="color:#6a9955;">// Creates yolov8n.engine — 7.9 MB, ~7 minutes on T4</span>
+
+<span style="color:#6a9955;"># Step 3: Load engine for inference</span>
+<span style="color:#c586c0;">trt_model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.engine'</span>)
+<span style="color:#c586c0;">results</span> = <span style="color:#c586c0;">trt_model</span>(<span style="color:#ce9178;">'image.jpg'</span>)  <span style="color:#6a9955;">// ~11.3ms inference</span></div>
+
+<h3>⏱️ Build vs Run Time</h3>
+<table class="param">
+<tr><th>Step</th><th>Time</th><th>One-time?</th></tr>
+<tr><td>PyTorch → ONNX export</td><td style="color:var(--tdim);">~7 seconds</td><td style="color:var(--green);">✅ Yes</td></tr>
+<tr><td>ONNX → TensorRT build</td><td style="color:var(--red);">~7 minutes</td><td style="color:var(--green);">✅ Yes</td></tr>
+<tr><td>Load engine from disk</td><td style="color:var(--green);">~100 ms</td><td style="color:var(--amber);">Every startup</td></tr>
+<tr><td>Single inference</td><td style="color:var(--green);">11.3 ms</td><td style="color:var(--red);">Every image</td></tr>
+</table>
+
+<div class="quiz" id="quiz1"><div class="question">🧪 Why is the TensorRT build slow (7 min) but inference fast (11.3ms)?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('quiz1',this)">A. Build time is spent auto-tuning: testing 50+ kernel variants per layer, benchmarking each on your GPU, and picking the fastest. Inference just runs the winners. Compile once, run forever.</div>
+<div class="option" onclick="checkQuiz('quiz1',this)">B. TensorRT downloads pre-built kernels from NVIDIA servers</div>
+<div class="option" onclick="checkQuiz('quiz1',this)">C. The engine is encrypted and needs decryption on every run</div>
+</div><div class="feedback" id="quiz1-fb"></div></div>
+</div></div>`},{
+  id:'6A.3',title:'Precision Modes — FP32 vs FP16 vs INT8',
+  fact:'<strong>FP16 gives you 2× speed with <0.1% accuracy loss.</strong> That is the sweet spot for 99% of production deployments. INT8 is 4× faster but needs calibration — and may lose 0.5% accuracy.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.3</span> Precision Modes — FP32 vs FP16 vs INT8</h2>
+
+<div class="compare-grid">
+<div class="compare-card pick-a"><h4>🔴 FP32 (Full Precision)</h4>
+<p><strong>32 bits</strong> per weight — 4 bytes each.</p>
+<p style="margin-top:0.5rem">✅ Best accuracy (baseline)<br>❌ Slowest inference<br>❌ Largest model size</p>
+<p style="margin-top:0.5rem;color:var(--red);">~13.8ms on T4</p></div>
+<div class="compare-card pick-b"><h4>🔵 FP16 (Half Precision)</h4>
+<p><strong>16 bits</strong> per weight — 2 bytes each.</p>
+<p style="margin-top:0.5rem">✅ 2× faster on Tensor Cores<br>✅ <0.1% accuracy loss<br>✅ No calibration needed</p>
+<p style="margin-top:0.5rem;color:var(--cyan);">~11.3ms on T4</p></div>
+<div class="compare-card pick-c"><h4>🟢 INT8 (8-bit Integer)</h4>
+<p><strong>8 bits</strong> per weight — 1 byte each.</p>
+<p style="margin-top:0.5rem">✅ 4× faster<br>⚠️ Needs calibration dataset<br>⚠️ ~0.5% accuracy loss</p>
+<p style="margin-top:0.5rem;color:var(--green);">~5ms on T4</p></div>
+</div>
+
+<h3>📊 Precision Comparison Table</h3>
+<table class="param">
+<tr><th>Precision</th><th>Bits/Weight</th><th>Model Size</th><th>Speed</th><th>Accuracy Loss</th><th>Calibration?</th></tr>
+<tr><td>FP32</td><td>32</td><td>100%</td><td>1×</td><td style="color:var(--green);">Baseline</td><td>No</td></tr>
+<tr><td style="color:var(--cyan);">FP16</td><td>16</td><td>~50%</td><td>~2×</td><td style="color:var(--green);"><0.1%</td><td>No</td></tr>
+<tr><td style="color:var(--green);">INT8</td><td>8</td><td>~25%</td><td>~4×</td><td style="color:var(--amber);"><0.5%</td><td style="color:var(--red);">Yes</td></tr>
+</table>
+
+<div class="callout"><span style="font-size:1.2rem;">💡</span><span><strong style="color:var(--cyan);">The sweet spot:</strong> FP16 gives you 2× speedup with virtually no accuracy loss and zero calibration effort. That is why Phase 4 used FP16 for YOLO. Start with FP16. Only go to INT8 if you NEED 4× speedup AND can tolerate a calibration step AND <0.5% accuracy drop.</span></div>
+
+<div class="quiz" id="quiz2"><div class="question">🧪 When would you choose INT8 over FP16?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('quiz2',this)">A. When deploying to an edge device (Jetson Nano) with limited memory AND you have a representative calibration dataset. The 4× smaller model + 4× faster inference justifies the 0.5% accuracy tradeoff.</div>
+<div class="option" onclick="checkQuiz('quiz2',this)">B. Always — INT8 is faster so you should always use it</div>
+<div class="option" onclick="checkQuiz('quiz2',this)">C. When you don't have a GPU — INT8 runs on CPU</div>
+</div><div class="feedback" id="quiz2-fb"></div></div>
+</div></div>`},{
+  id:'6A.4',title:'Dynamic Batching + Engine Serialization',
+  fact:'<strong>Without dynamic batching, 8 simultaneous requests = 8 separate GPU calls.</strong> With dynamic batching, they combine into 1 call. Same latency, 8× throughput. Zero code changes.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.4</span> Dynamic Batching + Engine Serialization</h2>
+
+<h3>📦 Dynamic Batching — Why It Matters</h3>
+<p>GPUs are <strong style="color:var(--cyan)">throughput machines</strong>. Processing 1 image takes ~11ms. Processing 8 images in a batch takes... still ~11ms (GPU parallelism). Dynamic batching waits for multiple requests to arrive and batches them together automatically.</p>
+<div class="eq-box">
+<span style="color:var(--text-muted);">Without batching: 8 requests × 11ms each = <strong style="color:var(--red);">88ms total GPU time</strong></span>
+<span style="color:var(--text-muted);">With batching (batch=8): 1 batch × 11ms = <strong style="color:var(--green);">11ms total GPU time</strong></span>
+<span style="color:var(--cyan);">→ </span><strong style="color:var(--green);">8× throughput at the same per-request latency!</strong></div>
+
+<h3>💾 Engine Serialization — Load in Milliseconds</h3>
+<p>Once the TensorRT engine is built, you save it to disk. Next time, just load it — <strong style="color:var(--green);">no rebuilding needed.</strong></p>
+<div class="code-box"><span class="cell-num">Serialization Example</span>
+<span style="color:#6a9955;">// Build once (7 minutes)</span>
+<span style="color:#569cd6;">auto</span> engine = <span style="color:#4ec9b0;">buildEngine</span>(onnxModel);
+
+<span style="color:#6a9955;">// Save to disk</span>
+<span style="color:#569cd6;">auto</span> serialized = engine-><span style="color:#c586c0;">serialize</span>();
+<span style="color:#4ec9b0;">writeToFile</span>(<span style="color:#ce9178;">"model.engine"</span>, serialized);
+
+<span style="color:#6a9955;">// Later: load in ~100ms — no rebuilding!</span>
+<span style="color:#569cd6;">auto</span> engine = <span style="color:#4ec9b0;">loadEngine</span>(<span style="color:#ce9178;">"model.engine"</span>);
+<span style="color:#569cd6;">auto</span> context = engine-><span style="color:#c586c0;">createExecutionContext</span>();
+<span style="color:#6a9955;">// Ready for inference in milliseconds!</span></div>
+
+<h3>⚠️ Important: Engine is GPU-Specific</h3>
+<div class="callout"><span style="font-size:1.2rem;">⚠️</span><span>A TensorRT engine built on a T4 <strong style="color:var(--red);">WILL NOT WORK</strong> on an A100. Different SMs, different Tensor Cores, different optimal kernels. Rebuild on the target GPU. <strong style="color:var(--amber);">Build in CI/CD on the target GPU type.</strong></span></div>
+
+<div class="quiz" id="quiz3"><div class="question">Why serialize the engine instead of rebuilding every time?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('quiz3',this)">A. Build takes ~7 minutes of GPU time. Loading takes ~100ms. In production, cold start time matters — a server restart shouldn't take 7 minutes to become ready for inference.</div>
+<div class="option" onclick="checkQuiz('quiz3',this)">B. Serialized engines are more accurate than rebuilt ones</div>
+<div class="option" onclick="checkQuiz('quiz3',this)">C. NVIDIA charges per engine build</div>
+</div><div class="feedback" id="quiz3-fb"></div></div>
+</div></div>`},{
+  id:'6A.5',title:'🖐️ Exercise 1: Export YOLO to TensorRT in Colab',
+  fact:'<strong>The export from PyTorch to TensorRT takes ~7 minutes on Colab T4.</strong> That is 7 minutes of GPU time you never pay again — the engine file loads in milliseconds forever after.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.5</span> 🖐️ Exercise 1 — Export YOLO to TensorRT</h2>
+
+<div class="callout"><span style="font-size:1.2rem;">📖</span><span>This builds directly on Phase 4. You already did this once! <a href="phase4_yolo_cuda.html" style="color:var(--cyan);">Phase 4 slide 4.11</a> has the same exercise with benchmark tables.</span></div>
+
+<h3>💻 Step 1: Open the YOLO Colab Notebook</h3>
+<div class="code-box"><span class="cell-num">CELL — Open Colab</span>
+<span style="color:#4ec9b0;">https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_YOLO.ipynb</span></div>
+
+<h3>🔨 Step 2: Export to All 3 Formats</h3>
+<div class="code-box"><span class="cell-num">CELL — Export Comparison</span>
+<span style="color:#6a9955;"># Export to ONNX</span>
+<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'onnx'</span>)          <span style="color:#6a9955;">// ~7s, 12.3 MB</span>
+
+<span style="color:#6a9955;"># Export to TensorRT FP16</span>
+<span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'engine'</span>, half=<span style="color:#569cd6;">True</span>)  <span style="color:#6a9955;">// ~7min, 7.9 MB</span></div>
+
+<h3>📊 Step 3: Record Your Results</h3>
+<table class="param">
+<tr><th>Format</th><th>File Size</th><th>Export Time</th><th>Inference Time</th><th>FPS</th></tr>
+<tr><td>PyTorch (.pt)</td><td>6.3 MB</td><td>—</td><td style="text-align:center;">___</td><td style="text-align:center;">___</td></tr>
+<tr><td>ONNX</td><td>12.3 MB</td><td>~7s</td><td style="text-align:center;">___</td><td style="text-align:center;">___</td></tr>
+<tr><td style="color:var(--green);">TensorRT FP16</td><td>7.9 MB</td><td>~7min</td><td style="text-align:center;">~11.3ms</td><td style="text-align:center;">~89</td></tr>
+</table>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to ONNX format</div>
+<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to TensorRT FP16 engine</div>
+<div class="check-item"><span class="check-box">☐</span> Compared file sizes — noticed ONNX is largest, TRT is optimized smallest</div>
+<div class="check-item"><span class="check-box">☐</span> Ran inference with the TRT engine and recorded timing</div>
+</div>
+</div></div>`},{
+  id:'6A.6',title:'🖐️ Exercise 2: Benchmark Precision Modes',
+  fact:'<strong>Most people never benchmark precision.</strong> They just use FP32 and wonder why their model is slow. You will know exactly how much speed each precision mode gives — and how much accuracy it costs.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.6</span> 🖐️ Exercise 2 — Benchmark All 3 Precision Modes</h2>
+
+<h3>💻 Run Benchmark Comparing All 3 Precisions</h3>
+<div class="code-box"><span class="cell-num">CELL — Precision Benchmark</span>
+<span style="color:#6a9955;"># Run inference with different precision modes and compare</span>
+<span style="color:#569cd6;">import</span> time, torch
+<span style="color:#569cd6;">from</span> ultralytics <span style="color:#569cd6;">import</span> YOLO
+
+<span style="color:#6a9955;"># FP32 (PyTorch default)</span>
+<span style="color:#c586c0;">model_fp32</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.pt'</span>)
+<span style="color:#c586c0;">t0</span> = time.<span style="color:#c586c0;">time</span>()
+<span style="color:#c586c0;">model_fp32</span>(<span style="color:#ce9178;">'test.jpg'</span>)
+<span style="color:#c586c0;">fp32_time</span> = (time.<span style="color:#c586c0;">time</span>()-t0)*<span style="color:#ce9178;">1000</span>
+
+<span style="color:#6a9955;"># FP16 (TensorRT)</span>
+<span style="color:#c586c0;">model_fp16</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.engine'</span>)  <span style="color:#6a9955;">// pre-built TRT engine</span>
+<span style="color:#c586c0;">t0</span> = time.<span style="color:#c586c0;">time</span>()
+<span style="color:#c586c0;">model_fp16</span>(<span style="color:#ce9178;">'test.jpg'</span>)
+<span style="color:#c586c0;">fp16_time</span> = (time.<span style="color:#c586c0;">time</span>()-t0)*<span style="color:#ce9178;">1000</span>
+
+<span style="color:#6a9955;">print(f"FP32: {fp32_time:.1f}ms | FP16: {fp16_time:.1f}ms | Speedup: {fp32_time/fp16_time:.1f}x")</span></div>
+
+<h3>📊 Fill In Your Results</h3>
+<table class="param">
+<tr><th>Precision</th><th>Inference Time</th><th>Relative Speed</th><th>Detection Quality</th></tr>
+<tr><td>FP32 (PyTorch)</td><td style="text-align:center;">___ ms</td><td>1×</td><td>Baseline</td></tr>
+<tr><td style="color:var(--cyan);">FP16 (TensorRT)</td><td style="text-align:center;">___ ms</td><td style="text-align:center;">___×</td><td style="color:var(--green);">Same (visual inspection)</td></tr>
+</table>
+
+<h3>🧠 Reflection</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> <strong>Why is FP16 2× faster?</strong> Tensor Cores process FP16 natively. Half the bits = half the memory bandwidth. Same math operations, smaller numbers.</div>
+<div class="check-item"><span class="check-box">☐</span> <strong>Why no accuracy loss?</strong> Neural network weights don't need 7 decimal places of precision. FP16 gives ~3 decimal places — plenty for inference. The tiny rounding errors average out across 225 layers.</div>
+<div class="check-item"><span class="check-box">☐</span> <strong>When would accuracy degrade?</strong> Very deep networks (1000+ layers) or networks with extreme value ranges may see FP16 issues. For YOLO and most CNNs: FP16 is safe.</div>
+</div>
+</div></div>`},{
+  id:'6A.7',title:'Summary — What You Built in 6A',
+  fact:'<strong>TensorRT is the difference between a research demo and a production service.</strong> You now know how to take ANY PyTorch model, export it, optimize it for your GPU, and deploy it as a serialized engine.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6A.7</span> Phase 6A Summary — TensorRT Complete</h2>
+
+<div class="big-stat"><div class="number">6A ✅</div><div class="label">TENSORRT — PRODUCTION INFERENCE ENGINE</div></div>
+
+<h3>🧠 What You Learned</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">🔗</span> <strong>Layer Fusion:</strong> Conv+BN+ReLU → 1 kernel. 225 ops → ~75. No intermediate memory writes.</div>
+<div class="check-item"><span class="check-box">🎯</span> <strong>Kernel Auto-Tuning:</strong> 50+ variants tested per layer. Different GPUs get different kernels.</div>
+<div class="check-item"><span class="check-box">📉</span> <strong>Precision Tradeoff:</strong> FP32(1×) → FP16(2×, <0.1% loss) → INT8(4×, <0.5% loss). FP16 is the sweet spot.</div>
+<div class="check-item"><span class="check-box">📦</span> <strong>Dynamic Batching:</strong> 8 requests batched into 1 GPU call. 8× throughput, same latency.</div>
+<div class="check-item"><span class="check-box">💾</span> <strong>Engine Serialization:</strong> Build once (7 min), load forever (100ms). GPU-specific — rebuild on target.</div>
+<div class="check-item"><span class="check-box">🔄</span> <strong>Export Pipeline:</strong> PyTorch → ONNX (universal) → TensorRT (optimized). ONNX is the bridge.</div>
+<div class="check-item"><span class="check-box">📖</span> <strong>Phase 4 Connection:</strong> You already applied all of this to YOLOv8n — 13.8ms → 11.3ms (1.2×).</div>
+</div>
+
+<h3>🔗 Related Modules</h3>
+<div class="data-types">
+<div class="data-type-card"><div class="dt-icon">📖</div><h4>Phase 4 YOLO</h4><p>Applied TensorRT to YOLOv8n. Export + benchmark. See <a href="phase4_yolo_cuda.html" style="color:var(--cyan);">Phase 4 Module</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">🧠</div><h4>TensorRT Explainer</h4><p>5-tab interactive: before/after TRT, layer fusion, FP16, auto-tuning. <a href="tensorrt_explainer.html" style="color:var(--cyan);">Open</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">🖥️</div><h4>Phase 6B (Next)</h4><p>Triton Inference Server — serve your TRT engine at scale. Dynamic batching, HTTP/gRPC, A/B testing.</p></div>
+<div class="data-type-card"><div class="dt-icon">📋</div><h4>Full Phase 6</h4><p>All 6 sub-phases (6A-6F) with 10 slides. <a href="phase6_production_cuda.html" style="color:var(--cyan);">Open</a>.</p></div>
+</div>
+</div></div>`}
+];
+
+window.checkQuiz=function(id,el){var q=document.getElementById(id);if(q.dataset.answered==='true')return;var os=q.querySelectorAll('.option'),fb=document.getElementById(id+'-fb'),ok=el.dataset.correct==='true';os.forEach(function(o){if(o.dataset.correct==='true')o.classList.add('correct')});if(!ok)el.classList.add('wrong');fb.className='feedback show '+(ok?'correct':'wrong');fb.textContent=ok?'Correct!':'Not quite. The correct answer is highlighted in green.';q.dataset.answered='true'}
+
+var cur=0,vis=new Set([0]);
+function renderSlide(i){cur=i;vis.add(i);document.getElementById('slideContainer').innerHTML=slides[i].render();updateDots();updateChips();document.getElementById('funFactText').innerHTML='<strong>'+slides[i].id+':</strong> '+slides[i].fact;document.getElementById('stepLabel').textContent=(i+1)+'/'+slides.length;document.getElementById('prevBtn').disabled=i===0;var nb=document.getElementById('nextBtn');if(i===slides.length-1){nb.textContent='Complete';nb.style.background='var(--green-bg)';nb.style.borderColor='var(--green)';nb.style.color='var(--green)';nb.onclick=function(){}}else{nb.textContent='Next';nb.style.background='var(--cyan-bg)';nb.style.borderColor='var(--cyan)';nb.style.color='var(--cyan)';nb.onclick=function(){goTo(cur+1)}}document.getElementById('slideContainer').scrollIntoView({behavior:'smooth',block:'start'});
+// Inject copy buttons
+setTimeout(function(){document.querySelectorAll('.code-box').forEach(function(box){var p=box.parentElement;if(!p.classList.contains('code-wrapper')){var w=document.createElement('div');w.className='code-wrapper';p.insertBefore(w,box);w.appendChild(box);var b=document.createElement('button');b.className='copy-btn2';b.textContent='Copy';b.onclick=function(){var c=box.cloneNode(true);c.querySelectorAll('.cell-num').forEach(function(l){l.remove()});navigator.clipboard.writeText(c.textContent.trim()).then(function(){b.textContent='Copied!';b.classList.add('copied');setTimeout(function(){b.textContent='Copy';b.classList.remove('copied')},2000)})};w.appendChild(b)}})},50)}
+function goTo(i){if(i>=0&&i<slides.length)renderSlide(i)}
+function updateDots(){document.getElementById('stepDots').innerHTML=slides.map(function(s,i){var c=i===cur?'active':vis.has(i)?'done':'';return '<div class="step-dot '+c+'" onclick="goTo('+i+')" title="'+s.id+': '+s.title+'"></div>'}).join('')}
+function updateChips(){document.getElementById('topicChips').innerHTML=slides.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<slides.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
+renderSlide(0);
+</script>
+</body>
+</html>
