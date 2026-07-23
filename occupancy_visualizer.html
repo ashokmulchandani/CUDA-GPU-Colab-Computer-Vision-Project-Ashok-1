@@ -493,13 +493,38 @@ function updateSim(){
 
   ${bottlenecks.length>0?`<div style="font-size:0.55rem;color:var(--red);text-align:center;font-weight:700;">🔴 LIMITED BY: ${bottlenecks.join(' + ').toUpperCase()}</div>`:'<div style="font-size:0.55rem;color:var(--green);text-align:center;">✅ No single bottleneck — balanced!</div>'}
 
-  <!-- HOW IT CONNECTS -->
-  <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem;margin-top:0.5rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:2;">
-    <strong style="color:var(--amber);">How Max Blocks → Occupancy</strong><br>
-    Each limit says "max X blocks per SM." <strong style="color:var(--cyan);">The smallest wins.</strong><br>
-    <span style="color:var(--tmut);">${maxBlocksByWarps} (warp) > ${maxBlocksByRegs} (register) → <strong style="color:var(--red);">registers win = ${blocksPerSM} blocks/SM</strong></span><br>
-    ${blocksPerSM} blocks × <strong style="color:var(--cyan);">${warpPerBlock} warps/block</strong> = <strong style="color:var(--violet);">${warpsPerSM} warps/SM</strong><br>
-    ${warpsPerSM} ÷ <strong style="color:var(--amber);">64 max warps</strong> = <strong style="color:var(--green);">${occupancy}% occupancy</strong>
+  <!-- STEP BY STEP -->
+  <div style="background:var(--card);border:2px solid var(--amber);border-radius:10px;padding:0.8rem;margin-top:0.6rem;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--amber);margin-bottom:0.5rem;text-align:center;">🧮 Step-by-Step: Max Blocks → Occupancy</div>
+    <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.6rem;">
+      <tr style="border-bottom:2px solid var(--border);">
+        <th style="padding:0.5rem;color:var(--tdim);text-align:left;">Step</th>
+        <th style="padding:0.5rem;color:var(--tdim);text-align:left;">What</th>
+        <th style="padding:0.5rem;color:var(--tdim);text-align:left;">Calculation</th>
+        <th style="padding:0.5rem;color:var(--cyan);text-align:right;">Result</th>
+      </tr>
+      <tr>
+        <td style="padding:0.5rem;color:var(--cyan);font-weight:700;">1</td>
+        <td style="padding:0.5rem;color:var(--tdim);">How many blocks FIT on one SM?</td>
+        <td style="padding:0.5rem;color:var(--tmut);">MIN of all "Max Blocks" column</td>
+        <td style="padding:0.5rem;text-align:right;color:var(--cyan);font-weight:700;">${blocksPerSM} blocks / SM</td>
+      </tr>
+      <tr>
+        <td style="padding:0.5rem;color:var(--cyan);font-weight:700;">2</td>
+        <td style="padding:0.5rem;color:var(--tdim);">How many WARPS does that give?</td>
+        <td style="padding:0.5rem;color:var(--tmut);">${blocksPerSM} blocks × ${warpPerBlock} warps/block</td>
+        <td style="padding:0.5rem;text-align:right;color:var(--violet);font-weight:700;">${warpsPerSM} warps / SM</td>
+      </tr>
+      <tr>
+        <td style="padding:0.5rem;color:var(--cyan);font-weight:700;">3</td>
+        <td style="padding:0.5rem;color:var(--tdim);">What FRACTION of max is that?</td>
+        <td style="padding:0.5rem;color:var(--tmut);">${warpsPerSM} warps ÷ 64 max warps</td>
+        <td style="padding:0.5rem;text-align:right;font-size:0.8rem;font-weight:700;color:${occupancy>66?'var(--green)':occupancy>33?'var(--amber)':'var(--red)'};">${occupancy}%</td>
+      </tr>
+    </table>
+    <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin-top:0.5rem;">
+      ${bottlenecks.length>0?`🔴 <strong style="color:var(--red);">Registers are the bottleneck.</strong> Each block uses ${regsPerBlock.toLocaleString()} registers. SM only has 65,536. To increase occupancy: use fewer registers per thread.`:`✅ Balanced — no single bottleneck.`}
+    </div>
   </div>
 </div>`;
 }
