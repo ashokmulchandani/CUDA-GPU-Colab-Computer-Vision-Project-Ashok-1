@@ -491,7 +491,16 @@ function updateSim(){
     </div>
   </div>
 
-  ${bottlenecks.length>0?`<div style="font-size:0.5rem;color:var(--red);text-align:center;font-weight:700;">🔴 LIMITED BY: ${bottlenecks.join(' + ').toUpperCase()}</div>`:'<div style="font-size:0.5rem;color:var(--green);text-align:center;">✅ No single bottleneck — balanced!</div>'}
+  ${bottlenecks.length>0?`<div style="font-size:0.55rem;color:var(--red);text-align:center;font-weight:700;">🔴 LIMITED BY: ${bottlenecks.join(' + ').toUpperCase()}</div>`:'<div style="font-size:0.55rem;color:var(--green);text-align:center;">✅ No single bottleneck — balanced!</div>'}
+
+  <!-- HOW IT CONNECTS -->
+  <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem;margin-top:0.5rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:2;">
+    <strong style="color:var(--amber);">How Max Blocks → Occupancy</strong><br>
+    Each limit says "max X blocks per SM." <strong style="color:var(--cyan);">The smallest wins.</strong><br>
+    <span style="color:var(--tmut);">${maxBlocksByWarps} (warp) > ${maxBlocksByRegs} (register) → <strong style="color:var(--red);">registers win = ${blocksPerSM} blocks/SM</strong></span><br>
+    ${blocksPerSM} blocks × <strong style="color:var(--cyan);">${warpPerBlock} warps/block</strong> = <strong style="color:var(--violet);">${warpsPerSM} warps/SM</strong><br>
+    ${warpsPerSM} ÷ <strong style="color:var(--amber);">64 max warps</strong> = <strong style="color:var(--green);">${occupancy}% occupancy</strong>
+  </div>
 </div>`;
 }
 
