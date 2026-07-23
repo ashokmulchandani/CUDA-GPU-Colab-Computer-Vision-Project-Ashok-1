@@ -196,14 +196,19 @@ const S=[{
 <span style="color:#c586c0;">response</span> = <span style="color:#c586c0;">client</span>.<span style="color:#c586c0;">infer</span>(<span style="color:#ce9178;">'yolo'</span>, inputs)</div><p style="font-size:0.65rem;">✅ ~0.5ms overhead<br>✅ Streaming support<br>✅ Best for high-throughput<br>⚠️ Needs protobuf client library</p></div>
 </div>
 
+<h3>🤖 gRPC = <strong>g</strong>RPC <strong>R</strong>emote <strong>P</strong>rocedure <strong>C</strong>all</h3>
+<p>Originally built by Google in 2015. Uses <strong style="color:var(--cyan);">Protocol Buffers (protobuf)</strong> — a binary serialization format. Think of it as "HTTP but binary instead of text." The 'g' originally stood for Google, now it's just gRPC.</p>
+
+<div class="callout"><span style="font-size:1.1rem;">🖥️</span><span><strong style="color:var(--cyan);">Triton runs BOTH by default.</strong> HTTP on port 8000. gRPC on port 8001. No config needed. The CLIENT chooses which one to use by which port it connects to. You don't tell Triton "use gRPC" — it's always listening on both.</span></div>
+
 <h3>🔌 Triton API Endpoints</h3>
 <table class="param">
 <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
-<tr><td><code>/v2/health/ready</code></td><td>GET</td><td>Is Triton ready to serve?</td></tr>
-<tr><td><code>/v2/health/live</code></td><td>GET</td><td>Is Triton alive?</td></tr>
-<tr><td><code>/v2/models</code></td><td>GET</td><td>List loaded models</td></tr>
-<tr><td><code>/v2/models/yolo/infer</code></td><td>POST</td><td>Run inference (HTTP)</td></tr>
-<tr><td><code>/v2/models/yolo/infer</code></td><td>gRPC</td><td>Run inference (gRPC)</td></tr>
+<tr><td><code>:8000/v2/health/ready</code></td><td>HTTP GET</td><td>Is Triton ready to serve?</td></tr>
+<tr><td><code>:8000/v2/health/live</code></td><td>HTTP GET</td><td>Is Triton alive?</td></tr>
+<tr><td><code>:8000/v2/models</code></td><td>HTTP GET</td><td>List loaded models</td></tr>
+<tr><td><code>:8000/v2/models/yolo/infer</code></td><td>HTTP POST</td><td>Run inference — <strong style="color:var(--amber);">JSON, ~5ms overhead</strong></td></tr>
+<tr><td><code>:8001</code> (gRPC port)</td><td>gRPC</td><td>Run inference — <strong style="color:var(--green);">Protobuf, ~0.5ms overhead</strong></td></tr>
 </table>
 
 <h3>📊 Visual: What Each Protocol Sends Over the Network</h3>
