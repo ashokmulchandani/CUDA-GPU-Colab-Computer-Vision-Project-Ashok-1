@@ -252,7 +252,28 @@ const slides=[{
 <span style="color:#6a9955;">// Ready for inference in milliseconds!</span></div>
 
 <h3>⚠️ Important: Engine is GPU-Specific</h3>
-<div class="callout"><span style="font-size:1.2rem;">⚠️</span><span>A TensorRT engine built on a T4 <strong style="color:var(--red);">WILL NOT WORK</strong> on an A100. Different SMs, different Tensor Cores, different optimal kernels. Rebuild on the target GPU. <strong style="color:var(--amber);">Build in CI/CD on the target GPU type.</strong></span></div>
+<div class="callout"><span style="font-size:1.2rem;">⚠️</span><span>A TensorRT engine built on a T4 <strong style="color:var(--red);">WILL NOT WORK</strong> on an A100 or Jetson. Different SMs, different Tensor Cores, different optimal kernels.</span></div>
+
+<h3>🤖 How Does TensorRT Know Which GPU? — Auto-Detection</h3>
+<p>You don't tell TensorRT which GPU — it <strong style="color:var(--cyan);">detects the GPU automatically</strong>. The same `export()` code builds a different engine depending on what GPU is physically in the machine:</p>
+
+<table class="param">
+<tr><th>Where you run</th><th>GPU</th><th>Engine built for</th><th>SM Version</th></tr>
+<tr><td>Colab Free</td><td>Tesla T4</td><td style="color:var(--cyan);">T4 only</td><td>sm_75</td></tr>
+<tr><td>AWS g5.xlarge</td><td>A10G</td><td style="color:var(--amber);">A10G only</td><td>sm_86</td></tr>
+<tr><td>Jetson Orin</td><td>ARM GPU</td><td style="color:var(--green);">Orin only</td><td>sm_87</td></tr>
+<tr><td>AWS p4d</td><td>A100</td><td style="color:var(--magenta);">A100 only</td><td>sm_80</td></tr>
+</table>
+
+<div class="eq-box">
+<span style="color:var(--text-muted);"># Same code — different GPU = completely different engine file</span>
+<span style="color:var(--cyan);">model.export(format='engine', half=True)</span>
+
+<span style="color:var(--text-muted);"># On T4:      builds T4 engine (sm_75), ~7 min</span>
+<span style="color:var(--text-muted);"># On A100:    builds A100 engine (sm_80), ~3 min (faster GPU!)</span>
+<span style="color:var(--text-muted);"># On Jetson:  builds Jetson engine (sm_87), ~7 min on Orin</span>
+
+<span style="color:var(--amber);">Build on the SAME GPU model you'll deploy on. CI/CD needs GPU runners.</span></div>
 
 <div class="quiz" id="quiz3"><div class="question">Why serialize the engine instead of rebuilding every time?</div>
 <div class="options">
