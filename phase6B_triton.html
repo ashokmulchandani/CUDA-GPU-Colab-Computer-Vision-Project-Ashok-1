@@ -288,7 +288,54 @@ const S=[{
 <span style="color:var(--amber);">Phase 5 use case: serve YOLO (detection) + VGG16 (chicken disease) on one T4!</span></div>
 
 <h3>🔄 A/B Testing — Zero-Downtime Deployments</h3>
-<p>Add <code>model_repository/yolo/2/</code> with the new engine. Triton loads BOTH versions. Route 10% of traffic to v2. Compare latency. If v2 wins, promote to 100%. If v2 fails, delete the folder — instant rollback.</p>
+<p>Add a new version folder. Triton loads <strong style="color:var(--cyan);">BOTH versions simultaneously</strong>. Route a percentage of traffic to the new one. If it performs better → promote. If it fails → delete the folder → instant rollback. <strong>No downtime. No restarts.</strong></p>
+
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.8rem 0;">
+
+  <!-- STEP 1: Before -->
+  <div style="flex:1;min-width:200px;background:var(--bg-card);border:2px solid var(--amber);border-radius:8px;padding:0.8rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.4rem;">📁 STEP 1: Before Update</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);line-height:1.8;">
+      yolo/<br>
+      ├── config.pbtxt<br>
+      └── <strong style="color:var(--green);">1/</strong> ← v1 (live)<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;└── model.plan<br>
+    </div>
+    <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;">100% traffic → v1<br>Latency: 11.3ms</div>
+  </div>
+
+  <div style="font-size:1.2rem;color:var(--cyan);display:flex;align-items:center;">→</div>
+
+  <!-- STEP 2: Deploy v2 -->
+  <div style="flex:1;min-width:200px;background:var(--bg-card);border:2px solid var(--cyan);border-radius:8px;padding:0.8rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">📁 STEP 2: Deploy v2 (no restart!)</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);line-height:1.8;">
+      yolo/<br>
+      ├── config.pbtxt<br>
+      ├── <strong style="color:var(--green);">1/</strong> ← v1 (still live)<br>
+      │&nbsp;&nbsp;&nbsp;└── model.plan<br>
+      └── <strong style="color:var(--cyan);">2/</strong> ← <span style="color:var(--cyan);">v2 (new!)</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;└── model.plan<br>
+    </div>
+    <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;"><strong style="color:var(--green);">90% → v1</strong> | <strong style="color:var(--cyan);">10% → v2</strong></div>
+  </div>
+
+  <div style="font-size:1.2rem;color:var(--cyan);display:flex;align-items:center;">→</div>
+
+  <!-- STEP 3: Two outcomes -->
+  <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:0.4rem;">
+    <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.5rem;text-align:center;">
+      <div style="font-size:0.45rem;color:var(--green);">✅ v2 is FASTER (10.8ms)</div>
+      <div style="font-size:0.4rem;color:var(--tmut);">Promote: delete v1, keep v2<br>100% traffic → v2 ✅</div>
+    </div>
+    <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.5rem;text-align:center;">
+      <div style="font-size:0.45rem;color:var(--red);">❌ v2 is SLOWER or BROKEN</div>
+      <div style="font-size:0.4rem;color:var(--tmut);">Rollback: delete folder 2/<br>Triton falls back to v1 instantly</div>
+    </div>
+  </div>
+</div>
+
+<div class="callout"><span style="font-size:1rem;">💡</span><span style="font-size:0.65rem;"><strong style="color:var(--cyan);">The magic:</strong> Triton watches the model repository folder. Add a new version → loaded automatically. Delete a version → unloaded. <strong>No server restart. No config change. No downtime.</strong> This is how production ML teams deploy model updates safely.</span></div>
 
 <div class="quiz" id="q3"><div class="question">Dynamic batching says it adds "max 100μs latency." Is that noticeable?</div>
 <div class="options">
