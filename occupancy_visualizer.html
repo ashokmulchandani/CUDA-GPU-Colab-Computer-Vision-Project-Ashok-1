@@ -187,28 +187,66 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
       </div>
     </div>
 
+    <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0;">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);">Quick:</span>
+      <button class="btn preset-btn" onclick="setGridPreset(0,this)" style="font-size:0.4rem;">Our CNN (2×2)</button>
+      <button class="btn preset-btn" onclick="setGridPreset(1,this)" style="font-size:0.4rem;">YOLO Preprocess (40×40)</button>
+      <button class="btn preset-btn" onclick="setGridPreset(2,this)" style="font-size:0.4rem;">CNN conv (2×2×512)</button>
+      <button class="btn preset-btn" onclick="setGridPreset(3,this)" style="font-size:0.4rem;">YOLO 80×80</button>
+    </div>
+
     <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:0.5rem;">
       <div style="text-align:center;">
-        <div style="font-size:0.4rem;color:var(--tmut);">Grid Size</div>
-        <input type="range" min="1" max="4" value="2" oninput="updateBlockViz()" id="gridXSlider" style="width:80px;accent-color:var(--cyan);">
+        <div style="font-size:0.4rem;color:var(--tmut);">Grid X</div>
+        <input type="range" min="1" max="80" value="2" oninput="updateBlockViz()" id="gridXSlider" style="width:80px;accent-color:var(--cyan);">
         <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="gxVal">2</span></span>
       </div>
       <div style="text-align:center;">
-        <div style="font-size:0.4rem;color:var(--tmut);">Block Size</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">Grid Y</div>
+        <input type="range" min="1" max="80" value="2" oninput="updateBlockViz()" id="gridYSlider" style="width:80px;accent-color:var(--cyan);">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="gyVal">2</span></span>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.4rem;color:var(--tmut);">Z (batch×filter)</div>
+        <input type="range" min="1" max="512" step="1" value="1" oninput="updateBlockViz()" id="gridZSlider" style="width:80px;accent-color:var(--violet);">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="gzVal">1</span></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:0.3rem;">
+      <div style="text-align:center;">
+        <div style="font-size:0.4rem;color:var(--tmut);">Block X</div>
         <input type="range" min="4" max="32" step="4" value="16" oninput="updateBlockViz()" id="blockSizeSlider" style="width:80px;accent-color:var(--amber);">
         <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="bsVal">16</span></span>
       </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.4rem;color:var(--tmut);">Block Y</div>
+        <input type="range" min="4" max="32" step="4" value="16" oninput="updateBlockViz()" id="blockYSlider" style="width:80px;accent-color:var(--amber);">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="bsYval">16</span></span>
+      </div>
     </div>
+
+    <div id="gridZNote" style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--violet);margin-top:0.3rem;"></div>
 
     <!-- Comparison table -->
     <table style="margin:0.5rem auto;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.45rem;">
-      <tr style="background:var(--raised);"><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Our CNN</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">YOLO Preprocess</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Real CNN conv</th></tr>
+      <tr style="background:var(--raised);"><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Our CNN</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">YOLO Preprocess</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">CNN conv2d</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">YOLO P3 Detect</th></tr>
       <tr>
-        <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">2×2</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">1024</span> total</td>
+        <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">2×2×1</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">1,024</span> total</td>
         <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">40×40×3</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">1,228,800</span> total</td>
         <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">2×2×512</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">524,288</span> total</td>
+        <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">5×5×512</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">3,276,800</span> total</td>
       </tr>
     </table>
+
+    <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem;margin-top:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);text-align:center;line-height:1.6;">
+      <strong style="color:var(--amber);">🧵 Is block always 16×16? NO — it is YOUR choice!</strong><br>
+      Common block sizes: <span style="color:var(--cyan);">16×16=256</span> (most common, good occupancy) |
+      <span style="color:var(--green);">32×8=256</span> (same threads, different shape) |
+      <span style="color:var(--amber);">8×8=64</span> (simple kernels) |
+      <span style="color:var(--violet);">32×32=1024</span> (max per block)<br>
+      <strong style="color:var(--cyan);">Why 16×16?</strong> 256 threads = 8 warps. Fits nicely in SM. 16 is half of 32 (warp size) — good for 2D problems.<br>
+      <strong style="color:var(--amber);">Rule:</strong> Threads per block should be a <strong>multiple of 32</strong> (warp size). 128, 256, 512, 1024 are the sweet spots.
+    </div>
   </div>
 
   <div class="note">
@@ -242,30 +280,44 @@ function setPreset(i,btn){
   document.getElementById('presetLabel').textContent=p.label;
   updateSim();
 }
+function setGridPreset(i,btn){
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active')});if(btn)btn.classList.add('active');
+  var presets=[[2,2,1,16,16],[40,40,3,16,16],[2,2,512,16,16],[80,80,1,16,16]];
+  var p=presets[i];
+  document.getElementById('gridXSlider').value=p[0];document.getElementById('gridYSlider').value=p[1];document.getElementById('gridZSlider').value=p[2];
+  document.getElementById('blockSizeSlider').value=p[3];document.getElementById('blockYSlider').value=p[4];
+  updateBlockViz();
+}
 function updateBlockViz(){
-  var gx=parseInt(document.getElementById('gridXSlider').value);var gy=gx;
-  var bs=parseInt(document.getElementById('blockSizeSlider').value);
-  document.getElementById('gxVal').textContent=gx;document.getElementById('bsVal').textContent=bs;
-  // Block grid
-  var gh='';for(var r=0;r<gy;r++){for(var c=0;c<gx;c++){gh+='<div style="width:30px;height:30px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--cyan);">B'+r+','+c+'</div>'}}
-  document.getElementById('blockGridViz').style.gridTemplateColumns='repeat('+gx+',30px)';
+  var gx=parseInt(document.getElementById('gridXSlider').value);var gy=parseInt(document.getElementById('gridYSlider').value);var gz=parseInt(document.getElementById('gridZSlider').value);
+  var bx=parseInt(document.getElementById('blockSizeSlider').value);var by=parseInt(document.getElementById('blockYSlider').value);
+  document.getElementById('gxVal').textContent=gx;document.getElementById('gyVal').textContent=gy;document.getElementById('gzVal').textContent=gz;
+  document.getElementById('bsVal').textContent=bx;document.getElementById('bsYval').textContent=by;
+  // Block grid — show 2D slice
+  var maxVis=Math.min(gx,60),maxVisY=Math.min(gy,4);
+  var gh='';for(var r=0;r<maxVisY;r++){for(var c=0;c<maxVis;c++){gh+='<div style="width:'+(gx>40?'12px':'30px')+';height:'+(gx>40?'12px':'30px')+';background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.35rem;color:var(--cyan);">'+(gx>20?'·':'B'+r+','+c)+'</div>'}}
+  document.getElementById('blockGridViz').style.gridTemplateColumns='repeat('+maxVis+','+(gx>40?'12px':'30px')+')';
   document.getElementById('blockGridViz').innerHTML=gh;
   // Block zoom
-  var bh='';var maxShow=Math.min(bs,20);
-  for(var r=0;r<maxShow;r++){for(var c=0;c<maxShow;c++){var isWarpEdge=(c%32===0||c%32===31);var bg=isWarpEdge?'var(--amber)':'var(--green)';bh+='<div style="width:'+(bs>16?'5px':'7px')+';height:'+(bs>16?'5px':'7px')+';background:'+bg+';opacity:0.7;border-radius:1px;" title="Thread ('+r+','+c+')"></div>'}}
-  if(bs>20)bh+='<div style="font-size:0.35rem;color:var(--tmut);grid-column:1/-1;text-align:center;">'+(bs-20)+' more rows...</div>';
+  var bh='';var maxShow=Math.min(Math.max(bx,by),20);
+  for(var r=0;r<maxShow;r++){for(var c=0;c<maxShow;c++){var isWarpEdge=(c%32===0||c%32===31);var bg=isWarpEdge?'var(--amber)':'var(--green)';bh+='<div style="width:'+(Math.max(bx,by)>16?'5px':'7px')+';height:'+(Math.max(bx,by)>16?'5px':'7px')+';background:'+bg+';opacity:0.7;border-radius:1px;" title="Thread ('+r+','+c+')"></div>'}}
+  if(Math.max(bx,by)>20)bh+='<div style="font-size:0.35rem;color:var(--tmut);grid-column:1/-1;text-align:center;">'+(Math.max(bx,by)-20)+' more rows...</div>';
   document.getElementById('blockZoomViz').style.gridTemplateColumns='repeat('+maxShow+',1fr)';
   document.getElementById('blockZoomViz').innerHTML=bh;
   // Stats
-  var thrPerBlock=bs*bs,totalThr=gx*gy*thrPerBlock,wrpPerBlock=Math.ceil(thrPerBlock/32),totWrp=totalThr/32;
-  document.getElementById('gX').textContent=gx;document.getElementById('gY').textContent=gy;document.getElementById('gTotal').textContent=gx*gy;
-  document.getElementById('bX').textContent=bs;document.getElementById('bY').textContent=bs;document.getElementById('bTotal').textContent=thrPerBlock;
+  var thrPerBlock=bx*by,totalThr=gx*gy*gz*thrPerBlock,wrpPerBlock=Math.ceil(thrPerBlock/32),totWrp=totalThr/32;
+  document.getElementById('gX').textContent=gx;document.getElementById('gY').textContent=gy;document.getElementById('gTotal').textContent=gx*gy*gz;
+  document.getElementById('bX').textContent=bx;document.getElementById('bY').textContent=by;document.getElementById('bTotal').textContent=thrPerBlock;
   document.getElementById('gsX').textContent=gx;document.getElementById('gsY').textContent=gy;
-  document.getElementById('bsX').textContent=bs;document.getElementById('bsY').textContent=bs;
+  document.getElementById('bsX').textContent=bx;document.getElementById('bsY').textContent=by;
   document.getElementById('thrPerBlock').textContent=thrPerBlock;
   document.getElementById('totThr').textContent=totalThr;
   document.getElementById('wrpPerBlock').textContent=wrpPerBlock;
   document.getElementById('totWrp').textContent=totWrp;
+  // Z note
+  var zn=document.getElementById('gridZNote');
+  if(gz>1)zn.textContent='⬚ Z-dimension: '+gz+' stacked slices (batch×filter). Each slice = '+gx+'×'+gy+' blocks. Total blocks: '+gx+'×'+gy+'×'+gz+' = '+(gx*gy*gz);
+  else zn.textContent='';
 }
 function updateSim(){
   let thr=parseInt(document.getElementById('thrSlider').value);
