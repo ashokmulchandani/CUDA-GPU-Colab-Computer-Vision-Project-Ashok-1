@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6B: Triton Inference Server — Production Model Serving</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--cyan-bg:#39d2ff15;--amber:#ffb347;--amber-bg:#ffb34715;--green:#3fb950;--green-bg:#3fb95015;--magenta:#ff6ec7;--magenta-bg:#ff6ec715;--red:#f85149;--violet:#a371f7;--radius:14px;--radius-sm:8px;--transition:0.3s cubic-bezier(0.4,0,0.2,1)}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--cyan-bg:#ddf4ff;--amber:#9a6700;--amber-bg:#fff8c5;--green:#1a7f37;--green-bg:#dafbe1;--magenta:#bf3989;--magenta-bg:#fbefff;--red:#cf222e;--violet:#8250df}
+body.light .topbar{background:rgba(246,248,250,0.9)}body.light .eq-box{background:rgba(0,0,0,0.03)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;transition:background 0.3s,color 0.3s}
+.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+.theme-toggle{position:fixed;top:0.7rem;right:2rem;z-index:200;background:var(--raised);border:1px solid var(--border);color:var(--text);font-size:1.1rem;cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;transition:var(--transition);font-family:'JetBrains Mono',monospace}
+.theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.6rem 2rem;display:flex;align-items:center;gap:1rem;font-size:0.8rem}
+.topbar .logo{font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:0.15em;color:var(--cyan);white-space:nowrap}
+.topbar .step-dots{display:flex;gap:0.4rem;flex:1;justify-content:center}
+.topbar .step-dot{width:28px;height:4px;border-radius:2px;background:var(--border);transition:var(--transition);cursor:pointer}
+.topbar .step-dot.done{background:var(--green)}.topbar .step-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.topbar .step-dot:hover{background:var(--tdim)}
+.topbar .step-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tdim);white-space:nowrap}
+.header{text-align:center;padding:3rem 0 1rem}
+.header .phase-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;color:var(--green);border:1px solid var(--green-bg);border-radius:100px;padding:0.4em 1.4em;margin-bottom:1rem}
+.header h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.header .tagline{color:var(--tdim);font-size:0.9rem}
+.topic-list{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin:1.5rem 0 1rem}
+.topic-chip{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.04em;padding:0.3rem 0.7rem;border-radius:100px;border:1px solid var(--border);color:var(--tmut);cursor:pointer;transition:var(--transition);background:transparent}
+.topic-chip.visited{border-color:var(--green);color:var(--green);background:var(--green-bg)}.topic-chip.current{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg);box-shadow:0 0 10px var(--cyan-border)}
+.fun-fact{background:linear-gradient(135deg,var(--amber-bg),var(--magenta-bg));border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.65rem 1.2rem;margin-bottom:1.5rem;font-size:0.78rem;color:var(--tdim);display:flex;align-items:center;gap:0.6rem}
+.fun-fact .bulb{font-size:1.2rem;flex-shrink:0}.fun-fact strong{color:var(--amber)}
+.slide{animation:slideIn 0.35s ease}@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
+.card h2{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;color:var(--text)}
+.card h2 .num{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--cyan);background:var(--cyan-bg);border-radius:6px;padding:0.2em 0.6em}
+.card p{color:var(--tdim);margin-bottom:1rem;font-size:0.95rem}
+.card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;color:var(--cyan);margin:1.2rem 0 0.5rem}
+.data-types{display:grid;grid-template-columns:repeat(2,1fr);gap:0.8rem;margin:1rem 0}
+.data-type-card{background:var(--raised);border:1px solid var(--border);border-top:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem;transition:var(--transition);cursor:default}
+.data-type-card:nth-child(2){border-top-color:var(--amber)}.data-type-card:nth-child(3){border-top-color:var(--magenta)}.data-type-card:nth-child(4){border-top-color:var(--green)}
+.data-type-card:hover{transform:translateY(-3px)}.data-type-card .dt-icon{font-size:1.3rem;margin-bottom:0.3rem}.data-type-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.3rem;color:var(--cyan)}.data-type-card p{font-size:0.72rem!important;color:var(--tmut)!important}
+.pipeline{display:flex;align-items:center;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:1.2rem 0}
+.pipeline-stage{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.7rem 0.9rem;text-align:center;min-width:100px}.pipeline-stage.highlight{border-color:var(--cyan);background:var(--cyan-bg)}
+.pipeline-stage .stage-icon{font-size:1.3rem;margin-bottom:0.2rem}.pipeline-stage .stage-name{font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan)}.pipeline-stage .stage-desc{font-size:0.55rem;color:var(--tmut)}
+.pipeline-arrow{font-size:1.2rem;color:var(--cyan);animation:arrowPulse 1.5s ease-in-out infinite}@keyframes arrowPulse{0%,100%{opacity:0.4}50%{opacity:1}}
+.eq-box{background:rgba(0,0,0,0.4);border-left:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.8;color:var(--text);white-space:pre-wrap;overflow-x:auto}
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.8;white-space:pre-wrap;overflow-x:auto;color:#d4d4d4;position:relative}
+.code-wrapper{position:relative;margin:1rem 0}
+.copy-btn2{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;padding:0.3em 0.7em;border:1px solid #555;border-radius:6px;background:#2d2d2d;color:#ccc;cursor:pointer;transition:0.15s;opacity:0;z-index:5}
+.code-wrapper:hover .copy-btn2{opacity:1}.copy-btn2:hover{background:#333;color:var(--violet);border-color:var(--violet)}.copy-btn2.copied{opacity:1;background:#2d2d2d;color:var(--green);border-color:var(--green)}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.compare-card{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;transition:var(--transition)}
+.compare-card:hover{transform:translateY(-3px)}.compare-card.pick-a{border-left:3px solid var(--red)}.compare-card.pick-b{border-left:3px solid var(--cyan)}.compare-card.pick-c{border-left:3px solid var(--green)}
+.compare-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.5rem}.compare-card.pick-a h4{color:var(--red)}.compare-card.pick-b h4{color:var(--cyan)}
+.compare-card p{font-size:0.72rem!important;color:var(--tdim)!important}
+.quiz{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;margin-top:1.5rem}
+.quiz .question{font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--text);margin-bottom:0.8rem}
+.quiz .options{display:flex;flex-direction:column;gap:0.4rem}
+.quiz .option{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.6rem 1rem;font-size:0.82rem;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.quiz .option:hover{border-color:var(--cyan);color:var(--cyan)}.quiz .option.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}.quiz .option.wrong{border-color:var(--red);background:#f8514920;color:var(--red)}
+.quiz .feedback{display:none;margin-top:0.8rem;padding:0.6rem 1rem;border-radius:6px;font-size:0.82rem}.quiz .feedback.show{display:block}.quiz .feedback.correct{background:var(--green-bg);color:var(--green)}.quiz .feedback.wrong{background:#f8514920;color:var(--red)}
+.checklist{margin:1rem 0}.checklist .check-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.8rem;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--tdim)}.checklist .check-box{font-size:1rem;flex-shrink:0}
+.big-stat{text-align:center;margin:1rem 0}.big-stat .number{font-family:'Orbitron',sans-serif;font-size:2.2rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.big-stat .label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tmut);margin-top:0.2rem}
+.nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
+.nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.callout{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.72rem;color:var(--tdim)}
+table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
+table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
+@media(max-width:768px){.app{padding:1rem}.compare-grid{grid-template-columns:1fr}.data-types{grid-template-columns:1fr}.pipeline{flex-direction:column}.card{padding:1.2rem}}
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+<nav class="topbar"><span class="logo">CUDA — PHASE 6B</span><div class="step-dots" id="stepDots"></div><span class="step-label" id="stepLabel">1/8</span></nav>
+<div class="app">
+<header class="header"><div class="phase-badge">🖥️ PHASE 6B — TRITON INFERENCE SERVER</div><h1>Triton — Production Model Serving</h1><p class="tagline">TensorRT builds the engine. Triton serves it. HTTP/gRPC, dynamic batching, multi-model, A/B testing — 100% free and open source.</p></header>
+<div class="topic-list" id="topicChips"></div>
+<div class="fun-fact" id="funFact"><span class="bulb">💡</span><span class="fact-text" id="funFactText"></span></div>
+<div id="slideContainer"></div>
+<div class="nav-row"><button class="nav-btn" id="prevBtn" onclick="goTo(currentSlide-1)">← Previous</button><button class="nav-btn primary" id="nextBtn" onclick="goTo(currentSlide+1)">Next →</button></div>
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.getElementById('themeToggle').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('p6b-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('p6b-theme')==='light'){document.body.classList.add('light');document.getElementById('themeToggle').textContent='🌙'}
+(function(){var c=document.getElementById('bgCanvas'),ctx=c.getContext('2d'),p=[];function r(){c.width=window.innerWidth;c.height=window.innerHeight}r();window.addEventListener('resize',r);for(var i=0;i<50;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,rr:Math.random()*2+0.5});function a(){ctx.clearRect(0,0,c.width,c.height);var il=document.body.classList.contains('light');var lc=il?'rgba(9,105,218,0.05)':'rgba(57,210,255,0.05)';var dc=il?'rgba(9,105,218,0.25)':'rgba(57,210,255,0.25)';p.forEach(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;if(pp.x<0)pp.x=c.width;if(pp.x>c.width)pp.x=0;if(pp.y<0)pp.y=c.height;if(pp.y>c.height)pp.y=0});for(var i=0;i<p.length;i++)for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x,dy=p[i].y-p[j].y;if(Math.sqrt(dx*dx+dy*dy)<100){ctx.beginPath();ctx.moveTo(p[i].x,p[i].y);ctx.lineTo(p[j].x,p[j].y);ctx.strokeStyle=lc;ctx.lineWidth=0.5;ctx.stroke()}}p.forEach(function(pp){ctx.beginPath();ctx.arc(pp.x,pp.y,pp.rr,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill()});requestAnimationFrame(a)}a()})()
+
+const S=[{
+  id:'6B.1',title:'What is Triton? — The Model Web Server',
+  fact:'<strong>Triton is 100% FREE and open source.</strong> NVIDIA built it and gives it away (MIT license). You only pay for the GPU hardware running it. Every Triton deployment = more NVIDIA GPUs sold.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.1</span> What is Triton? — The Model Web Server</h2>
+<p>A <strong style="color:var(--cyan);">TensorRT engine</strong> is just a file on disk. Triton is the <strong style="color:var(--amber);">web server</strong> that loads it, listens for HTTP/gRPC requests, runs inference, and returns results. Without Triton, your .engine file is useless in production.</p>
+
+<div class="compare-grid">
+<div class="compare-card pick-a"><h4>🔴 Without Triton</h4><p>You write a Flask server, manage GPU memory manually, handle batching yourself, deal with concurrent requests, implement health checks, monitor GPU usage...</p><p style="margin-top:0.5rem;color:var(--red);">Weeks of infrastructure code before you serve a single request.</p></div>
+<div class="compare-card pick-c"><h4>🟢 With Triton</h4><p>Drop your model in a folder. Write a 10-line config. Triton handles: HTTP/gRPC API, dynamic batching, GPU sharing, health checks, Prometheus metrics, model versioning, A/B testing.</p><p style="margin-top:0.5rem;color:var(--green);">Minutes to production.</p></div>
+</div>
+
+<h3>💰 Cost: $0</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">Triton:      </span><span style="color:var(--green);">FREE</span><span style="color:var(--text-muted);"> — open source, MIT license, NVIDIA maintained</span>
+<span style="color:var(--text-muted);">Docker image:</span><span style="color:var(--green);">FREE</span><span style="color:var(--text-muted);"> — nvcr.io/nvidia/tritonserver (NVIDIA Container Registry)</span>
+<span style="color:var(--text-muted);">GPU hardware:</span><span style="color:var(--red);">~$0.50-1/hr</span><span style="color:var(--text-muted);"> — cloud GPU VM (AWS, Lambda, RunPod)</span>
+
+<span style="color:var(--amber);">Triton is like Linux — free software. The GPU is the computer you pay for.</span></div>
+
+<h3>🔄 The Full Deployment Chain</h3>
+<div class="pipeline">
+<div class="pipeline-stage"><div class="stage-icon">🔥</div><div class="stage-name">PYTORCH</div><div class="stage-desc">Train model</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">🚀</div><div class="stage-name">TENSORRT</div><div class="stage-desc">Optimize for GPU</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage highlight"><div class="stage-icon">🖥️</div><div class="stage-name">TRITON</div><div class="stage-desc">Serve HTTP/gRPC</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">🐳</div><div class="stage-name">DOCKER</div><div class="stage-desc">Containerize</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">☸️</div><div class="stage-name">K8s</div><div class="stage-desc">Auto-scale</div></div>
+</div>
+
+<div class="quiz" id="q0"><div class="question">🧪 Why do you need Triton if you already have a TensorRT engine?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q0',this)">A. The .engine file is just a model — it has no API, no networking, no batching, no health checks. Triton is the production server that wraps the engine and handles everything a production service needs: HTTP/gRPC, concurrent requests, monitoring, auto-batching, multi-model GPU sharing.</div>
+<div class="option" onclick="checkQuiz('q0',this)">B. Triton makes the model more accurate than raw TensorRT</div>
+<div class="option" onclick="checkQuiz('q0',this)">C. TensorRT engines cannot run without Triton — they are dependent</div>
+</div><div class="feedback" id="q0-fb"></div></div>
+</div></div>`},{
+  id:'6B.2',title:'Model Repository — The Folder Structure',
+  fact:'<strong>Triton discovers models automatically.</strong> Point it at a folder, it scans subdirectories, reads config.pbtxt files, and loads every model it finds. Add a new model = add a new folder and restart.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.2</span> Model Repository — The Folder Structure</h2>
+<p>Triton expects a specific folder layout. Each model gets its own directory with numbered version subdirectories. <strong style="color:var(--cyan);">Numbers = versions.</strong> Triton loads the highest-numbered version by default.</p>
+
+<h3>📁 Repository Layout</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">models/                          ← point Triton here</span>
+<span style="color:var(--text-muted);">├── yolo_detector/               ← model name</span>
+<span style="color:var(--text-muted);">│   ├── config.pbtxt            ← platform, I/O shapes, batching</span>
+<span style="color:var(--text-muted);">│   ├── 1/                      ← version 1</span>
+<span style="color:var(--cyan);">│   │   └── model.plan          ← TensorRT engine file</span>
+<span style="color:var(--text-muted);">│   └── 2/                      ← version 2 (newer — Triton loads this!)</span>
+<span style="color:var(--cyan);">│       └── model.plan          ← updated engine</span>
+<span style="color:var(--text-muted);">├── resnet_classifier/           ← another model, same GPU!</span>
+<span style="color:var(--text-muted);">│   ├── config.pbtxt</span>
+<span style="color:var(--text-muted);">│   └── 1/</span>
+<span style="color:var(--text-muted);">│       └── model.onnx           ← ONNX model also works</span></div>
+
+<h3>📋 config.pbtxt — The Model Config</h3>
+<div class="code-box"><span class="cell-num">config.pbtxt for YOLO detector</span>
+<span style="color:#6a9955;"># Platform: what format is the model?</span>
+<span style="color:#569cd6;">platform:</span> <span style="color:#ce9178;">"tensorrt_plan"</span>   <span style="color:#6a9955;">// or: onnxruntime_onnx, pytorch_libtorch, python, tensorflow</span>
+
+<span style="color:#6a9955;"># Maximum batch size Triton will accumulate</span>
+<span style="color:#569cd6;">max_batch_size:</span> <span style="color:#ce9178;">8</span>
+
+<span style="color:#6a9955;"># Input tensor</span>
+<span style="color:#569cd6;">input:</span> [{
+  <span style="color:#569cd6;">name:</span> <span style="color:#ce9178;">"images"</span>
+  <span style="color:#569cd6;">data_type:</span> <span style="color:#ce9178;">TYPE_FP32</span>
+  <span style="color:#569cd6;">dims:</span> [ <span style="color:#ce9178;">3</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span> ]     <span style="color:#6a9955;">// CHW format</span>
+}]
+
+<span style="color:#6a9955;"># Output tensor</span>
+<span style="color:#569cd6;">output:</span> [{
+  <span style="color:#569cd6;">name:</span> <span style="color:#ce9178;">"output0"</span>
+  <span style="color:#569cd6;">data_type:</span> <span style="color:#ce9178;">TYPE_FP32</span>
+  <span style="color:#569cd6;">dims:</span> [ <span style="color:#ce9178;">84</span>, <span style="color:#ce9178;">8400</span> ]     <span style="color:#6a9955;">// 4 coords + 80 class scores</span>
+}]
+
+<span style="color:#6a9955;"># Dynamic batching: wait up to 100μs for more requests</span>
+<span style="color:#569cd6;">dynamic_batching:</span> {
+  <span style="color:#569cd6;">max_queue_delay_microseconds:</span> <span style="color:#ce9178;">100</span>
+}</div>
+
+<div class="quiz" id="q1"><div class="question">🧪 Why does Triton use numbered version directories (1/, 2/) instead of filenames?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q1',this)">A. So you can deploy a NEW version (just add folder 2/) while keeping the OLD version (folder 1/) for rollback. Triton loads the highest number. If v2 has issues: delete folder 2/, Triton falls back to v1 automatically.</div>
+<div class="option" onclick="checkQuiz('q1',this)">B. To save disk space — lower numbers compress better</div>
+<div class="option" onclick="checkQuiz('q1',this)">C. NVIDIA requires specific numbering for license compliance</div>
+</div><div class="feedback" id="q1-fb"></div></div>
+</div></div>`},{
+  id:'6B.3',title:'HTTP vs gRPC — How Clients Talk to Triton',
+  fact:'<strong>HTTP is for debugging. gRPC is for production.</strong> gRPC uses binary protobuf — 10× lower overhead than JSON. But HTTP is easier to test with curl and works from any language.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.3</span> HTTP vs gRPC — How Clients Talk to Triton</h2>
+
+<div class="compare-grid">
+<div class="compare-card pick-b"><h4>🔵 HTTP/REST</h4><p>POST JSON to /v2/models/yolo/infer</p><div class="code-box" style="font-size:0.55rem;margin:0.5rem 0;padding:0.5rem;"><span style="color:#6a9955;"># Test with curl — no libraries needed</span>
+<span style="color:#569cd6;">curl</span> -X POST http://localhost:8000/v2/models/yolo/infer \
+  -d @input.json</div><p style="font-size:0.65rem;">✅ Easy to debug, curl-friendly<br>❌ ~5ms overhead per request<br>✅ Works from ANY language<br>✅ Good for low-to-medium traffic</p></div>
+<div class="compare-card pick-c"><h4>🟢 gRPC (Protobuf)</h4><p>Binary protocol — 10× less overhead</p><div class="code-box" style="font-size:0.55rem;margin:0.5rem 0;padding:0.5rem;"><span style="color:#6a9955;"># Needs gRPC client library</span>
+<span style="color:#569cd6;">import</span> tritonclient.grpc <span style="color:#569cd6;">as</span> grpcclient
+<span style="color:#c586c0;">client</span> = grpcclient.<span style="color:#c586c0;">InferenceServerClient</span>(<span style="color:#ce9178;">'localhost:8001'</span>)
+<span style="color:#c586c0;">response</span> = <span style="color:#c586c0;">client</span>.<span style="color:#c586c0;">infer</span>(<span style="color:#ce9178;">'yolo'</span>, inputs)</div><p style="font-size:0.65rem;">✅ ~0.5ms overhead<br>✅ Streaming support<br>✅ Best for high-throughput<br>⚠️ Needs protobuf client library</p></div>
+</div>
+
+<h3>🔌 Triton API Endpoints</h3>
+<table class="param">
+<tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+<tr><td><code>/v2/health/ready</code></td><td>GET</td><td>Is Triton ready to serve?</td></tr>
+<tr><td><code>/v2/health/live</code></td><td>GET</td><td>Is Triton alive?</td></tr>
+<tr><td><code>/v2/models</code></td><td>GET</td><td>List loaded models</td></tr>
+<tr><td><code>/v2/models/yolo/infer</code></td><td>POST</td><td>Run inference (HTTP)</td></tr>
+<tr><td><code>/v2/models/yolo/infer</code></td><td>gRPC</td><td>Run inference (gRPC)</td></tr>
+</table>
+
+<div class="quiz" id="q2"><div class="question">🧪 When would you choose HTTP over gRPC for Triton?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. During development/debugging, for low-traffic internal tools, or when the client is a browser (JavaScript). HTTP is simpler to test with curl and works everywhere. Switch to gRPC when latency overhead matters and you need maximum throughput.</div>
+<div class="option" onclick="checkQuiz('q2',this)">B. HTTP is always faster than gRPC</div>
+<div class="option" onclick="checkQuiz('q2',this)">C. Triton only supports HTTP — gRPC is deprecated</div>
+</div><div class="feedback" id="q2-fb"></div></div>
+</div></div>`},{
+  id:'6B.4',title:'Dynamic Batching + Multi-Model GPU Sharing',
+  fact:'<strong>8 requests arriving within 100μs = 1 batch instead of 8 separate GPU calls.</strong> Same latency, 8× throughput. And Triton can serve YOLO + ResNet + BERT all on ONE GPU simultaneously.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.4</span> Dynamic Batching + Multi-Model GPU Sharing</h2>
+
+<h3>📦 Dynamic Batching — Why It Is Magic</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">Without batching (8 separate requests):</span>
+<span style="color:var(--red);">Req 1: 11.3ms | Req 2: 11.3ms | ... | Req 8: 11.3ms</span>
+<span style="color:var(--red);">Total GPU time: 8 × 11.3ms = 90.4ms</span>
+
+<span style="color:var(--text-muted);">With dynamic batching (batch of 8):</span>
+<span style="color:var(--green);">Batch of 8: 11.3ms (GPU processes all 8 in parallel!)</span>
+<span style="color:var(--green);">Total GPU time: 11.3ms (8× throughput!)</span>
+
+<span style="color:var(--amber);">Triton waits max_queue_delay_microseconds (100μs) to see if more requests arrive.</span>
+<span style="color:var(--amber);">If another request arrives within 100μs → batched together. If not → single inference.</span>
+<span style="color:var(--amber);">Latency impact: max 100μs extra wait. Throughput gain: up to 8×.</span></div>
+
+<h3>🖥️ Multi-Model Serving — One GPU, Many Models</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">Triton can load multiple models on the SAME GPU simultaneously:</span>
+
+<span style="color:var(--cyan);">models/</span>
+<span style="color:var(--text-muted);">├── yolo_detector/     → TensorRT engine (7.9 MB)</span>
+<span style="color:var(--text-muted);">├── resnet_classifier/  → ONNX model (98 MB)</span>
+<span style="color:var(--text-muted);">└── bert_sentiment/     → PyTorch model (440 MB)</span>
+
+<span style="color:var(--green);">All 3 loaded, all 3 ready. GPU memory shared efficiently.</span>
+<span style="color:var(--green);">Triton handles which model gets how much GPU memory.</span>
+<span style="color:var(--amber);">Phase 5 use case: serve YOLO (detection) + VGG16 (chicken disease) on one T4!</span></div>
+
+<h3>🔄 A/B Testing — Zero-Downtime Deployments</h3>
+<p>Add <code>model_repository/yolo/2/</code> with the new engine. Triton loads BOTH versions. Route 10% of traffic to v2. Compare latency. If v2 wins, promote to 100%. If v2 fails, delete the folder — instant rollback.</p>
+
+<div class="quiz" id="q3"><div class="question">Dynamic batching says it adds "max 100μs latency." Is that noticeable?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q3',this)">A. No — 100μs = 0.1ms. Your total inference is 11.3ms. Waiting an extra 0.1ms (0.9% of total) for up to 8× throughput is an incredible tradeoff. A human cannot perceive 0.1ms.</div>
+<div class="option" onclick="checkQuiz('q3',this)">B. Yes — it adds visible lag to every request</div>
+<div class="option" onclick="checkQuiz('q3',this)">C. 100μs is the same as 100ms — very noticeable</div>
+</div><div class="feedback" id="q3-fb"></div></div>
+</div></div>`},{
+  id:'6B.5',title:'Deployment Chain — From .engine to Production',
+  fact:'<strong>The .engine file is just the start.</strong> Triton serves it. Docker packages it. K8s scales it. CloudWatch monitors it. This 4-layer stack is how every production GPU service runs.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.5</span> Deployment Chain — From .engine to Production</h2>
+
+<div class="pipeline">
+<div class="pipeline-stage"><div class="stage-icon">🚀</div><div class="stage-name">TRT ENGINE</div><div class="stage-desc">yolov8n.engine<br>7.9 MB</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage highlight"><div class="stage-icon">🖥️</div><div class="stage-name">TRITON</div><div class="stage-desc">HTTP/gRPC API<br>Dynamic batching</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">🐳</div><div class="stage-name">DOCKER</div><div class="stage-desc">Portable container<br>CUDA runtime</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">☸️</div><div class="stage-name">KUBERNETES</div><div class="stage-desc">Auto-scale<br>Load balance</div></div><span class="pipeline-arrow">→</span>
+<div class="pipeline-stage"><div class="stage-icon">📊</div><div class="stage-name">MONITOR</div><div class="stage-desc">Grafana<br>CloudWatch</div></div>
+</div>
+
+<h3>🐳 Docker — The Standard Container</h3>
+<div class="code-box"><span class="cell-num">Dockerfile for Triton + YOLO</span>
+<span style="color:#6a9955;"># Base image: NVIDIA Triton with CUDA 12</span>
+<span style="color:#569cd6;">FROM</span> nvcr.io/nvidia/tritonserver:<span style="color:#ce9178;">24.01</span>-py3
+
+<span style="color:#6a9955;"># Copy your model repository</span>
+<span style="color:#569cd6;">COPY</span> ./models /models
+
+<span style="color:#6a9955;"># Triton starts automatically — no CMD needed</span>
+<span style="color:#6a9955;"># Build: docker build -t yolo-triton .</span>
+<span style="color:#6a9955;"># Run:   docker run --gpus all -p 8000:8000 yolo-triton</span></div>
+
+<h3>☸️ Kubernetes — Auto-Scaling</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">K8s manages multiple Triton containers across GPU nodes:</span>
+
+<span style="color:var(--cyan);">1 GPU node:</span>   <span style="color:var(--green);">1 Triton container</span>  → handles ~100 req/s
+<span style="color:var(--cyan);">3 GPU nodes:</span>   <span style="color:var(--green);">3 Triton containers</span> → handles ~300 req/s
+<span style="color:var(--cyan);">Auto-scale:</span>    <span style="color:var(--green);">K8s adds/removes nodes based on queue depth</span>
+
+<span style="color:var(--amber);">Night: 1 node (low traffic). Day: 5 nodes (peak). K8s handles it automatically.</span></div>
+
+<div class="quiz" id="q4"><div class="question">Why Docker? Why not just run Triton directly on the VM?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q4',this)">A. Docker ensures the EXACT same environment everywhere — same CUDA version, same Triton version, same dependencies. Dev = staging = production. No "it works on my machine" problems. Plus K8s only manages containers, not bare processes.</div>
+<div class="option" onclick="checkQuiz('q4',this)">B. Docker makes the GPU run faster</div>
+<div class="option" onclick="checkQuiz('q4',this)">C. NVIDIA requires Docker for all GPU workloads</div>
+</div><div class="feedback" id="q4-fb"></div></div>
+</div></div>`},{
+  id:'6B.6',title:'🖐️ Exercise 1: Set Up Triton with Docker',
+  fact:'<strong>You can run Triton on ANY machine with an NVIDIA GPU and Docker.</strong> Even a gaming PC. The setup is: install Docker, install NVIDIA Container Toolkit, pull Triton image, start serving.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.6</span> 🖐️ Exercise 1 — Set Up Triton on a GPU VM</h2>
+
+<div class="callout"><span style="font-size:1.1rem;">🖥️</span><span><strong style="color:var(--cyan);">Prerequisites:</strong> A cloud GPU VM (AWS g4dn.xlarge ~$0.50/hr, Lambda A100 ~$1.10/hr, or RunPod ~$0.44/hr). Or your own PC with NVIDIA GPU.</span></div>
+
+<h3>💻 Step 1: Install Docker + NVIDIA Container Toolkit</h3>
+<div class="code-box"><span class="cell-num">CELL 1 — One-time Setup (on your GPU VM)</span>
+<span style="color:#6a9955;"># Install Docker</span>
+<span style="color:#569cd6;">curl</span> -fsSL https://get.docker.com | <span style="color:#569cd6;">sh</span>
+<span style="color:#569cd6;">sudo</span> usermod -aG docker $USER  <span style="color:#6a9955;">// no sudo needed after relogin</span>
+
+<span style="color:#6a9955;"># Install NVIDIA Container Toolkit</span>
+<span style="color:#569cd6;">distribution</span>=$(<span style="color:#4ec9b0;">.</span> /etc/os-release;<span style="color:#569cd6;">echo</span> $ID$VERSION_ID)
+<span style="color:#569cd6;">curl</span> -fsSL https://nvidia.github.io/nvidia-docker/gpgkey | <span style="color:#569cd6;">sudo</span> gpg --dearmor -o /usr/share/keyrings/nvidia-docker.gpg
+<span style="color:#569cd6;">curl</span> -sL https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | <span style="color:#569cd6;">sudo</span> tee /etc/apt/sources.list.d/nvidia-docker.list
+<span style="color:#569cd6;">sudo</span> apt update && <span style="color:#569cd6;">sudo</span> apt install -y nvidia-container-toolkit
+<span style="color:#569cd6;">sudo</span> systemctl restart docker
+
+<span style="color:#6a9955;"># Verify GPU is visible to Docker</span>
+<span style="color:#569cd6;">docker</span> run --rm --gpus all nvidia/cuda:12.4-base nvidia-smi</div>
+
+<h3>📁 Step 2: Create Model Repository</h3>
+<div class="code-box"><span class="cell-num">CELL 2 — Create Repository Structure</span>
+<span style="color:#569cd6;">mkdir</span> -p models/yolo/1
+<span style="color:#569cd6;">cp</span> yolov8n.engine models/yolo/1/model.plan  <span style="color:#6a9955;">// your TRT engine from 6A!</span>
+
+<span style="color:#6a9955;"># Create config file</span>
+<span style="color:#569cd6;">cat</span> > models/yolo/config.pbtxt << <span style="color:#ce9178;">EOF</span>
+<span style="color:#569cd6;">platform:</span> <span style="color:#ce9178;">"tensorrt_plan"</span>
+<span style="color:#569cd6;">max_batch_size:</span> <span style="color:#ce9178;">8</span>
+<span style="color:#569cd6;">input:</span> [{ <span style="color:#569cd6;">name:</span> <span style="color:#ce9178;">"images"</span>  <span style="color:#569cd6;">data_type:</span> <span style="color:#ce9178;">TYPE_FP32</span>  <span style="color:#569cd6;">dims:</span> [ <span style="color:#ce9178;">3</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span> ] }]
+<span style="color:#569cd6;">output:</span> [{ <span style="color:#569cd6;">name:</span> <span style="color:#ce9178;">"output0"</span>  <span style="color:#569cd6;">data_type:</span> <span style="color:#ce9178;">TYPE_FP32</span>  <span style="color:#569cd6;">dims:</span> [ <span style="color:#ce9178;">84</span>, <span style="color:#ce9178;">8400</span> ] }]
+<span style="color:#569cd6;">dynamic_batching:</span> { <span style="color:#569cd6;">max_queue_delay_microseconds:</span> <span style="color:#ce9178;">100</span> }
+<span style="color:#ce9178;">EOF</span></div>
+
+<h3>🚀 Step 3: Start Triton</h3>
+<div class="code-box"><span class="cell-num">CELL 3 — Launch Triton Server</span>
+<span style="color:#569cd6;">docker</span> run --gpus all -p 8000:8000 -p 8001:8001 -p 8002:8002 \
+  -v $(<span style="color:#569cd6;">pwd</span>)/models:/models \\
+  nvcr.io/nvidia/tritonserver:<span style="color:#ce9178;">24.01</span>-py3 \
+  tritonserver --model-repository=/models
+
+<span style="color:#6a9955;"># Expected output:</span>
+<span style="color:#6a9955;"># I1001 10:00:00.123456 1 server.cc:630] Starting Triton...</span>
+<span style="color:#6a9955;"># I1001 10:00:01.234567 1 model_lifecycle.cc:456] loaded model 'yolo'</span></div>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Provisioned a GPU VM and installed Docker + NVIDIA Container Toolkit</div>
+<div class="check-item"><span class="check-box">☐</span> Created model repository with config.pbtxt and TRT engine</div>
+<div class="check-item"><span class="check-box">☐</span> Started Triton container — saw "loaded model yolo" in logs</div>
+</div>
+</div></div>`},{
+  id:'6B.7',title:'🖐️ Exercise 2: Send Inference Requests',
+  fact:'<strong>The first request to Triton is magical.</strong> You send an image over HTTP, Triton runs YOUR TensorRT engine on it, and returns bounding boxes — all in ~12ms.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.7</span> 🖐️ Exercise 2 — Send Inference Requests to Triton</h2>
+
+<h3>✅ Step 1: Health Check</h3>
+<div class="code-box"><span class="cell-num">CELL 4 — Verify Triton is Alive</span>
+<span style="color:#569cd6;">curl</span> http://localhost:8000/v2/health/ready
+<span style="color:#6a9955;"># Expected: {"status":"ready"}</span>
+
+<span style="color:#569cd6;">curl</span> http://localhost:8000/v2/models
+<span style="color:#6a9955;"># Expected: ["yolo"]</span></div>
+
+<h3>📤 Step 2: Send an Image for Inference</h3>
+<div class="code-box"><span class="cell-num">CELL 5 — Inference Request (Python client)</span>
+<span style="color:#569cd6;">import</span> numpy <span style="color:#569cd6;">as</span> np
+<span style="color:#569cd6;">import</span> json, requests
+<span style="color:#569cd6;">from</span> PIL <span style="color:#569cd6;">import</span> Image
+
+<span style="color:#6a9955;"># Load and preprocess image</span>
+<span style="color:#c586c0;">img</span> = <span style="color:#4ec9b0;">Image</span>.<span style="color:#569cd6;">open</span>(<span style="color:#ce9178;">'test.jpg'</span>).<span style="color:#c586c0;">resize</span>((<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>))
+<span style="color:#c586c0;">img_array</span> = np.<span style="color:#569cd6;">array</span>(<span style="color:#c586c0;">img</span>, dtype=np.float32) / <span style="color:#ce9178;">255.0</span>
+<span style="color:#c586c0;">img_array</span> = <span style="color:#c586c0;">img_array</span>.<span style="color:#c586c0;">transpose</span>(<span style="color:#ce9178;">2</span>,<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">1</span>)  <span style="color:#6a9955;">// HWC to CHW</span>
+<span style="color:#c586c0;">img_array</span> = np.<span style="color:#c586c0;">expand_dims</span>(<span style="color:#c586c0;">img_array</span>, <span style="color:#ce9178;">0</span>)  <span style="color:#6a9955;">// add batch dim</span>
+
+<span style="color:#6a9955;"># Build request payload</span>
+<span style="color:#c586c0;">payload</span> = {
+  <span style="color:#ce9178;">"inputs"</span>: [{
+    <span style="color:#ce9178;">"name"</span>: <span style="color:#ce9178;">"images"</span>,
+    <span style="color:#ce9178;">"shape"</span>: [<span style="color:#ce9178;">1</span>, <span style="color:#ce9178;">3</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>],
+    <span style="color:#ce9178;">"datatype"</span>: <span style="color:#ce9178;">"FP32"</span>,
+    <span style="color:#ce9178;">"data"</span>: <span style="color:#c586c0;">img_array</span>.<span style="color:#c586c0;">flatten</span>().<span style="color:#c586c0;">tolist</span>()
+  }]
+}
+
+<span style="color:#6a9955;"># Send to Triton</span>
+<span style="color:#c586c0;">response</span> = requests.<span style="color:#569cd6;">post</span>(<span style="color:#ce9178;">'http://localhost:8000/v2/models/yolo/infer'</span>, json=<span style="color:#c586c0;">payload</span>)
+<span style="color:#c586c0;">detections</span> = <span style="color:#c586c0;">response</span>.<span style="color:#c586c0;">json</span>()
+<span style="color:#569cd6;">print</span>(<span style="color:#c586c0;">detections</span>)  <span style="color:#6a9955;">// Your YOLO detections, served by Triton!</span></div>
+
+<h3>📊 Step 3: Measure Round-Trip Latency</h3>
+<div class="code-box"><span class="cell-num">CELL 6 — Benchmark</span>
+<span style="color:#569cd6;">import</span> time
+<span style="color:#c586c0;">times</span> = []
+<span style="color:#569cd6;">for</span> i <span style="color:#569cd6;">in</span> <span style="color:#569cd6;">range</span>(<span style="color:#ce9178;">100</span>):
+  <span style="color:#c586c0;">t0</span> = time.<span style="color:#c586c0;">time</span>()
+  <span style="color:#c586c0;">r</span> = requests.<span style="color:#569cd6;">post</span>(<span style="color:#ce9178;">'http://localhost:8000/v2/models/yolo/infer'</span>, json=<span style="color:#c586c0;">payload</span>)
+  <span style="color:#c586c0;">times</span>.<span style="color:#c586c0;">append</span>((time.<span style="color:#c586c0;">time</span>()-<span style="color:#c586c0;">t0</span>)*<span style="color:#ce9178;">1000</span>)
+<span style="color:#569cd6;">print</span>(<span style="color:#569cd6;">f</span><span style="color:#ce9178;">"Avg: {np.mean(times):.1f}ms | p99: {np.percentile(times,99):.1f}ms"</span>)</div>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Hit /v2/health/ready — got {"status":"ready"}</div>
+<div class="check-item"><span class="check-box">☐</span> Sent an image via HTTP POST and received detections</div>
+<div class="check-item"><span class="check-box">☐</span> Benchmarked 100 requests — recorded avg + p99 latency</div>
+</div>
+</div></div>`},{
+  id:'6B.8',title:'Phase 6B Summary — Triton Complete',
+  fact:'<strong>Triton is used by NVIDIA, Tesla, Siemens, and thousands of companies.</strong> It is the industry standard for GPU model serving. You now know how to deploy ANY model behind a production-grade API.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6B.8</span> Phase 6B Summary — Triton Complete</h2>
+<div class="big-stat"><div class="number">6B ✅</div><div class="label">TRITON INFERENCE SERVER — PRODUCTION MODEL SERVING</div></div>
+
+<h3>🧠 What You Learned</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">📁</span> <strong>Model Repository:</strong> versioned folder structure (1/, 2/), config.pbtxt, platform selection</div>
+<div class="check-item"><span class="check-box">🔌</span> <strong>HTTP/gRPC API:</strong> /v2/models, /v2/health/ready, inference endpoints. HTTP for debug, gRPC for production.</div>
+<div class="check-item"><span class="check-box">📦</span> <strong>Dynamic Batching:</strong> 100μs wait → up to 8× throughput at same latency. Zero code changes.</div>
+<div class="check-item"><span class="check-box">🖥️</span> <strong>Multi-Model GPU Sharing:</strong> YOLO + ResNet + BERT all on one T4. Triton manages GPU memory.</div>
+<div class="check-item"><span class="check-box">🔄</span> <strong>A/B Testing:</strong> Version folders = instant rollback. Route traffic between versions.</div>
+<div class="check-item"><span class="check-box">🐳</span> <strong>Docker + K8s Stack:</strong> TRT engine → Triton → Docker → K8s → CloudWatch. The production chain.</div>
+<div class="check-item"><span class="check-box">💰</span> <strong>100% Free:</strong> Triton is open source (MIT). You only pay for GPU hardware (~$0.50/hr).</div>
+</div>
+
+<h3>🔗 Related Modules</h3>
+<div class="data-types">
+<div class="data-type-card"><div class="dt-icon">🚀</div><h4>Phase 6A TensorRT</h4><p>Creates the .engine file that Triton loads. <a href="phase6A_tensorrt.html" style="color:var(--cyan);">Open</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">📖</div><h4>Phase 4 YOLO</h4><p>Triton demo in triton_demo/ directory. <a href="phase4_yolo_cuda.html" style="color:var(--cyan);">Open</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">☸️</div><h4>Phase 6F (Next)</h4><p>Docker multi-stage builds, K8s deployment, auto-scaling, monitoring.</p></div>
+<div class="data-type-card"><div class="dt-icon">📋</div><h4>Full Phase 6</h4><p>All 6 sub-phases. <a href="phase6_production_cuda.html" style="color:var(--cyan);">Open</a>.</p></div>
+</div>
+</div></div>`}
+];
+
+window.checkQuiz=function(id,el){var q=document.getElementById(id);if(q.dataset.answered==='true')return;var os=q.querySelectorAll('.option'),fb=document.getElementById(id+'-fb'),ok=el.dataset.correct==='true';os.forEach(function(o){if(o.dataset.correct==='true')o.classList.add('correct')});if(!ok)el.classList.add('wrong');fb.className='feedback show '+(ok?'correct':'wrong');fb.textContent=ok?'✅ Correct!':'❌ Not quite. The correct answer is highlighted in green.';q.dataset.answered='true'}
+
+var cur=0,vis=new Set([0]);
+function renderSlide(i){cur=i;vis.add(i);document.getElementById('slideContainer').innerHTML=S[i].render();updateDots();updateChips();document.getElementById('funFactText').innerHTML='<strong>'+S[i].id+':</strong> '+S[i].fact;document.getElementById('stepLabel').textContent=(i+1)+'/'+S.length;document.getElementById('prevBtn').disabled=i===0;var nb=document.getElementById('nextBtn');if(i===S.length-1){nb.textContent='✓ Complete';nb.style.background='var(--green-bg)';nb.style.borderColor='var(--green)';nb.style.color='var(--green)'}else{nb.textContent='Next →';nb.style.background='var(--cyan-bg)';nb.style.borderColor='var(--cyan)';nb.style.color='var(--cyan)'}document.getElementById('slideContainer').scrollIntoView({behavior:'smooth',block:'start'});
+setTimeout(function(){document.querySelectorAll('.code-box').forEach(function(box){var p=box.parentElement;if(!p.classList.contains('code-wrapper')){var w=document.createElement('div');w.className='code-wrapper';p.insertBefore(w,box);w.appendChild(box);var b=document.createElement('button');b.className='copy-btn2';b.textContent='Copy';b.onclick=function(){var c=box.cloneNode(true);navigator.clipboard.writeText(c.textContent.trim()).then(function(){b.textContent='Copied!';b.classList.add('copied');setTimeout(function(){b.textContent='Copy';b.classList.remove('copied')},2000)})};w.appendChild(b)}})},50)}
+function goTo(i){if(i>=0&&i<S.length)renderSlide(i)}
+function updateDots(){document.getElementById('stepDots').innerHTML=S.map(function(s,i){var c=i===cur?'active':vis.has(i)?'done':'';return '<div class="step-dot '+c+'" onclick="goTo('+i+')"></div>'}).join('')}
+function updateChips(){document.getElementById('topicChips').innerHTML=S.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<S.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
+renderSlide(0);
+</script>
+</body>
+</html>
