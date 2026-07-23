@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6C: Nsight Profiling — Find & Fix Bottlenecks</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--cyan-bg:#39d2ff15;--amber:#ffb347;--amber-bg:#ffb34715;--green:#3fb950;--green-bg:#3fb95015;--magenta:#ff6ec7;--magenta-bg:#ff6ec715;--red:#f85149;--violet:#a371f7;--radius:14px;--radius-sm:8px;--transition:0.3s cubic-bezier(0.4,0,0.2,1)}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--cyan-bg:#ddf4ff;--amber:#9a6700;--amber-bg:#fff8c5;--green:#1a7f37;--green-bg:#dafbe1;--magenta:#bf3989;--magenta-bg:#fbefff;--red:#cf222e;--violet:#8250df}
+body.light .topbar{background:rgba(246,248,250,0.9)}body.light .eq-box{background:rgba(0,0,0,0.03)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;transition:background 0.3s,color 0.3s}
+.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+.theme-toggle{position:fixed;top:0.7rem;right:2rem;z-index:200;background:var(--raised);border:1px solid var(--border);color:var(--text);font-size:1.1rem;cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;transition:var(--transition);font-family:'JetBrains Mono',monospace}
+.theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.6rem 2rem;display:flex;align-items:center;gap:1rem;font-size:0.8rem}
+.topbar .logo{font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:0.15em;color:var(--cyan);white-space:nowrap}
+.topbar .step-dots{display:flex;gap:0.4rem;flex:1;justify-content:center}
+.topbar .step-dot{width:28px;height:4px;border-radius:2px;background:var(--border);transition:var(--transition);cursor:pointer}
+.topbar .step-dot.done{background:var(--green)}.topbar .step-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.topbar .step-dot:hover{background:var(--tdim)}
+.topbar .step-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tdim);white-space:nowrap}
+.header{text-align:center;padding:3rem 0 1rem}
+.header .phase-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;color:var(--green);border:1px solid var(--green-bg);border-radius:100px;padding:0.4em 1.4em;margin-bottom:1rem}
+.header h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.header .tagline{color:var(--tdim);font-size:0.9rem}
+.topic-list{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin:1.5rem 0 1rem}
+.topic-chip{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.04em;padding:0.3rem 0.7rem;border-radius:100px;border:1px solid var(--border);color:var(--tmut);cursor:pointer;transition:var(--transition);background:transparent}
+.topic-chip.visited{border-color:var(--green);color:var(--green);background:var(--green-bg)}.topic-chip.current{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.fun-fact{background:linear-gradient(135deg,var(--amber-bg),var(--magenta-bg));border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.65rem 1.2rem;margin-bottom:1.5rem;font-size:0.78rem;color:var(--tdim);display:flex;align-items:center;gap:0.6rem}
+.fun-fact .bulb{font-size:1.2rem;flex-shrink:0}.fun-fact strong{color:var(--amber)}
+.slide{animation:slideIn 0.35s ease}@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
+.card h2{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;color:var(--text)}
+.card h2 .num{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--cyan);background:var(--cyan-bg);border-radius:6px;padding:0.2em 0.6em}
+.card p{color:var(--tdim);margin-bottom:1rem;font-size:0.95rem}
+.card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;color:var(--cyan);margin:1.2rem 0 0.5rem}
+.data-types{display:grid;grid-template-columns:repeat(2,1fr);gap:0.8rem;margin:1rem 0}
+.data-type-card{background:var(--raised);border:1px solid var(--border);border-top:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem;transition:var(--transition);cursor:default}
+.data-type-card:nth-child(2){border-top-color:var(--amber)}.data-type-card:nth-child(3){border-top-color:var(--magenta)}.data-type-card:nth-child(4){border-top-color:var(--green)}
+.data-type-card:hover{transform:translateY(-3px)}.data-type-card .dt-icon{font-size:1.3rem;margin-bottom:0.3rem}.data-type-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.3rem;color:var(--cyan)}.data-type-card p{font-size:0.72rem!important;color:var(--tmut)!important}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.compare-card{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;transition:var(--transition)}
+.compare-card:hover{transform:translateY(-3px)}.compare-card.pick-a{border-left:3px solid var(--red)}.compare-card.pick-b{border-left:3px solid var(--cyan)}.compare-card.pick-c{border-left:3px solid var(--green)}
+.compare-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.5rem}.compare-card.pick-a h4{color:var(--red)}.compare-card.pick-b h4{color:var(--cyan)}.compare-card.pick-c h4{color:var(--green)}
+.compare-card p{font-size:0.72rem!important;color:var(--tdim)!important}
+.pipeline{display:flex;align-items:center;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:1rem 0}
+.pipeline-stage{background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);min-width:80px}
+.pipeline-stage.highlight{border-color:var(--cyan);background:var(--cyan-bg);color:var(--cyan)}
+.pipeline-arrow{font-size:1rem;color:var(--cyan)}
+.eq-box{background:rgba(0,0,0,0.4);border-left:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.7rem;line-height:1.8;color:var(--text);white-space:pre-wrap;overflow-x:auto}
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.65rem;line-height:1.8;white-space:pre-wrap;overflow-x:auto;color:#d4d4d4;position:relative}
+.code-wrapper{position:relative;margin:1rem 0}
+.copy-btn2{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;padding:0.3em 0.7em;border:1px solid #555;border-radius:6px;background:#2d2d2d;color:#ccc;cursor:pointer;transition:0.15s;opacity:0;z-index:5}
+.code-wrapper:hover .copy-btn2{opacity:1}.copy-btn2:hover{background:#333;color:var(--violet);border-color:var(--violet)}.copy-btn2.copied{opacity:1;background:#2d2d2d;color:var(--green);border-color:var(--green)}
+.quiz{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;margin-top:1.5rem}
+.quiz .question{font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--text);margin-bottom:0.8rem}
+.quiz .options{display:flex;flex-direction:column;gap:0.4rem}
+.quiz .option{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.6rem 1rem;font-size:0.82rem;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.quiz .option:hover{border-color:var(--cyan);color:var(--cyan)}.quiz .option.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}.quiz .option.wrong{border-color:var(--red);background:#f8514920;color:var(--red)}
+.quiz .feedback{display:none;margin-top:0.8rem;padding:0.6rem 1rem;border-radius:6px;font-size:0.82rem}.quiz .feedback.show{display:block}.quiz .feedback.correct{background:var(--green-bg);color:var(--green)}.quiz .feedback.wrong{background:#f8514920;color:var(--red)}
+.checklist{margin:1rem 0}.checklist .check-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.8rem;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--tdim)}.checklist .check-box{font-size:1rem;flex-shrink:0}
+.big-stat{text-align:center;margin:1rem 0}.big-stat .number{font-family:'Orbitron',sans-serif;font-size:2.2rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.big-stat .label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tmut);margin-top:0.2rem}
+.nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
+.nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.callout{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.72rem;color:var(--tdim)}
+table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
+table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
+@media(max-width:768px){.app{padding:1rem}.compare-grid{grid-template-columns:1fr}.data-types{grid-template-columns:1fr}.card{padding:1.2rem}}
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+<nav class="topbar"><span class="logo">CUDA — PHASE 6C</span><div class="step-dots" id="stepDots"></div><span class="step-label" id="stepLabel">1/6</span></nav>
+<div class="app">
+<header class="header"><div class="phase-badge">🔍 PHASE 6C — NSIGHT PROFILING</div><h1>Nsight Profiling — Find & Fix Bottlenecks</h1><p class="tagline">"If you can't measure it, you can't improve it." Nsight Systems shows WHERE time is spent. Nsight Compute shows WHY each kernel takes that long.</p></header>
+<div class="topic-list" id="topicChips"></div>
+<div class="fun-fact" id="funFact"><span class="bulb">💡</span><span class="fact-text" id="funFactText"></span></div>
+<div id="slideContainer"></div>
+<div class="nav-row"><button class="nav-btn" id="prevBtn" onclick="goTo(cur-1)">← Previous</button><button class="nav-btn primary" id="nextBtn" onclick="goTo(cur+1)">Next →</button></div>
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.getElementById('themeToggle').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('p6c-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('p6c-theme')==='light'){document.body.classList.add('light');document.getElementById('themeToggle').textContent='🌙'}
+(function(){var c=document.getElementById('bgCanvas'),ctx=c.getContext('2d'),p=[];function r(){c.width=window.innerWidth;c.height=window.innerHeight}r();window.addEventListener('resize',r);for(var i=0;i<50;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,rr:Math.random()*2+0.5});function a(){ctx.clearRect(0,0,c.width,c.height);var il=document.body.classList.contains('light');var lc=il?'rgba(9,105,218,0.05)':'rgba(57,210,255,0.05)';var dc=il?'rgba(9,105,218,0.25)':'rgba(57,210,255,0.25)';p.forEach(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;if(pp.x<0)pp.x=c.width;if(pp.x>c.width)pp.x=0;if(pp.y<0)pp.y=c.height;if(pp.y>c.height)pp.y=0});for(var i=0;i<p.length;i++)for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x,dy=p[i].y-p[j].y;if(Math.sqrt(dx*dx+dy*dy)<100){ctx.beginPath();ctx.moveTo(p[i].x,p[i].y);ctx.lineTo(p[j].x,p[j].y);ctx.strokeStyle=lc;ctx.lineWidth=0.5;ctx.stroke()}}p.forEach(function(pp){ctx.beginPath();ctx.arc(pp.x,pp.y,pp.rr,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill()});requestAnimationFrame(a)}a()})()
+
+const S=[{
+  id:'6C.1',title:'Why Profile? — "If You Can\'t Measure It, You Can\'t Improve It"',
+  fact:'<strong>Guessing why your GPU code is slow is a waste of time.</strong> Nsight tells you exactly: memory-bound or compute-bound? Which warp stalls? How much occupancy? Stop guessing, start profiling.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6C.1</span> Why Profile? — "If You Can't Measure It, You Can't Improve It"</h2>
+<p>Without a profiler, you're guessing. A kernel takes 10ms — is that because it's reading too much memory? Doing too much math? Launching too many blocks? <strong style="color:var(--cyan);">Nsight tells you exactly why.</strong></p>
+
+<div class="compare-grid">
+<div class="compare-card pick-a"><h4>🔴 Without Profiling</h4><p>"My kernel is slow. Maybe I should add shared memory? Or unroll loops? Or change block size? Let me try all three and see..." <strong style="color:var(--red);">Hours of trial and error.</strong></p></div>
+<div class="compare-card pick-c"><h4>🟢 With Nsight</h4><p>"Nsight says I'm using 1.08% of DRAM bandwidth but 61.6% of SM throughput. I'm compute-bound, not memory-bound. Shared memory won't help — I need to reduce instruction count." <strong style="color:var(--green);">Minutes to the right fix.</strong></p></div>
+</div>
+
+<h3>🔬 Two Tools, Two Levels</h3>
+<div class="data-types">
+<div class="data-type-card"><div class="dt-icon">📹</div><h4>Nsight Systems</h4><p><strong>Timeline view</strong> of your ENTIRE application. See CPU threads, CUDA API calls, kernel launches, memory copies — all on one scrolling timeline. Answers: <em>"Where is the GPU idle?"</em></p></div>
+<div class="data-type-card"><div class="dt-icon">🔬</div><h4>Nsight Compute</h4><p><strong>Single-kernel deep dive.</strong> Select one kernel launch and see: memory throughput, compute utilization, warp stall reasons, occupancy, register usage. Answers: <em>"Why is THIS kernel slow?"</em></p></div>
+</div>
+
+<div class="quiz" id="q0"><div class="question">🧪 You see "DRAM throughput = 1%". What does this tell you?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q0',this)">A. Your kernel is compute-bound — it does a lot of math for every byte of memory it reads. Optimizing memory access (shared memory, coalescing) won't help much. You need to reduce instruction count or use faster math.</div>
+<div class="option" onclick="checkQuiz('q0',this)">B. Your GPU's memory is broken and needs replacement</div>
+<div class="option" onclick="checkQuiz('q0',this)">C. You should add more global memory reads to increase throughput</div>
+</div><div class="feedback" id="q0-fb"></div></div>
+</div></div>`},{
+  id:'6C.2',title:'Nsight Systems — The Timeline View',
+  fact:'<strong>Nsight Systems shows you the BIG picture.</strong> CPU threads and GPU operations on one timeline. Instantly see: is the GPU waiting for the CPU? Are memory transfers serialized? Where are the gaps?',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6C.2</span> Nsight Systems — The Timeline View</h2>
+<p>Think of it as a <strong style="color:var(--cyan);">movie recorder</strong> for your GPU application. It captures every CUDA API call, every kernel launch, every memory copy — with microsecond timestamps — and shows them as a scrolling timeline.</p>
+
+<h3>📊 What the Timeline Looks Like</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">CPU Thread:  [ Python code ][ cudaMemcpy ][ Launch Kernel ][ Python ][ cudaMemcpy ]</span>
+<span style="color:var(--text-muted);">GPU Stream:  [  IDLE  ][  H→D copy  ][  KERNEL RUN  ][  IDLE  ][  D→H copy  ]</span>
+<span style="color:var(--text-muted);">                                                    ↑</span>
+<span style="color:var(--red);">                                          GPU IDLE = wasted time!</span>
+<span style="color:var(--text-muted);">                                          (Python is preparing the next batch)</span></div>
+
+<h3>🔍 What to Look For</h3>
+<table class="param">
+<tr><th>Pattern</th><th>What It Means</th><th>Fix</th></tr>
+<tr><td>GPU idle gaps</td><td style="color:var(--red);">CPU is the bottleneck</td><td>Pre-fetch data, use CUDA streams</td></tr>
+<tr><td>MemCpy → Kernel → MemCpy in sequence</td><td style="color:var(--amber);">Not overlapping transfer+compute</td><td>Use async copies + streams</td></tr>
+<tr><td>Many tiny kernel launches</td><td style="color:var(--amber);">Launch overhead dominating</td><td>Fuse kernels or use CUDA Graphs</td></tr>
+<tr><td>GPU always busy, kernel takes long</td><td style="color:var(--cyan);">Kernel is the bottleneck</td><td>Use Nsight Compute to analyze kernel</td></tr>
+</table>
+
+<div class="callout"><span style="font-size:1.1rem;">💡</span><span><strong style="color:var(--cyan);">Nsight Systems first, Nsight Compute second.</strong> Systems tells you WHICH kernel is the problem. Compute tells you WHY that kernel is slow. Never profile a kernel until you know it's the bottleneck.</span></div>
+
+<div class="quiz" id="q1"><div class="question">You see "GPU idle 40% of the time" in the timeline. What's the most likely cause?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q1',this)">A. The CPU is taking too long between kernel launches — probably Python code doing preprocessing or data loading. The GPU finishes its work and waits for the CPU to give it more. Fix: pre-fetch data, use CUDA streams to overlap.</div>
+<div class="option" onclick="checkQuiz('q1',this)">B. The GPU is broken and needs repair</div>
+<div class="option" onclick="checkQuiz('q1',this)">C. The kernel is too computationally intensive</div>
+</div><div class="feedback" id="q1-fb"></div></div>
+</div></div>`},{
+  id:'6C.3',title:'The Roofline Model — Memory vs Compute Bound',
+  fact:'<strong>The roofline model tells you in ONE glance</strong> whether your kernel is limited by memory bandwidth or compute throughput. This determines EVERYTHING about how you optimize it.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6C.3</span> The Roofline Model — Memory vs Compute Bound</h2>
+
+<div class="eq-box">
+<span style="color:var(--text-muted);">                     ↑ Peak Compute (TFLOPS)</span>
+<span style="color:var(--text-muted);">Performance  ↑       ╱╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲╲</span>
+<span style="color:var(--text-muted);">(GFLOPS)     ↑     ╱                        ╲</span>
+<span style="color:var(--text-muted);">             ↑   ╱    MEMORY-BOUND            ╲  COMPUTE-BOUND</span>
+<span style="color:var(--text-muted);">             ↑ ╱        REGION                 ╲    REGION</span>
+<span style="color:var(--text-muted);">             ↑╱__________________________________╲_______________</span>
+<span style="color:var(--text-muted);">                  Operational Intensity (FLOP/byte) →</span>
+
+<span style="color:var(--cyan);">MEMORY-BOUND:</span> Kernel spends more time waiting for data than computing.
+                Fix: shared memory tiling, memory coalescing, reduce global reads.
+
+<span style="color:var(--amber);">COMPUTE-BOUND:</span> Kernel is doing heavy math. ALUs are the bottleneck.
+                 Fix: use faster math (__sinf vs sin), FP16, reduce thread divergence.</div>
+
+<h3>🎯 Real Example: conv2d_forward from Phase 3.5</h3>
+<table class="param">
+<tr><th>Metric</th><th>Value</th><th>What It Means</th></tr>
+<tr><td>SM Throughput</td><td style="color:var(--amber);">61.61%</td><td>Using 61% of GPU compute — decent but not great</td></tr>
+<tr><td>DRAM Throughput</td><td style="color:var(--cyan);">1.08%</td><td>Barely using memory bandwidth — <strong>this kernel is compute-bound!</strong></td></tr>
+<tr><td>Verdict</td><td style="color:var(--cyan);">Compute-Bound</td><td>25 multiplications per memory read. The math dominates. Optimize the math, not the memory.</td></tr>
+</table>
+
+<div class="callout"><span style="font-size:1.1rem;">💡</span><span><strong style="color:var(--amber);">The roofline is a DIAGNOSTIC, not a target.</strong> Most first-attempt CUDA kernels achieve 10-30% of peak. The naive conv2d_forward got 61.6% SM — actually quite good for a first attempt! A tiled version (with shared memory) would push SM throughput higher by reducing instruction overhead, even though it's already compute-bound.</span></div>
+
+<div class="quiz" id="q2"><div class="question">DRAM throughput = 85%, SM throughput = 12%. What kind of kernel is this?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. Memory-bound — it's reading/writing a LOT of data relative to the computation. Fix: use shared memory to cache data, ensure coalesced access, or increase arithmetic intensity.</div>
+<div class="option" onclick="checkQuiz('q2',this)">B. Compute-bound — it needs more math operations</div>
+<div class="option" onclick="checkQuiz('q2',this)">C. Perfectly optimized — high DRAM throughput is always good</div>
+</div><div class="feedback" id="q2-fb"></div></div>
+</div></div>`},{
+  id:'6C.4',title:'Occupancy & Warp Stalls — What Limits Your Kernel',
+  fact:'<strong>Low occupancy = too few warps per SM.</strong> The GPU hides memory latency by switching between warps. If you have too few active warps, the GPU sits idle waiting for memory — even if your algorithm is correct.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6C.4</span> Occupancy & Warp Stalls — What Limits Your Kernel</h2>
+
+<h3>🏢 Occupancy — How Full Are Your SMs?</h3>
+<p>A T4 has 40 SMs. Each SM can run up to 64 warps (2,048 threads) simultaneously. <strong style="color:var(--cyan);">Occupancy = actual active warps / maximum possible warps.</strong></p>
+
+<div class="eq-box">
+<span style="color:var(--text-muted);">Example: Your kernel uses 64 registers per thread, block size = 256</span>
+<span style="color:var(--text-muted);">Register limit per SM: 65,536</span>
+<span style="color:var(--text-muted);">Max blocks per SM: 65,536 / (256 × 64) = 4 blocks</span>
+<span style="color:var(--text-muted);">Max warps: 4 blocks × 8 warps/block = 32 warps</span>
+<span style="color:var(--amber);">Occupancy = 32 / 64 = 50% ← half the GPU is idle!</span>
+
+<span style="color:var(--text-muted);">Fix: Reduce registers (use fewer variables) OR reduce block size</span></div>
+
+<h3>⏸️ Warp Stall Reasons — Why Are Warps Waiting?</h3>
+<table class="param">
+<tr><th>Stall Reason</th><th>What It Means</th><th>Fix</th></tr>
+<tr><td style="color:var(--red);">Long Scoreboard</td><td>Waiting for global memory load</td><td>Shared memory tiling, coalesce reads</td></tr>
+<tr><td style="color:var(--amber);">Short Scoreboard</td><td>Waiting for shared memory or L1</td><td>Reduce bank conflicts</td></tr>
+<tr><td style="color:var(--amber);">Execution Dependency</td><td>Waiting for a previous instruction to finish</td><td>Increase instruction-level parallelism</td></tr>
+<tr><td style="color:var(--cyan);">Not Selected</td><td>Warp is ready but scheduler picked another</td><td>Normal — means GPU is busy!</td></tr>
+</table>
+
+<div class="callout"><span style="font-size:1.1rem;">🎯</span><span><strong style="color:var(--cyan);">Our conv2d_forward (Phase 3.5):</strong> Block size = 256 threads, limited by registers (each thread needs ~40 registers for the inner loops). That's why SM throughput is 61.6% — could be higher with register optimization or loop unrolling.</span></div>
+
+<div class="quiz" id="q3"><div class="question">Your kernel has 25% occupancy. Is this always bad?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q3',this)">A. Not always — low occupancy with HIGH instruction-level parallelism can still saturate the GPU. The kernel might be issuing enough instructions per thread to keep the SM busy even with fewer warps. Always check SM throughput alongside occupancy.</div>
+<div class="option" onclick="checkQuiz('q3',this)">B. Yes — anything below 100% occupancy means the GPU is broken</div>
+<div class="option" onclick="checkQuiz('q3',this)">C. No — lower occupancy is always better because it uses less power</div>
+</div><div class="feedback" id="q3-fb"></div></div>
+</div></div>`},{
+  id:'6C.5',title:'🖐️ Exercise 1 — Profile conv2d_forward with Nsight Compute',
+  fact:'<strong>You already have profiling data from Phase 3.5!</strong> The conv2d_forward kernel was profiled on a Colab T4: SM 61.6%, DRAM 1.08%. Now learn HOW to get that data yourself.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6C.5</span> 🖐️ Exercise 1 — Profile conv2d_forward with Nsight Compute</h2>
+
+<div class="callout"><span style="font-size:1.1rem;">📖</span><span><strong style="color:var(--cyan);">Phase 3.5 Reference:</strong> The CNN notebook already has profiling cells. See <a href="phase3_5_cnn_mnist.html" style="color:var(--cyan);">Phase 3.5 slide 3.5.13</a> for the Nsight exercise.</span></div>
+
+<h3>💻 Step 1: Open CNN Notebook + Run Profiling</h3>
+<div class="code-box"><span class="cell-num">CELL — Profile conv2d_forward kernel</span>
+<span style="color:#6a9955;"># Compile cnn_mnist.cu first, then profile the conv kernel</span>
+<span style="color:#569cd6;">!nvcc</span> cnn_mnist.cu -o cnn_mnist -lm
+
+<span style="color:#6a9955;"># Run Nsight Compute on the conv2d_forward kernel</span>
+<span style="color:#569cd6;">!ncu</span> --kernel-name conv2d_forward --launch-skip <span style="color:#ce9178;">0</span> --launch-count <span style="color:#ce9178;">1</span> \
+  --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed \
+  ./cnn_mnist</div>
+
+<h3>📊 Step 2: Record Your Results</h3>
+<table class="param">
+<tr><th>Metric</th><th>Expected Value</th><th>Your Value</th></tr>
+<tr><td>SM Throughput</td><td>~61.6%</td><td>___%</td></tr>
+<tr><td>DRAM Throughput</td><td>~1.08%</td><td>___%</td></tr>
+<tr><td>Launch Config</td><td>(2,2,512)×(16,16)</td><td>___</td></tr>
+<tr><td>GPU Device</td><td>CC 7.5 (T4)</td><td>___</td></tr>
+</table>
+
+<h3>🔍 Step 3: Try More Metrics</h3>
+<div class="code-box"><span class="cell-num">CELL — Full metrics dump</span>
+<span style="color:#6a9955;"># Get ALL available metrics for the kernel</span>
+<span style="color:#569cd6;">!ncu</span> --kernel-name conv2d_forward --launch-count <span style="color:#ce9178;">1</span> --set full ./cnn_mnist</div>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Ran Nsight Compute on conv2d_forward — got SM and DRAM percentages</div>
+<div class="check-item"><span class="check-box">☐</span> Identified: this kernel is compute-bound (1.08% DRAM, 61.6% SM)</div>
+<div class="check-item"><span class="check-box">☐</span> Ran --set full and explored additional metrics (occupancy, warp stalls)</div>
+</div>
+</div></div>`},{
+  id:'6C.6',title:'Summary — Profiling Toolkit',
+  fact:'<strong>Profiling is the #1 skill that separates junior from senior CUDA engineers.</strong> Anyone can write a kernel. Few can look at a profiler and know exactly what to fix.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6C.6</span> Phase 6C Summary — Profiling Toolkit</h2>
+<div class="big-stat"><div class="number">6C ✅</div><div class="label">NSIGHT PROFILING — FIND & FIX BOTTLENECKS</div></div>
+
+<h3>🧠 The Profiling Workflow</h3>
+<div class="pipeline">
+<div class="pipeline-stage highlight">1. Nsight Systems</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage">2. Find bottleneck kernel</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight">3. Nsight Compute</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage">4. Roofline: memory or compute?</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight">5. Fix + re-profile</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage">6. Measure improvement</div>
+</div>
+
+<h3>✅ What You Learned</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">📹</span> <strong>Nsight Systems:</strong> Timeline view. Find GPU idle gaps, CPU bottlenecks, un-overlapped transfers.</div>
+<div class="check-item"><span class="check-box">🔬</span> <strong>Nsight Compute:</strong> Kernel deep-dive. SM%, DRAM%, occupancy, warp stalls.</div>
+<div class="check-item"><span class="check-box">📊</span> <strong>Roofline Model:</strong> One glance — memory-bound or compute-bound? Determines optimization strategy.</div>
+<div class="check-item"><span class="check-box">🏢</span> <strong>Occupancy:</strong> Active warps / max warps. Low = registers or block size issue.</div>
+<div class="check-item"><span class="check-box">⏸️</span> <strong>Warp Stalls:</strong> Long Scoreboard = memory wait. Short Scoreboard = shared memory. Not Selected = GPU is busy (good!).</div>
+</div>
+
+<h3>🔗 Related Modules</h3>
+<div class="data-types">
+<div class="data-type-card"><div class="dt-icon">📖</div><h4>Phase 3.5 CNN</h4><p>Actual profiling of conv2d_forward. <a href="phase3_5_cnn_mnist.html" style="color:var(--cyan);">Open</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">🔬</div><h4>Inner Loops Animation</h4><p>See the 25 multiplications that make it compute-bound. <a href="inner_loops_animation.html" style="color:var(--cyan);">Open</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">🚀</div><h4>Phase 6A TensorRT</h4><p>TRT auto-tunes kernels — profiling built in. <a href="phase6A_tensorrt.html" style="color:var(--cyan);">Open</a>.</p></div>
+<div class="data-type-card"><div class="dt-icon">📋</div><h4>Full Phase 6</h4><p>All 6 sub-phases. <a href="phase6_production_cuda.html" style="color:var(--cyan);">Open</a>.</p></div>
+</div>
+</div></div>`}
+];
+
+window.checkQuiz=function(id,el){var q=document.getElementById(id);if(q.dataset.answered==='true')return;var os=q.querySelectorAll('.option'),fb=document.getElementById(id+'-fb'),ok=el.dataset.correct==='true';os.forEach(function(o){if(o.dataset.correct==='true')o.classList.add('correct')});if(!ok)el.classList.add('wrong');fb.className='feedback show '+(ok?'correct':'wrong');fb.textContent=ok?'✅ Correct!':'❌ Not quite. The correct answer is highlighted in green.';q.dataset.answered='true'}
+
+var cur=0,vis=new Set([0]);
+function renderSlide(i){cur=i;vis.add(i);document.getElementById('slideContainer').innerHTML=S[i].render();updateDots();updateChips();document.getElementById('funFactText').innerHTML='<strong>'+S[i].id+':</strong> '+S[i].fact;document.getElementById('stepLabel').textContent=(i+1)+'/'+S.length;document.getElementById('prevBtn').disabled=i===0;var nb=document.getElementById('nextBtn');if(i===S.length-1){nb.textContent='✓ Complete';nb.style.background='var(--green-bg)';nb.style.borderColor='var(--green)';nb.style.color='var(--green)'}else{nb.textContent='Next →';nb.style.background='var(--cyan-bg)';nb.style.borderColor='var(--cyan)';nb.style.color='var(--cyan)'}document.getElementById('slideContainer').scrollIntoView({behavior:'smooth',block:'start'});
+setTimeout(function(){document.querySelectorAll('.code-box').forEach(function(box){var p=box.parentElement;if(!p.classList.contains('code-wrapper')){var w=document.createElement('div');w.className='code-wrapper';p.insertBefore(w,box);w.appendChild(box);var b=document.createElement('button');b.className='copy-btn2';b.textContent='Copy';b.onclick=function(){var c=box.cloneNode(true);navigator.clipboard.writeText(c.textContent.trim()).then(function(){b.textContent='Copied!';b.classList.add('copied');setTimeout(function(){b.textContent='Copy';b.classList.remove('copied')},2000)})};w.appendChild(b)}})},50)}
+function goTo(i){if(i>=0&&i<S.length)renderSlide(i)}
+function updateDots(){document.getElementById('stepDots').innerHTML=S.map(function(s,i){var c=i===cur?'active':vis.has(i)?'done':'';return '<div class="step-dot '+c+'" onclick="goTo('+i+')"></div>'}).join('')}
+function updateChips(){document.getElementById('topicChips').innerHTML=S.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<S.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
+renderSlide(0);
+</script>
+</body>
+</html>
