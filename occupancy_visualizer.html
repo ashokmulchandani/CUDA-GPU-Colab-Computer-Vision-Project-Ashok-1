@@ -52,6 +52,7 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
 .thread-cell{width:8px;height:8px;border-radius:1px;transition:0.3s}
 .thread-cell.active{background:var(--green)}.thread-cell.stall{background:var(--red)}.thread-cell.idle{background:var(--raised);border:0.5px solid var(--border)}
 
+.preset-btn.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
 .note{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem}
 </style>
 </head>
@@ -113,6 +114,15 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
   <div class="comp" id="compBox"></div>
 
   <!-- SLIDERS -->
+  <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">Presets:</span>
+    <button class="btn preset-btn active" onclick="setPreset(0,this)" style="font-size:0.45rem;">🔬 Our conv2d (50%)</button>
+    <button class="btn preset-btn" onclick="setPreset(1,this)" style="font-size:0.45rem;">💪 Max Occupancy (100%)</button>
+    <button class="btn preset-btn" onclick="setPreset(2,this)" style="font-size:0.45rem;">🐌 Low Occupancy (25%)</button>
+    <button class="btn preset-btn" onclick="setPreset(3,this)" style="font-size:0.45rem;">🧠 Register Heavy</button>
+  </div>
+  <div id="presetLabel" style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-bottom:0.4rem;">Our conv2d_forward (Phase 3.5): 256 threads, ~40 registers, 0 KB shared mem</div>
+
   <div class="slider-row">
     <label>Threads per Block:</label>
     <input type="range" min="64" max="1024" step="32" value="256" oninput="updateSim()" id="thrSlider">
@@ -142,6 +152,24 @@ if(localStorage.getItem('occ-theme')==='light'){document.body.classList.add('lig
 const SM_COUNT=40,MAX_WARPS_PER_SM=64,MAX_BLOCKS_PER_SM=32,MAX_REGS_PER_SM=65536,MAX_SHM_PER_SM=64*1024;
 let zoomSM=-1;
 
+function setPreset(i,btn){
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  var presets=[
+    {thr:256,reg:40,shm:0,label:'Our conv2d_forward (Phase 3.5): 256 threads, ~40 registers, 0 KB shared mem'},
+    {thr:256,reg:24,shm:0,label:'Max Occupancy: 256 threads, 24 registers — just enough to fit 64 warps'},
+    {thr:128,reg:96,shm:16,label:'Low Occupancy: 128 threads, 96 registers, 16 KB shared memory — all limits hit'},
+    {thr:512,reg:80,shm:0,label:'Register Heavy: 512 threads, 80 registers — registers are the bottleneck'}
+  ];
+  var p=presets[i];
+  document.getElementById('thrSlider').value=p.thr;
+  document.getElementById('regSlider').value=p.reg;
+  document.getElementById('shmSlider').value=p.shm/1024;
+  document.getElementById('thrVal').textContent=p.thr;
+  document.getElementById('regVal').textContent=p.reg;
+  document.getElementById('shmVal').textContent=(p.shm/1024)+' KB';
+  document.getElementById('presetLabel').textContent=p.label;
+  updateSim();
+}
 function updateSim(){
   let thr=parseInt(document.getElementById('thrSlider').value);
   let reg=parseInt(document.getElementById('regSlider').value);
