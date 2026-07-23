@@ -131,6 +131,30 @@ const slides=[{
 <div class="pipeline-stage highlight"><div class="stage-icon">🚀</div><div class="stage-name">TENSORRT</div><div class="stage-desc">model.engine<br>7.9 MB (FP16)</div></div>
 </div>
 
+<h3>🔷 What is ONNX? — The Universal Translator</h3>
+<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.8rem 0;">
+<div style="flex:1;min-width:250px;background:var(--raised);border:2px solid var(--amber);border-radius:8px;padding:0.8rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--amber);margin-bottom:0.4rem;">ONNX = Open Neural Network Exchange</div>
+<table style="width:100%;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+<tr><td style="color:var(--tmut);padding-right:0.5rem;">What:</td><td>A <strong style="color:var(--cyan);">file format</strong> (not a programming language) — like .pdf for documents</td></tr>
+<tr><td style="color:var(--tmut);">Format:</td><td>Protocol Buffers (protobuf) — Google's binary serialization</td></tr>
+<tr><td style="color:var(--tmut);">Created:</td><td>Microsoft + Meta (Facebook), 2017</td></tr>
+<tr><td style="color:var(--tmut);">Why:</td><td>Train in ANY framework, deploy in ANY runtime</td></tr>
+</table>
+</div>
+<div style="flex:1;min-width:250px;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.8rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.4rem;">Framework Interop</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);line-height:2;">
+<span style="color:var(--red);">PyTorch</span> → ONNX → <span style="color:var(--cyan);">TensorRT</span><br>
+<span style="color:var(--red);">PyTorch</span> → ONNX → <span style="color:var(--green);">ONNX Runtime</span><br>
+<span style="color:var(--amber);">TensorFlow</span> → ONNX → <span style="color:var(--violet);">OpenVINO (Intel)</span><br>
+<span style="color:var(--amber);">TensorFlow</span> → ONNX → <span style="color:var(--magenta);">CoreML (Apple)</span><br>
+<span style="color:var(--tmut);">Any framework → ONNX → Any runtime</span>
+</div>
+</div>
+</div>
+<div style="font-size:0.65rem;color:var(--tmut);margin-bottom:0.8rem;">💡 <strong style="color:var(--cyan);">Why 12.3 MB?</strong> PyTorch .pt (6.3MB) stores just weights. ONNX (12.3MB) stores weights + the FULL computation graph (every op, every connection) explicitly — that way ANY framework can read it without needing PyTorch.</div>
+
 <h3>💻 Export Code (from Phase 4)</h3>
 <div class="code-box"><span class="cell-num">CELL — Export YOLO to TensorRT in Colab</span>
 <span style="color:#6a9955;"># Step 1: Load PyTorch model</span>
