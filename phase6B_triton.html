@@ -206,6 +206,42 @@ const S=[{
 <tr><td><code>/v2/models/yolo/infer</code></td><td>gRPC</td><td>Run inference (gRPC)</td></tr>
 </table>
 
+<h3>📊 Visual: What Each Protocol Sends Over the Network</h3>
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.8rem 0;">
+  <div style="flex:1;min-width:230px;background:var(--bg-card);border:2px solid var(--amber);border-radius:8px;padding:0.8rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🔵 HTTP + JSON</div>
+    <div style="background:#1e1e1e;border-radius:6px;padding:0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:#d4d4d4;line-height:1.6;text-align:left;">
+      <span style="color:#6a9955;">// Text-based, human-readable, BIG</span><br>
+      {<br>
+      &nbsp;&nbsp;<span style="color:#ce9178;">"inputs"</span>: [{<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ce9178;">"name"</span>: <span style="color:#ce9178;">"images"</span>,<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ce9178;">"shape"</span>: [1,3,640,640],<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ce9178;">"data"</span>: [0.12, 0.08, ...]<br>
+      &nbsp;&nbsp;}]<br>
+      }<br>
+      <span style="color:var(--amber);">~5ms overhead</span> — <span style="color:var(--amber);">text parsing + JSON decode</span>
+    </div>
+    <div style="font-size:0.5rem;color:var(--tdim);margin-top:0.3rem;">1,228,800 floats × ~8 chars each = <strong style="color:var(--red);">~10MB of text!</strong></div>
+  </div>
+  <div style="font-size:1.2rem;color:var(--cyan);display:flex;align-items:center;">vs</div>
+  <div style="flex:1;min-width:230px;background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.8rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--green);margin-bottom:0.4rem;">🟢 gRPC + Protobuf</div>
+    <div style="background:#1e1e1e;border-radius:6px;padding:0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:#d4d4d4;line-height:1.6;text-align:left;">
+      <span style="color:#6a9955;">// Binary, machine-only, COMPACT</span><br>
+      0A 05 69 6D 61 67 65 73<br>
+      12 90 4E 01 00 00 00<br>
+      3D 7A F5 C2 3D A4 ...<br>
+      <span style="color:#6a9955;">(binary protobuf bytes)</span><br><br>
+      <span style="color:var(--green);">~0.5ms overhead</span> — <span style="color:var(--green);">no parsing, direct deserialize</span>
+    </div>
+    <div style="font-size:0.5rem;color:var(--tdim);margin-top:0.3rem;">Same data as binary: <strong style="color:var(--green);">~4MB</strong> — 2.5× smaller!</div>
+  </div>
+</div>
+<div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  🐌 HTTP/JSON = write numbers as text → send huge string → parse text back to numbers<br>
+  🚀 gRPC/Protobuf = write numbers as binary → send compact bytes → read directly as numbers
+</div>
+
 <div class="quiz" id="q2"><div class="question">🧪 When would you choose HTTP over gRPC for Triton?</div>
 <div class="options">
 <div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. During development/debugging, for low-traffic internal tools, or when the client is a browser (JavaScript). HTTP is simpler to test with curl and works everywhere. Switch to gRPC when latency overhead matters and you need maximum throughput.</div>
