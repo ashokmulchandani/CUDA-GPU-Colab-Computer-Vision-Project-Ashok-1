@@ -82,6 +82,32 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
     </div>
   </div>
 
+  <!-- WHERE DO OUTPUT CHANNELS COME FROM -->
+  <div style="background:var(--raised);border:2px solid var(--violet);border-radius:10px;padding:0.7rem 1rem;margin:0.5rem auto;max-width:700px;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--violet);margin-bottom:0.4rem;">Where Does "16 Output Channels" Come From? — Same as Phase 3.5!</div>
+    <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:0.5rem;text-align:center;max-width:180px;">
+        <div style="font-size:0.45rem;color:var(--cyan);">Phase 3.5 (MNIST)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">1 input channel (grayscale)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">5x5x1 = 25 wts per filter</div>
+        <div style="font-size:0.4rem;color:var(--amber);margin-top:0.3rem;">You chose <strong>8 filters</strong><br>→ 8 output channels<br>→ 8x25+8 = <strong>208 params</strong></div>
+      </div>
+      <div style="font-size:1.2rem;color:var(--amber);">=</div>
+      <div style="background:var(--bg-card);border:2px solid var(--amber);border-radius:6px;padding:0.5rem;text-align:center;max-width:180px;">
+        <div style="font-size:0.45rem;color:var(--amber);">YOLO L1</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">3 input channels (RGB)</div>
+        <div style="font-size:0.4rem;color:var(--tmut);">3x3x3 = 27 wts per filter</div>
+        <div style="font-size:0.4rem;color:var(--amber);margin-top:0.3rem;">YOLO designer chose <strong>16 filters</strong><br>→ 16 output channels<br>→ 16x27+16 = <strong>448 params</strong></div>
+      </div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);margin-top:0.5rem;line-height:1.6;">
+      <strong style="color:var(--amber);">Output channels = number of filters YOU choose.</strong> Not calculated — it is a hyperparameter.<br>
+      Each filter = 1 output channel. 16 filters = 16 different pattern detectors.<br>
+      Deeper layers use MORE filters (32, 64, 128, 256) because there are MORE patterns to detect at higher abstraction levels.<br>
+      <strong style="color:var(--green);">Same decision as picking 8 filters in Phase 3.5. Same formula: params = filters x (weights_per_filter + 1 bias).</strong>
+    </div>
+  </div>
+
   <div class="comp" id="compBox">Press Play to see the 3D filter slide through ALL channels</div>
 
   <div class="ctrls">
