@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Camera — Line by Line Explained</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:950px;margin:0 auto;padding:1.5rem}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem;text-align:center}
+.subtitle{color:var(--tdim);font-size:0.7rem;text-align:center;margin-bottom:1rem}
+
+.section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;margin:0.8rem 0}
+.section h3{font-family:'Orbitron',sans-serif;font-size:0.7rem;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.5rem}
+.section .code{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:6px;padding:0.6rem 0.8rem;font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.6;color:#d4d4d4;overflow-x:auto;white-space:pre}
+.section .explain{font-size:0.65rem;color:var(--tdim);margin-top:0.5rem;line-height:1.6}
+.section .visual{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem;margin-top:0.5rem;text-align:center;font-size:0.55rem;color:var(--tdim);line-height:1.6}
+.cm{color:#6a9955}.kw{color:#569cd6}.fn{color:#c586c0}.str{color:#ce9178}.num{color:#b5cea8}.tp{color:#4ec9b0}.hl{color:var(--cyan);font-weight:700}
+.badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:0.5rem;font-weight:700}
+.badge-import{background:rgba(57,210,255,0.15);color:var(--cyan)}
+.badge-setup{background:rgba(255,179,71,0.15);color:var(--amber)}
+.badge-detect{background:rgba(63,185,80,0.15);color:var(--green)}
+.badge-alert{background:rgba(248,81,73,0.15);color:var(--red)}
+.badge-draw{background:rgba(163,113,247,0.15);color:var(--violet)}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Smart Camera — Every Line Explained</h1>
+  <p class="subtitle"><code>smart_camera.py</code> broken down into 9 sections. Each line explained in plain English with visual context.</p>
+
+  <!-- IMPORTS -->
+  <div class="section" style="border-left:4px solid var(--cyan);">
+    <h3><span class="badge badge-import">IMPORTS</span> Lines 1-14 — The Toolbox</h3>
+    <div class="code">
+<span class="kw">from</span> ultralytics <span class="kw">import</span> YOLO        <span class="cm"># The YOLO model — detects objects in images</span>
+<span class="kw">import</span> supervision <span class="kw">as</span> sv             <span class="cm"># Tracking, zones, drawing tools</span>
+<span class="kw">import</span> cv2                           <span class="cm"># OpenCV — webcam, drawing, display</span>
+<span class="kw">import</span> numpy <span class="kw">as</span> np                   <span class="cm"># Math — especially for polygon points</span>
+<span class="kw">import</span> time                          <span class="cm"># FPS calculation</span>
+<span class="kw">import</span> requests                      <span class="cm"># Send HTTP requests to Telegram</span></div>
+    <div class="explain">These 6 libraries give us everything: <strong style="color:var(--cyan);">YOLO</strong> detects, <strong style="color:var(--amber);">supervision</strong> tracks, <strong style="color:var(--green);">cv2</strong> draws.</div>
+  </div>
+
+  <!-- TELEGRAM -->
+  <div class="section" style="border-left:4px solid var(--red);">
+    <h3><span class="badge badge-alert">ALERTS</span> Lines 16-29 — Telegram Notifications</h3>
+    <div class="code">
+<span class="cm"># When someone enters the zone, this sends a photo to your phone</span>
+<span class="fn">def send_telegram_alert</span>(frame, message):
+    _, img_bytes = cv2.<span class="fn">imencode</span>(<span class="str">'.jpg'</span>, frame)         <span class="cm">// Convert frame to JPEG bytes</span>
+    url = <span class="str">f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"</span>
+    requests.<span class="fn">post</span>(url, files={..}, data={..})              <span class="cm">// POST to Telegram API</span></div>
+    <div class="visual">
+      🖼️ Webcam frame → 📸 JPEG image → 📱 Telegram message on your phone<br>
+      <span style="color:var(--tmut);">Cooldown: sends max once every 5 seconds (150 frames at 30 FPS)</span>
+    </div>
+  </div>
+
+  <!-- SETUP -->
+  <div class="section" style="border-left:4px solid var(--amber);">
+    <h3><span class="badge badge-setup">SETUP</span> Lines 31-50 — Load Model + Configure Tools</h3>
+    <div class="code">
+<span class="cm">// ── MODEL ──</span>
+<span class="fn">model</span> = <span class="tp">YOLO</span>(<span class="str">'yolov8n.pt'</span>)               <span class="cm">// Load pre-trained YOLO (6.3 MB)</span>
+
+<span class="cm">// ── TRACKER ──</span>
+<span class="fn">tracker</span> = sv.<span class="tp">ByteTrack</span>()                <span class="cm">// Assigns persistent ID to each person</span>
+                                           <span class="cm">// So "Person #3" stays #3 across all frames</span>
+
+<span class="cm">// ── ANNOTATORS (drawing tools) ──</span>
+<span class="fn">box_annotator</span> = sv.<span class="tp">BoxAnnotator</span>()       <span class="cm">// Draws bounding boxes around people</span>
+<span class="fn">label_annotator</span> = sv.<span class="tp">LabelAnnotator</span>()   <span class="cm">// Draws text labels "Person #3"</span>
+<span class="fn">trace_annotator</span> = sv.<span class="tp">TraceAnnotator</span>(<span class="num">trace_length=50</span>) <span class="cm">// Draws movement trails</span>
+
+<span class="cm">// ── COUNTING LINE ──</span>
+<span class="fn">line_zone</span> = sv.<span class="tp">LineZone</span>(start=(<span class="num">0,250</span>), end=(<span class="num">640,250</span>))
+                                   <span class="cm">// Yellow line across middle of frame</span>
+                                   <span class="cm">// Counts people crossing IN / OUT</span>
+
+<span class="cm">// ── ALERT ZONE ──</span>
+<span class="fn">zone</span> = sv.<span class="tp">PolygonZone</span>(polygon=[[<span class="num">320,50</span>],[<span class="num">630,50</span>],[<span class="num">630,430</span>],[<span class="num">320,430</span>]])
+                                   <span class="cm">// Red rectangle on RIGHT half of frame</span>
+                                   <span class="cm">// Triggers alert when someone enters</span></div>
+    <div class="visual">
+      <div style="display:flex;gap:0.5rem;justify-content:center;align-items:center;flex-wrap:wrap;">
+        <div style="width:200px;height:140px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;position:relative;">
+          <div style="position:absolute;top:55px;left:0;right:0;height:2px;background:var(--amber);"></div>
+          <div style="position:absolute;top:52px;left:80px;font-size:0.45rem;color:var(--amber);">counting line</div>
+          <div style="position:absolute;top:10px;left:110px;right:5px;bottom:10px;border:2px solid var(--red);border-radius:4px;"></div>
+          <div style="position:absolute;top:5px;left:115px;font-size:0.45rem;color:var(--red);">ALERT ZONE</div>
+          <div style="position:absolute;top:20px;left:15px;font-size:0.45rem;color:var(--green);">SAFE</div>
+        </div>
+        <div style="font-size:0.5rem;color:var(--tdim);text-align:left;line-height:1.8;">
+          🟡 Yellow line = counting line<br>
+          🔴 Red box = alert zone (right half)<br>
+          🟢 Left side = safe area<br>
+          Cross the yellow line → counted<br>
+          Enter the red box → Telegram alert!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEBCAM -->
+  <div class="section" style="border-left:4px solid var(--cyan);">
+    <h3><span class="badge badge-import">WEBCAM</span> Lines 52-65 — Find Your Camera</h3>
+    <div class="code">
+<span class="kw">for</span> idx <span class="kw">in</span> [<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>]:                         <span class="cm">// Try camera index 0, then 1, then 2</span>
+    cap = cv2.<span class="fn">VideoCapture</span>(idx)              <span class="cm">// Open webcam at this index</span>
+    ret, frame = cap.<span class="fn">read</span>()                 <span class="cm">// Try to grab one frame</span>
+    <span class="kw">if</span> ret:                             <span class="cm">// Success! Use this camera</span>
+        <span class="kw">break</span></div>
+    <div class="explain">Your laptop might have multiple cameras (built-in + USB). This loop tries each one and picks the first that works.</div>
+  </div>
+
+  <!-- MAIN LOOP — DETECT + TRACK -->
+  <div class="section" style="border-left:4px solid var(--green);">
+    <h3><span class="badge badge-detect">LOOP — DETECT</span> Lines 77-84 — What is in this frame?</h3>
+    <div class="code">
+<span class="kw">while True</span>:                               <span class="cm">// Run forever until 'q' pressed</span>
+    ret, frame = cap.<span class="fn">read</span>()              <span class="cm">// Grab one frame from webcam</span>
+
+    <span class="cm">// DETECT — find all persons in this frame</span>
+    results = <span class="fn">model</span>(frame, <span class="kw">classes=</span>[<span class="num">0</span>])[<span class="num">0</span>]  <span class="cm">// Run YOLO, class 0 = person only</span>
+    detections = sv.<span class="tp">Detections</span>.<span class="fn">from_ultralytics</span>(results)
+                                         <span class="cm">// Convert YOLO output → supervision format</span></div>
+    <div class="visual">
+      📷 Frame captured → 🧠 YOLO scans it → 📦 Returns bounding boxes for every person<br>
+      <span style="color:var(--tmut);"><code>classes=[0]</code> means ONLY detect persons (class 0). Ignore cars, dogs, etc.</span>
+    </div>
+  </div>
+
+  <!-- TRACK + ZONES -->
+  <div class="section" style="border-left:4px solid var(--amber);">
+    <h3><span class="badge badge-setup">LOOP — TRACK + ZONES</span> Lines 86-101 — Follow + Count + Alert</h3>
+    <div class="code">
+<span class="cm">// TRACK — assign persistent IDs</span>
+detections = <span class="fn">tracker</span>.update_with_detections(detections)
+                                         <span class="cm">// Person at position X is "Person #3" across frames</span>
+
+<span class="cm">// COUNT — did anyone cross the line?</span>
+<span class="fn">line_zone</span>.trigger(detections)            <span class="cm">// Check if any person crossed the yellow line</span>
+                                         <span class="cm">// Updates: line_zone.in_count and line_zone.out_count</span>
+
+<span class="cm">// ZONE — is anyone in the alert zone?</span>
+in_zone = <span class="fn">zone</span>.trigger(detections)         <span class="cm">// Check if any person is inside the red box</span></div>
+    <div class="visual">
+      <div style="display:flex;gap:0.5rem;justify-content:center;font-size:0.5rem;color:var(--tdim);">
+        <span>🔍 ByteTrack: "Same person as last frame?" → YES → keep ID #3</span>
+        <span>📏 LineZone: "Did person cross y=250?" → YES → IN count +1</span>
+        <span>🚨 PolygonZone: "Is person inside red box?" → YES → ALERT!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAW -->
+  <div class="section" style="border-left:4px solid var(--violet);">
+    <h3><span class="badge badge-draw">LOOP — DRAW</span> Lines 103-123 — Make It Visible</h3>
+    <div class="code">
+<span class="cm">// Draw movement trails (last 50 positions per person)</span>
+frame = <span class="fn">trace_annotator</span>.annotate(frame, detections)
+
+<span class="cm">// Draw bounding boxes + labels</span>
+frame = <span class="fn">box_annotator</span>.annotate(frame, detections)       <span class="cm">// Green boxes</span>
+frame = <span class="fn">label_annotator</span>.annotate(frame, detections, labels) <span class="cm">// "Person #3"</span>
+
+<span class="cm">// Draw counting line (yellow, y=250)</span>
+cv2.<span class="fn">line</span>(frame, (<span class="num">0</span>,<span class="num">250</span>), (<span class="num">640</span>,<span class="num">250</span>), (<span class="num">0</span>,<span class="num">255</span>,<span class="num">255</span>), <span class="num">2</span>)       <span class="cm">// BGR = Yellow</span>
+
+<span class="cm">// Draw alert zone (red rectangle)</span>
+cv2.<span class="fn">polylines</span>(frame, [ZONE_POLYGON], <span class="kw">True</span>, (<span class="num">0</span>,<span class="num">0</span>,<span class="num">255</span>), <span class="num">3</span>) <span class="cm">// BGR = Red</span></div>
+    <div class="visual">
+      🟢 Green boxes = person detection | 🟡 Yellow line = counting | 🔴 Red box = alert zone<br>
+      <span style="color:var(--tmut);">OpenCV uses <strong>BGR</strong> color order (not RGB): (0,255,255)=Yellow, (0,0,255)=Red, (0,255,0)=Green</span>
+    </div>
+  </div>
+
+  <!-- ALERT + STATS -->
+  <div class="section" style="border-left:4px solid var(--red);">
+    <h3><span class="badge badge-alert">LOOP — ALERT + STATS</span> Lines 125-145 — Notify + Display</h3>
+    <div class="code">
+<span class="cm">// If anyone is in the alert zone...</span>
+<span class="kw">if</span> people_in_zone > <span class="num">0</span>:
+    cv2.<span class="fn">putText</span>(frame, <span class="str">"!! ZONE ALERT !!"</span>, ...)       <span class="cm">// Red text on screen</span>
+    cv2.<span class="fn">rectangle</span>(frame, (<span class="num">0</span>,<span class="num">0</span>), (W,H), (<span class="num">0</span>,<span class="num">0</span>,<span class="num">255</span>), <span class="num">5</span>)  <span class="cm">// Red flash border!</span>
+    <span class="fn">send_telegram_alert</span>(frame, <span class="str">"🚨 ZONE ALERT!"</span>)      <span class="cm">// Send photo to your phone</span>
+
+<span class="cm">// Calculate and display FPS</span>
+fps = frame_count / (time.<span class="fn">now</span>() - start_time)
+cv2.<span class="fn">putText</span>(frame, <span class="str">f"FPS: {fps:.1f}"</span>, ...)           <span class="cm">// Top-left corner</span>
+cv2.<span class="fn">putText</span>(frame, <span class="str">f"In: {in_count} Out: {out_count}"</span>, ...) <span class="cm">// Crossing counts</span>
+
+<span class="cm">// Show the final frame</span>
+cv2.<span class="fn">imshow</span>(<span class="str">'Smart Camera'</span>, frame)
+<span class="kw">if</span> cv2.<span class="fn">waitKey</span>(<span class="num">1</span>) == <span class="kw">ord</span>(<span class="str">'q'</span>): <span class="kw">break</span>               <span class="cm">// Press 'q' to quit</span></div>
+    <div class="visual">
+      🔴 Red text + red border flash = ZONE ALERT<br>
+      📱 Telegram photo sent to your phone (with 5-second cooldown)<br>
+      📊 Top-left: FPS counter, crossing counts, people in zone<br>
+      ⌨️ Press <strong>'q'</strong> to quit the program
+    </div>
+  </div>
+
+  <!-- THE FLOW -->
+  <div class="section" style="border:2px solid var(--violet);">
+    <h3 style="color:var(--violet);">🔄 The Complete Loop — Every Frame</h3>
+    <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);margin:0.5rem 0;">
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;">📷 Grab Frame</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;color:var(--green);">🧠 YOLO Detect</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;color:var(--amber);">🔍 Track IDs</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;color:var(--amber);">📏 Count Line</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;color:var(--red);">🚨 Check Zone</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;color:var(--violet);">🎨 Draw All</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;color:var(--red);">📱 Alert?</span><span>→</span>
+      <span style="background:var(--raised);padding:0.3rem 0.5rem;border-radius:6px;">🖥️ Show</span>
+    </div>
+    <div style="font-size:0.55rem;color:var(--tdim);text-align:center;">Repeats 30 times per second. Every frame goes through ALL 8 steps in ~33ms.</div>
+  </div>
+
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('sce-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('sce-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+</script>
+</body>
+</html>
