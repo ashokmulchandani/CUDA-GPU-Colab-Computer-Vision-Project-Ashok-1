@@ -283,7 +283,7 @@ const slides=[{
 </div><div class="feedback" id="quiz3-fb"></div></div>
 </div></div>`},{
   id:'6A.5',title:'🖐️ Exercise 1: Export YOLO to TensorRT in Colab',
-  fact:'<strong>Converting PyTorch to TensorRT takes ~7 minutes on Colab T4.</strong> That is 7 minutes of GPU time you never pay again — the engine file loads in milliseconds forever after.',
+  fact:'<strong>The export from PyTorch to TensorRT takes ~7 minutes on Colab T4.</strong> That is 7 minutes of GPU time you never pay again — the engine file loads in milliseconds forever after.',
   render:()=>`
 <div class="slide"><div class="card">
 <h2><span class="num">6A.5</span> 🖐️ Exercise 1 — Export YOLO to TensorRT</h2>
@@ -402,7 +402,7 @@ const slides=[{
 </div>
 </div></div>`},{
   id:'6A.7',title:'Summary — What You Built in 6A',
-  fact:'<strong>TensorRT is the difference between a research demo and a production service.</strong> You now know how to take ANY PyTorch model, convert it, optimize it for your GPU, and deploy it as a serialized engine.',
+  fact:'<strong>TensorRT is the difference between a research demo and a production service.</strong> You now know how to take ANY PyTorch model, export it, optimize it for your GPU, and deploy it as a serialized engine.',
   render:()=>`
 <div class="slide"><div class="card">
 <h2><span class="num">6A.7</span> Phase 6A Summary — TensorRT Complete</h2>
