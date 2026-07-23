@@ -61,6 +61,39 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
   <h1>GPU Occupancy — SMs, Blocks, Warps & Threads</h1>
   <p class="subtitle">Tesla T4: 40 SMs. Each SM = max 64 warps (2,048 threads). Occupancy = how many warps are ACTUALLY active. <strong>Adjust the sliders to see how your kernel choices affect occupancy.</strong></p>
 
+  <!-- GPU HIERARCHY -->
+  <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:center;margin:0.8rem 0;font-family:'JetBrains Mono',monospace;">
+    <div style="background:var(--card);border:3px solid var(--violet);border-radius:12px;padding:0.7rem 1.5rem;text-align:center;">
+      <div style="font-size:0.7rem;color:var(--violet);font-weight:700;">🖥️ 1 GPU — Tesla T4</div>
+      <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">2,560 CUDA Cores | 16 GB VRAM | 320 GB/s bandwidth</div>
+    </div>
+    <div style="font-size:1rem;color:var(--cyan);">⬇ contains</div>
+    <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;justify-content:center;">
+      <div style="background:var(--card);border:2px solid var(--cyan);border-radius:8px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-size:0.55rem;color:var(--cyan);font-weight:700;">🏗️ 1 SM</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">64 CUDA Cores<br>4 Warp Schedulers<br>Max 64 Warps<br>Max 2,048 Threads<br>65,536 Registers<br>64 KB Shared Mem</div>
+      </div>
+      <div style="font-size:0.8rem;color:var(--tmut);">× 40</div>
+    </div>
+    <div style="font-size:1rem;color:var(--cyan);">⬇ each SM manages</div>
+    <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;justify-content:center;">
+      <div style="background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.5rem 0.8rem;text-align:center;">
+        <div style="font-size:0.5rem;color:var(--amber);font-weight:700;">🧵 1 Warp</div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">32 Threads<br>Execute together<br>SIMT: Same instruction,<br>different data</div>
+      </div>
+      <div style="font-size:0.8rem;color:var(--tmut);">× up to 64 per SM</div>
+    </div>
+    <div style="font-size:1rem;color:var(--cyan);">⬇ each warp =</div>
+    <div style="background:var(--card);border:2px solid var(--green);border-radius:8px;padding:0.5rem 0.8rem;text-align:center;">
+      <div style="font-size:0.5rem;color:var(--green);font-weight:700;">🔹 1 Thread</div>
+      <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">Runs on 1 CUDA Core<br>Computes 1 output pixel<br>Has its own registers</div>
+    </div>
+    <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">
+      💡 <strong style="color:var(--amber);">Occupancy measures WARPS, not CUDA cores.</strong> The GPU hides memory latency by switching between warps.<br>
+      More active warps = more chances to find work while others wait. Max = 64 warps/SM = 100% occupancy.
+    </div>
+  </div>
+
   <div class="stats-row">
     <div class="stat" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);" id="occPct">50%</div><div class="lbl">Occupancy</div></div>
     <div class="stat" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);" id="activeWarps">32</div><div class="lbl">Active Warps / SM</div></div>
