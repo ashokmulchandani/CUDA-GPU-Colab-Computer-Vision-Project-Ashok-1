@@ -390,27 +390,96 @@ function updateSim(){
   }
   document.getElementById('smZoom').innerHTML=zh;
 
-  // Computation box
-  let limitMsg='';
-  if(maxBlocksByRegs<=maxBlocksByWarps&&maxBlocksByRegs<=maxBlocksByShm)limitMsg=`<span style="color:var(--red);">LIMITED BY REGISTERS!</span> ${regsPerBlock} regs/block × ${blocksPerSM} blocks = ${regsPerBlock*blocksPerSM} / ${MAX_REGS_PER_SM} registers`;
-  else if(maxBlocksByShm<=maxBlocksByWarps)limitMsg=`<span style="color:var(--amber);">LIMITED BY SHARED MEMORY!</span> ${(shm/1024)}KB/block × ${blocksPerSM} blocks = ${shm*blocksPerSM/1024}KB / ${MAX_SHM_PER_SM/1024}KB`;
-  else if(maxBlocksByWarps<=maxBlocksByRegs)limitMsg=`<span style="color:var(--cyan);">LIMITED BY WARPS!</span> ${warpPerBlock} warps/block × ${blocksPerSM} blocks = ${warpsPerSM} / ${MAX_WARPS_PER_SM} warps`;
-  else limitMsg=`<span style="color:var(--green);">LIMITED BY MAX BLOCKS/SM!</span> ${blocksPerSM} / ${MAX_BLOCKS_PER_SM} max blocks`;
+  // Computation box — VISUAL TABLE
+  var bottlenecks=[];
+  if(maxBlocksByWarps<=maxBlocksByRegs&&maxBlocksByWarps<=maxBlocksByShm)bottlenecks.push('warps');
+  if(maxBlocksByRegs<=maxBlocksByWarps&&maxBlocksByRegs<=maxBlocksByShm)bottlenecks.push('registers');
+  if(shm>0&&maxBlocksByShm<=maxBlocksByRegs&&maxBlocksByShm<=maxBlocksByWarps)bottlenecks.push('shared memory');
 
   document.getElementById('compBox').innerHTML=`
-<span style="color:#6a9955;">// Calculation for Threads=${thr}, Regs=${reg}, SharedMem=${(shm/1024)}KB</span>
-<span style="color:#6a9955;">// Warps per block = ceil(Threads/32) = ceil(${thr}/32) = ${warpPerBlock}</span>
-<span style="color:#6a9955;">// Registers per block = ${warpPerBlock}×32×${reg} = ${regsPerBlock} registers</span>
+<div style="display:flex;flex-direction:column;gap:0.6rem;">
 
-<span style="color:var(--amber);">Blocks/SM by register limit: floor(${MAX_REGS_PER_SM}/${regsPerBlock}) = ${maxBlocksByRegs}</span>
-<span style="color:var(--amber);">Blocks/SM by shared mem limit: floor(${MAX_SHM_PER_SM/1024}KB/${(shm/1024)}KB) = ${shm>0?maxBlocksByShm:'N/A (no shared mem)'}</span>
-<span style="color:var(--amber);">Blocks/SM by warp limit: floor(${MAX_WARPS_PER_SM}/${warpPerBlock}) = ${maxBlocksByWarps}</span>
+  <!-- TOP ROW: Quick stats -->
+  <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center;">
+      <div style="font-size:0.4rem;color:var(--tmut);">Warps / Block</div>
+      <div style="font-size:0.7rem;color:var(--cyan);font-weight:700;">${warpPerBlock}</div>
+      <div style="font-size:0.35rem;color:var(--tmut);">ceil(${thr}/32)</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center;">
+      <div style="font-size:0.4rem;color:var(--tmut);">Regs / Block</div>
+      <div style="font-size:0.7rem;color:var(--amber);font-weight:700;">${regsPerBlock.toLocaleString()}</div>
+      <div style="font-size:0.35rem;color:var(--tmut);">${warpPerBlock}×32×${reg}</div>
+    </div>
+    ${shm>0?`<div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center;">
+      <div style="font-size:0.4rem;color:var(--tmut);">Shared Mem / Block</div>
+      <div style="font-size:0.7rem;color:var(--violet);font-weight:700;">${(shm/1024)} KB</div>
+    </div>`:''}
+  </div>
 
-<span style="color:var(--cyan);font-weight:700;">Blocks/SM = min(32, ${maxBlocksByRegs}, ${shm>0?maxBlocksByShm:'∞'}, ${maxBlocksByWarps}) = ${blocksPerSM}</span>
-<span style="color:var(--violet);font-weight:700;">Warps/SM = ${blocksPerSM} × ${warpPerBlock} = ${warpsPerSM}</span>
-<span style="color:var(--green);font-weight:700;">Occupancy = ${warpsPerSM} / 64 = ${occupancy}%</span>
+  <!-- MIDDLE: Limits comparison table -->
+  <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.5rem;">
+    <tr style="background:var(--raised);">
+      <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Limit Type</th>
+      <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">SM Resource</th>
+      <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Per Block</th>
+      <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Calculation</th>
+      <th style="padding:0.4rem;border:1px solid var(--cyan);color:var(--cyan);">Max Blocks</th>
+      <th style="padding:0.4rem;border:1px solid var(--border);">Status</th>
+    </tr>
+    <tr>
+      <td style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Hardware</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">Max blocks/SM</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">—</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">Fixed by GPU</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--cyan);font-weight:700;">${MAX_BLOCKS_PER_SM}</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.4rem;color:var(--tmut);">T4 limit</td>
+    </tr>
+    <tr>
+      <td style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Register</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">65,536 registers</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">${regsPerBlock.toLocaleString()}</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">⌊65536/${regsPerBlock}⌋</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:${bottlenecks.includes('registers')?'var(--red)':'var(--cyan)'};font-weight:700;">${maxBlocksByRegs}</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.4rem;">${bottlenecks.includes('registers')?'<span style="color:var(--red);">🔴 BOTTLENECK!</span>':'✅'}</td>
+    </tr>
+    <tr>
+      <td style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Warp</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">64 warps</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--cyan);">${warpPerBlock}</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">⌊64/${warpPerBlock}⌋</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:${bottlenecks.includes('warps')?'var(--red)':'var(--cyan)'};font-weight:700;">${maxBlocksByWarps}</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.4rem;">${bottlenecks.includes('warps')?'<span style="color:var(--red);">🔴 BOTTLENECK!</span>':'✅'}</td>
+    </tr>
+    ${shm>0?`<tr>
+      <td style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Shared Mem</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">64 KB</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--violet);">${(shm/1024)} KB</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);">⌊64/${(shm/1024)}⌋</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:${bottlenecks.includes('shared memory')?'var(--red)':'var(--cyan)'};font-weight:700;">${maxBlocksByShm}</td>
+      <td style="padding:0.4rem;border:1px solid var(--border);font-size:0.4rem;">${bottlenecks.includes('shared memory')?'<span style="color:var(--red);">🔴 BOTTLENECK!</span>':'✅'}</td>
+    </tr>`:'<tr><td style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Shared Mem</td><td style="padding:0.4rem;border:1px solid var(--border);">64 KB</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--tmut);">0 KB</td><td style="padding:0.4rem;border:1px solid var(--border);" colspan="3" style="color:var(--tmut);text-align:center;">Not used — no limit</td></tr>'}
+    <tr style="background:rgba(57,210,255,0.05);">
+      <td colspan="5" style="padding:0.5rem;border:2px solid var(--cyan);text-align:right;font-weight:700;color:var(--cyan);">Blocks/SM = MIN of all limits</td>
+      <td style="padding:0.5rem;border:2px solid var(--cyan);text-align:center;font-weight:700;font-size:0.65rem;color:var(--cyan);">${blocksPerSM}</td>
+    </tr>
+  </table>
 
-${limitMsg}`;
+  <!-- BOTTOM: Final result -->
+  <div style="display:flex;gap:0.5rem;justify-content:center;align-items:center;flex-wrap:wrap;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);">
+      ${blocksPerSM} blocks × ${warpPerBlock} warps/block
+    </div>
+    <div style="font-size:1rem;color:var(--cyan);">=</div>
+    <div style="background:var(--card);border:3px solid ${occupancy>66?'var(--green)':occupancy>33?'var(--amber)':'var(--red)'};border-radius:10px;padding:0.5rem 1rem;text-align:center;">
+      <div style="font-size:0.4rem;color:var(--tmut);">OCCUPANCY</div>
+      <div style="font-size:1.2rem;font-weight:700;color:${occupancy>66?'var(--green)':occupancy>33?'var(--amber)':'var(--red)'};">${occupancy}%</div>
+      <div style="font-size:0.4rem;color:var(--tmut);">${warpsPerSM} / 64 warps per SM</div>
+    </div>
+  </div>
+
+  ${bottlenecks.length>0?`<div style="font-size:0.5rem;color:var(--red);text-align:center;font-weight:700;">🔴 LIMITED BY: ${bottlenecks.join(' + ').toUpperCase()}</div>`:'<div style="font-size:0.5rem;color:var(--green);text-align:center;">✅ No single bottleneck — balanced!</div>'}
+</div>`;
 }
 
 updateSim();updateBlockViz();
