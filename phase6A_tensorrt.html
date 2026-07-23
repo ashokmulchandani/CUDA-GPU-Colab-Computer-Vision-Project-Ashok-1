@@ -269,11 +269,28 @@ const slides=[{
 
 <div class="callout"><span style="font-size:1.2rem;">📖</span><span>This builds directly on Phase 4. You already did this once! <a href="phase4_yolo_cuda.html" style="color:var(--cyan);">Phase 4 slide 4.11</a> has the same exercise with benchmark tables.</span></div>
 
-<h3>💻 Step 1: Open the YOLO Colab Notebook</h3>
-<div class="code-box"><span class="cell-num">CELL — Open Colab</span>
-<span style="color:#4ec9b0;">https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/2_Ashok_CUDA_YOLO.ipynb</span></div>
+<h3>💻 Step 1: Open a Fresh Colab Notebook</h3>
+<div class="code-box"><span class="cell-num">CELL 1 — Setup (run in a NEW Colab notebook)</span>
+<span style="color:#6a9955;"># Install ultralytics (the YOLO library)</span>
+<span style="color:#569cd6;">!pip install</span> ultralytics
 
-<h3>🔨 Step 2: Export to All 3 Formats</h3>
+<span style="color:#6a9955;"># Verify GPU is available</span>
+<span style="color:#569cd6;">!nvidia-smi</span></div>
+
+<h3>📥 Step 2: Download the Pre-trained YOLOv8n Model</h3>
+<div class="code-box"><span class="cell-num">CELL 2 — Download Model (auto-downloads on first use)</span>
+<span style="color:#569cd6;">from</span> ultralytics <span style="color:#569cd6;">import</span> YOLO
+
+<span style="color:#6a9955;"># This downloads yolov8n.pt automatically (~6 MB) on first run</span>
+<span style="color:#6a9955;"># The .pt file is the TRAINED model — all 3.15M weights included</span>
+<span style="color:#c586c0;">model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.pt'</span>)  <span style="color:#6a9955;">// downloads + loads in one line!</span>
+
+<span style="color:#6a9955;"># Test: run inference on a sample image to verify it works</span>
+<span style="color:#c586c0;">results</span> = <span style="color:#c586c0;">model</span>(<span style="color:#ce9178;">'https://ultralytics.com/images/zidane.jpg'</span>)
+<span style="color:#c586c0;">results</span>[<span style="color:#ce9178;">0</span>].<span style="color:#c586c0;">show</span>()  <span style="color:#6a9955;">// should show detected persons + tie</span>
+<span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"Model loaded! Ready to export."</span>)</div>
+
+<h3>🔨 Step 3: Export to All 3 Formats</h3>
 <div class="code-box"><span class="cell-num">CELL — Export Comparison</span>
 <span style="color:#6a9955;"># Export to ONNX</span>
 <span style="color:#c586c0;">model</span>.<span style="color:#c586c0;">export</span>(format=<span style="color:#ce9178;">'onnx'</span>)          <span style="color:#6a9955;">// ~7s, 12.3 MB</span>
