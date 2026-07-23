@@ -129,14 +129,17 @@ const S=[{
 <span style="color:var(--red);">                                          GPU IDLE = wasted time!</span>
 <span style="color:var(--text-muted);">                                          (Python is preparing the next batch)</span></div>
 
-<h3>🔍 What to Look For</h3>
-<table class="param">
-<tr><th>Pattern</th><th>What It Means</th><th>Fix</th></tr>
-<tr><td>GPU idle gaps</td><td style="color:var(--red);">CPU is the bottleneck</td><td>Pre-fetch data, use CUDA streams</td></tr>
-<tr><td>MemCpy → Kernel → MemCpy in sequence</td><td style="color:var(--amber);">Not overlapping transfer+compute</td><td>Use async copies + streams</td></tr>
-<tr><td>Many tiny kernel launches</td><td style="color:var(--amber);">Launch overhead dominating</td><td>Fuse kernels or use CUDA Graphs</td></tr>
-<tr><td>GPU always busy, kernel takes long</td><td style="color:var(--cyan);">Kernel is the bottleneck</td><td>Use Nsight Compute to analyze kernel</td></tr>
-</table>
+<h3>🔍 Visual: 4 Bottleneck Patterns — Click Each to See</h3>
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn ns-pat active" onclick="showPattern(0,this)" style="font-size:0.45rem;">🐌 GPU Idle</button>
+  <button class="btn ns-pat" onclick="showPattern(1,this)" style="font-size:0.45rem;">📋 Sequential</button>
+  <button class="btn ns-pat" onclick="showPattern(2,this)" style="font-size:0.45rem;">🐜 Many Launches</button>
+  <button class="btn ns-pat" onclick="showPattern(3,this)" style="font-size:0.45rem;">🔥 Kernel Heavy</button>
+</div>
+
+<div id="timelineViz" style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.8rem;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);min-height:100px;"></div>
+
+<div id="patternExplain" style="font-size:0.6rem;color:var(--tdim);text-align:center;margin:0.3rem 0;"></div>
 
 <div class="callout"><span style="font-size:1.1rem;">💡</span><span><strong style="color:var(--cyan);">Nsight Systems first, Nsight Compute second.</strong> Systems tells you WHICH kernel is the problem. Compute tells you WHY that kernel is slow. Never profile a kernel until you know it's the bottleneck.</span></div>
 
@@ -324,6 +327,47 @@ function updateDots(){document.getElementById('stepDots').innerHTML=S.map(functi
 function updateChips(){document.getElementById('topicChips').innerHTML=S.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
 document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<S.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
 renderSlide(0);
+
+// ── Timeline Pattern Visualizer (Slide 6C.2) ──
+var patIdx=0;
+function showPattern(i,btn){
+  patIdx=i;document.querySelectorAll('.ns-pat').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  var barW=90,labels=['CPU','GPU'],names=[
+    ['🐌 GPU IDLE GAPS — CPU Cannot Keep Up','CPU preparing data','KERNEL','CPU preparing','KERNEL','GPU idle gaps = wasted time','Fix: pre-fetch data, use CUDA streams to overlap'],
+    ['📋 SEQUENTIAL — No Overlap Between Transfer & Compute','H→D copy','KERNEL','D→H copy','H→D copy','KERNEL','D→H copy','Transfer and compute take TURNS. GPU waits during copies','Fix: cudaMemcpyAsync + streams → overlap copy with compute'],
+    ['🐜 MANY TINY LAUNCHES — Launch Overhead Dominating','L','L','L','L','L','L','L','L','K','K','K','K','K','K','K','K','Each | = 5μs launch overhead. 100 launches = 500μs wasted!','Fix: fuse kernels (TensorRT does this) or use CUDA Graphs'],
+    ['🔥 KERNEL IS THE BOTTLENECK — GPU Is Fully Utilized','KERNEL (25ms)','KERNEL (25ms)','KERNEL (25ms)','GPU is SATURATED — good! The kernel itself is slow.','Fix: use Nsight Compute to analyze THIS kernel specifically']
+  ];
+  var n=names[i];
+  var h='<div style="font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">'+n[0]+'</div>';
+  for(var r=0;r<2;r++){
+    h+='<div style="display:flex;align-items:center;gap:0.5rem;margin:0.3rem 0;">';
+    h+='<span style="min-width:35px;color:var(--tmut);">'+labels[r]+'</span>';
+    h+='<div style="flex:1;height:20px;background:var(--bg-card);border-radius:4px;position:relative;overflow:hidden;">';
+    var items=(r===0?n.slice(1,Math.floor(n.length/2)+1):n.slice(Math.ceil(n.length/2))).filter(function(x){return x!==n[0]});
+    var cIdx=0;
+    items.forEach(function(item){
+      var isIdle=item.includes('idle')||item.includes('preparing')||item.includes('wasted');
+      var isCopy=item.includes('H→D')||item.includes('D→H')||item.includes('copy');
+      var isKernel=item.includes('KERNEL');
+      var isLaunch=item==='L';
+      var isText=item.includes('Fix:')||item.includes('GPU is');
+      if(!isText){
+        var bg=isIdle?'rgba(248,81,73,0.4)':isCopy?'rgba(255,179,71,0.5)':isKernel?'rgba(63,185,80,0.6)':isLaunch?'rgba(163,113,247,0.4)':'transparent';
+        var border=isIdle?'var(--red)':isCopy?'var(--amber)':isKernel?'var(--green)':'var(--violet)';
+        var w=isLaunch?4:isKernel?35:isCopy?20:15;
+        h+='<div style="position:absolute;left:'+cIdx+'px;top:2px;height:16px;width:'+w+'px;background:'+bg+';border:1px solid '+border+';border-radius:2px;font-size:0.35rem;text-align:center;line-height:16px;color:var(--text);">'+item.substring(0,2)+'</div>';
+        cIdx+=w+2;
+      }
+    });
+    h+='</div></div>';
+  }
+  h+='<div style="margin-top:0.4rem;font-size:0.5rem;color:var(--red);">'+n[n.length-1]+'</div>';
+  h+='<div style="margin-top:0.2rem;font-size:0.5rem;color:var(--green);">'+n[n.length-2]+'</div>';
+  document.getElementById('timelineViz').innerHTML=h;
+  document.getElementById('patternExplain').innerHTML='<span style="color:var(--red);">■ GPU idle</span> <span style="color:var(--amber);">■ Memory copy</span> <span style="color:var(--green);">■ Kernel running</span> <span style="color:var(--violet);">■ Launch overhead</span>';
+}
+showPattern(0,document.querySelector('.ns-pat'));
 </script>
 </body>
 </html>
