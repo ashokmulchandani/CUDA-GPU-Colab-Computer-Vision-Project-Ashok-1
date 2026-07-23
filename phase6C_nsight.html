@@ -229,8 +229,22 @@ const S=[{
 
 <div class="callout"><span style="font-size:1.1rem;">📖</span><span><strong style="color:var(--cyan);">Phase 3.5 Reference:</strong> The CNN notebook already has profiling cells. See <a href="phase3_5_cnn_mnist.html" style="color:var(--cyan);">Phase 3.5 slide 3.5.13</a> for the Nsight exercise.</span></div>
 
-<h3>💻 Step 1: Open CNN Notebook + Run Profiling</h3>
-<div class="code-box"><span class="cell-num">CELL — Profile conv2d_forward kernel</span>
+<h3>📹 Step 1: Nsight Systems — See the BIG Picture</h3>
+<div class="code-box"><span class="cell-num">CELL 1 — Nsight Systems (timeline view)</span>
+<span style="color:#6a9955;"># Profile the ENTIRE application — see CPU + GPU on one timeline</span>
+<span style="color:#569cd6;">!nsys</span> profile --stats=true ./cnn_mnist
+
+<span style="color:#6a9955;"># This creates a .qdrep file. Open in Nsight Systems GUI (local install).</span>
+<span style="color:#6a9955;"># Or use the CLI summary:</span>
+<span style="color:#569cd6;">!nsys</span> stats report1.nsys-rep
+
+<span style="color:#6a9955;"># What to look for in the timeline:</span>
+<span style="color:#6a9955;"># - GPU idle gaps = CPU bottleneck</span>
+<span style="color:#6a9955;"># - MemCpy → Kernel → MemCpy in sequence = no overlap</span>
+<span style="color:#6a9955;"># - Many tiny kernel launches = overhead dominating</span></div>
+
+<h3>🔬 Step 2: Nsight Compute — Deep Dive Into ONE Kernel</h3>
+<div class="code-box"><span class="cell-num">CELL 2 — Nsight Compute (kernel deep-dive)</span>
 <span style="color:#6a9955;"># Compile cnn_mnist.cu first, then profile the conv kernel</span>
 <span style="color:#569cd6;">!nvcc</span> cnn_mnist.cu -o cnn_mnist -lm
 
@@ -239,7 +253,7 @@ const S=[{
   --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed \
   ./cnn_mnist</div>
 
-<h3>📊 Step 2: Record Your Results</h3>
+<h3>📊 Step 3: Record Your Results</h3>
 <table class="param">
 <tr><th>Metric</th><th>Expected Value</th><th>Your Value</th></tr>
 <tr><td>SM Throughput</td><td>~61.6%</td><td>___%</td></tr>
@@ -248,13 +262,16 @@ const S=[{
 <tr><td>GPU Device</td><td>CC 7.5 (T4)</td><td>___</td></tr>
 </table>
 
-<h3>🔍 Step 3: Try More Metrics</h3>
+<h3>🔍 Step 4: Try More Metrics (Bonus)</h3>
 <div class="code-box"><span class="cell-num">CELL — Full metrics dump</span>
 <span style="color:#6a9955;"># Get ALL available metrics for the kernel</span>
 <span style="color:#569cd6;">!ncu</span> --kernel-name conv2d_forward --launch-count <span style="color:#ce9178;">1</span> --set full ./cnn_mnist</div>
 
+<div class="callout" style="margin-bottom:0.8rem;"><span style="font-size:1rem;">🔬</span><span style="font-size:0.65rem;"><strong style="color:var(--cyan);">Nsight Systems vs Compute — when to use which:</strong> Systems = "which kernel is slow?" (timeline, first). Compute = "WHY is this kernel slow?" (deep dive, second). Always Systems first, Compute second. Don't profile a kernel until Systems tells you it is the bottleneck.</span></div>
+
 <div class="checklist">
-<div class="check-item"><span class="check-box">☐</span> Ran Nsight Compute on conv2d_forward — got SM and DRAM percentages</div>
+<div class="check-item"><span class="check-box">☐</span> Ran Nsight SYSTEMS — saw the full timeline of CPU + GPU activity</div>
+<div class="check-item"><span class="check-box">☐</span> Ran Nsight COMPUTE on conv2d_forward — got SM and DRAM percentages</div>
 <div class="check-item"><span class="check-box">☐</span> Identified: this kernel is compute-bound (1.08% DRAM, 61.6% SM)</div>
 <div class="check-item"><span class="check-box">☐</span> Ran --set full and explored additional metrics (occupancy, warp stalls)</div>
 </div>
