@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6D: CUDA Streams — Overlap Everything</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--cyan-bg:#39d2ff15;--amber:#ffb347;--amber-bg:#ffb34715;--green:#3fb950;--green-bg:#3fb95015;--magenta:#ff6ec7;--magenta-bg:#ff6ec715;--red:#f85149;--violet:#a371f7;--radius:14px;--radius-sm:8px;--transition:0.3s cubic-bezier(0.4,0,0.2,1)}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--cyan-bg:#ddf4ff;--amber:#9a6700;--amber-bg:#fff8c5;--green:#1a7f37;--green-bg:#dafbe1;--magenta:#bf3989;--magenta-bg:#fbefff;--red:#cf222e;--violet:#8250df}
+body.light .topbar{background:rgba(246,248,250,0.9)}body.light .eq-box{background:rgba(0,0,0,0.03)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;transition:background 0.3s,color 0.3s}
+.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+.theme-toggle{position:fixed;top:0.7rem;right:2rem;z-index:200;background:var(--raised);border:1px solid var(--border);color:var(--text);font-size:1.1rem;cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;transition:var(--transition);font-family:'JetBrains Mono',monospace}
+.theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.6rem 2rem;display:flex;align-items:center;gap:1rem;font-size:0.8rem}
+.topbar .logo{font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:0.15em;color:var(--cyan);white-space:nowrap}
+.topbar .step-dots{display:flex;gap:0.4rem;flex:1;justify-content:center}
+.topbar .step-dot{width:28px;height:4px;border-radius:2px;background:var(--border);transition:var(--transition);cursor:pointer}
+.topbar .step-dot.done{background:var(--green)}.topbar .step-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.topbar .step-dot:hover{background:var(--tdim)}
+.topbar .step-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tdim);white-space:nowrap}
+.header{text-align:center;padding:3rem 0 1rem}
+.header .phase-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;color:var(--green);border:1px solid var(--green-bg);border-radius:100px;padding:0.4em 1.4em;margin-bottom:1rem}
+.header h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.header .tagline{color:var(--tdim);font-size:0.9rem}
+.topic-list{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin:1.5rem 0 1rem}
+.topic-chip{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.04em;padding:0.3rem 0.7rem;border-radius:100px;border:1px solid var(--border);color:var(--tmut);cursor:pointer;transition:var(--transition);background:transparent}
+.topic-chip.visited{border-color:var(--green);color:var(--green);background:var(--green-bg)}.topic-chip.current{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.fun-fact{background:linear-gradient(135deg,var(--amber-bg),var(--magenta-bg));border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.65rem 1.2rem;margin-bottom:1.5rem;font-size:0.78rem;color:var(--tdim);display:flex;align-items:center;gap:0.6rem}
+.fun-fact .bulb{font-size:1.2rem;flex-shrink:0}.fun-fact strong{color:var(--amber)}
+.slide{animation:slideIn 0.35s ease}@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
+.card h2{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;color:var(--text)}
+.card h2 .num{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--cyan);background:var(--cyan-bg);border-radius:6px;padding:0.2em 0.6em}
+.card p{color:var(--tdim);margin-bottom:1rem;font-size:0.95rem}
+.card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;color:var(--cyan);margin:1.2rem 0 0.5rem}
+.data-types{display:grid;grid-template-columns:repeat(2,1fr);gap:0.8rem;margin:1rem 0}
+.data-type-card{background:var(--raised);border:1px solid var(--border);border-top:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem;transition:var(--transition);cursor:default}
+.data-type-card:nth-child(2){border-top-color:var(--amber)}.data-type-card:nth-child(3){border-top-color:var(--magenta)}.data-type-card:nth-child(4){border-top-color:var(--green)}
+.data-type-card:hover{transform:translateY(-3px)}.data-type-card .dt-icon{font-size:1.3rem;margin-bottom:0.3rem}.data-type-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.3rem;color:var(--cyan)}.data-type-card p{font-size:0.72rem!important;color:var(--tmut)!important}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.compare-card{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;transition:var(--transition)}
+.compare-card:hover{transform:translateY(-3px)}.compare-card.pick-a{border-left:3px solid var(--red)}.compare-card.pick-b{border-left:3px solid var(--cyan)}.compare-card.pick-c{border-left:3px solid var(--green)}
+.compare-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.5rem}.compare-card.pick-a h4{color:var(--red)}.compare-card.pick-b h4{color:var(--cyan)}.compare-card.pick-c h4{color:var(--green)}.compare-card p{font-size:0.72rem!important;color:var(--tdim)!important}
+.big-stat{text-align:center;margin:1rem 0}.big-stat .number{font-family:'Orbitron',sans-serif;font-size:2.2rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.big-stat .label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tmut);margin-top:0.2rem}
+.pipeline{display:flex;align-items:center;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:1rem 0}
+.pipeline-stage{background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);min-width:70px}.pipeline-stage.highlight{border-color:var(--cyan);background:var(--cyan-bg);color:var(--cyan)}.pipeline-arrow{font-size:0.9rem;color:var(--cyan)}
+.eq-box{background:rgba(0,0,0,0.4);border-left:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.7rem;line-height:1.8;color:var(--text);white-space:pre-wrap;overflow-x:auto}
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.8;white-space:pre-wrap;overflow-x:auto;color:#d4d4d4;position:relative}
+.code-wrapper{position:relative;margin:1rem 0}.copy-btn2{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;padding:0.3em 0.7em;border:1px solid #555;border-radius:6px;background:#2d2d2d;color:#ccc;cursor:pointer;transition:0.15s;opacity:0;z-index:5}
+.code-wrapper:hover .copy-btn2{opacity:1}.copy-btn2:hover{background:#333;color:var(--violet);border-color:var(--violet)}.copy-btn2.copied{opacity:1;background:#2d2d2d;color:var(--green);border-color:var(--green)}
+.quiz{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;margin-top:1.5rem}
+.quiz .question{font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--text);margin-bottom:0.8rem}
+.quiz .options{display:flex;flex-direction:column;gap:0.4rem}
+.quiz .option{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.6rem 1rem;font-size:0.82rem;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.quiz .option:hover{border-color:var(--cyan);color:var(--cyan)}.quiz .option.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}.quiz .option.wrong{border-color:var(--red);background:#f8514920;color:var(--red)}
+.quiz .feedback{display:none;margin-top:0.8rem;padding:0.6rem 1rem;border-radius:6px;font-size:0.82rem}.quiz .feedback.show{display:block}.quiz .feedback.correct{background:var(--green-bg);color:var(--green)}.quiz .feedback.wrong{background:#f8514920;color:var(--red)}
+.checklist{margin:1rem 0}.checklist .check-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.8rem;border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--tdim)}.checklist .check-box{font-size:1rem;flex-shrink:0}
+.nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
+.nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.callout{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.72rem;color:var(--tdim)}
+table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
+table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
+@media(max-width:768px){.app{padding:1rem}.compare-grid{grid-template-columns:1fr}.data-types{grid-template-columns:1fr}.card{padding:1.2rem}}
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+<nav class="topbar"><span class="logo">CUDA — PHASE 6D</span><div class="step-dots" id="stepDots"></div><span class="step-label" id="stepLabel">1/6</span></nav>
+<div class="app">
+<header class="header"><div class="phase-badge">⚡ PHASE 6D — MULTI-STREAM CUDA</div><h1>CUDA Streams — Overlap Everything</h1><p class="tagline">Default stream serializes everything. Custom streams overlap. 131ms → 18ms = 7.07× faster — same GPU, same kernel, just smarter execution.</p></header>
+<div class="topic-list" id="topicChips"></div>
+<div class="fun-fact" id="funFact"><span class="bulb">💡</span><span class="fact-text" id="funFactText"></span></div>
+<div id="slideContainer"></div>
+<div class="nav-row"><button class="nav-btn" id="prevBtn" onclick="goTo(cur-1)">← Previous</button><button class="nav-btn primary" id="nextBtn" onclick="goTo(cur+1)">Next →</button></div>
+</div>
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.getElementById('themeToggle').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('p6d-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('p6d-theme')==='light'){document.body.classList.add('light');document.getElementById('themeToggle').textContent='🌙'}
+(function(){var c=document.getElementById('bgCanvas'),ctx=c.getContext('2d'),p=[];function r(){c.width=window.innerWidth;c.height=window.innerHeight}r();window.addEventListener('resize',r);for(var i=0;i<50;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,rr:Math.random()*2+0.5});function a(){ctx.clearRect(0,0,c.width,c.height);var il=document.body.classList.contains('light');var lc=il?'rgba(9,105,218,0.05)':'rgba(57,210,255,0.05)';var dc=il?'rgba(9,105,218,0.25)':'rgba(57,210,255,0.25)';p.forEach(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;if(pp.x<0)pp.x=c.width;if(pp.x>c.width)pp.x=0;if(pp.y<0)pp.y=c.height;if(pp.y>c.height)pp.y=0});for(var i=0;i<p.length;i++)for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x,dy=p[i].y-p[j].y;if(Math.sqrt(dx*dx+dy*dy)<100){ctx.beginPath();ctx.moveTo(p[i].x,p[i].y);ctx.lineTo(p[j].x,p[j].y);ctx.strokeStyle=lc;ctx.lineWidth=0.5;ctx.stroke()}}p.forEach(function(pp){ctx.beginPath();ctx.arc(pp.x,pp.y,pp.rr,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill()});requestAnimationFrame(a)}a()})()
+
+const S=[{
+  id:'6D.1',title:'What Are CUDA Streams? — Independent Execution Queues',
+  fact:'<strong>Without streams, your GPU is like a single-lane road.</strong> Every operation waits for the previous one. With streams, it becomes a multi-lane highway — upload, compute, and download happening simultaneously.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6D.1</span> What Are CUDA Streams? — Independent Execution Queues</h2>
+<p>A stream is an <strong style="color:var(--cyan);">ordered queue of GPU operations</strong>. Operations WITHIN a stream run in order. Operations in DIFFERENT streams can run <strong style="color:var(--green);">simultaneously</strong>. The GPU has separate engines for compute and memory copy — streams let them work at the same time.</p>
+
+<div class="compare-grid">
+<div class="compare-card pick-a"><h4>🔴 Default Stream (Stream 0)</h4>
+<div class="eq-box" style="font-size:0.55rem;line-height:1.5;padding:0.5rem;margin:0.5rem 0;">
+Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
+<span style="color:var(--red);">████████████████████████████████████████████████████</span>
+<span style="color:var(--red);">131.62 ms — GPU idle ~40% of the time!</span></div><p>Every operation WAITS for the previous one. Upload engine idle during compute. GPU idle during upload/download.</p></div>
+<div class="compare-card pick-c"><h4>🟢 Multi-Stream (4 streams)</h4>
+<div class="eq-box" style="font-size:0.55rem;line-height:1.5;padding:0.5rem;margin:0.5rem 0;">
+<span style="color:var(--cyan);">S0: [Up1][Comp1][Dn1]</span>
+<span style="color:var(--amber);">S1: &nbsp;&nbsp;&nbsp;[Up2][Comp2][Dn2]</span>
+<span style="color:var(--magenta);">S2: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[Up3][Comp3][Dn3]</span>
+<span style="color:var(--green);">S3: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[Up4][Comp4][Dn4]</span>
+<span style="color:var(--green);">18.60 ms — GPU NEVER idle!</span></div><p>While one stream computes, another uploads — compute and copy engines work simultaneously.</p></div>
+</div>
+
+<h3>🔑 3 Requirements for Multi-Stream</h3>
+<div class="data-types">
+<div class="data-type-card"><div class="dt-icon">📌</div><h4>Pinned Memory</h4><p><code>cudaMallocHost()</code> not <code>malloc()</code>. GPU DMA engine can only access pinned (non-pageable) memory for async transfers.</p></div>
+<div class="data-type-card"><div class="dt-icon">🔄</div><h4>Async Functions</h4><p><code>cudaMemcpyAsync()</code> not <code>cudaMemcpy()</code>. Async version returns immediately — copy happens in background.</p></div>
+<div class="data-type-card"><div class="dt-icon">🔗</div><h4>Stream Assignment</h4><p><code>kernel<<<blocks, threads, 0, stream>>></code>. The 4th launch parameter assigns the kernel to a specific stream.</p></div>
+<div class="data-type-card"><div class="dt-icon">📦</div><h4>Independent Batches</h4><p>Batch N must not depend on batch N-1's result. Each stream processes its own independent data.</p></div>
+</div>
+
+<div class="quiz" id="q0"><div class="question">What happens if you use malloc() with cudaMemcpyAsync?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q0',this)">A. It still works — but the copy becomes SYNCHRONOUS (blocking). The GPU DMA engine can't access pageable memory directly, so CUDA falls back to a blocking copy through a pinned staging buffer. Your "async" is secretly sync.</div>
+<div class="option" onclick="checkQuiz('q0',this)">B. The program crashes with a segfault</div>
+<div class="option" onclick="checkQuiz('q0',this)">C. It works exactly the same — malloc and cudaMallocHost are identical</div>
+</div><div class="feedback" id="q0-fb"></div></div>
+</div></div>`},{
+  id:'6D.2',title:'The 7.07× Benchmark — Real Code, Real Results',
+  fact:'<strong>131.62ms → 18.60ms on the SAME Tesla T4.</strong> No kernel changes. No algorithm changes. Just HOW operations are submitted to the GPU. This is the power of understanding CUDA execution model.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6D.2</span> The 7.07× Benchmark — Real Code, Real Results</h2>
+<p>4 batches × 10 million float32 elements each. Same kernel on every batch: double the value, do some math, write back. Only the stream configuration changes.</p>
+
+<div class="big-stat"><div class="number">7.07×</div><div class="label">SPEEDUP — SAME GPU, SAME KERNEL, SAME DATA</div></div>
+
+<h3>💻 The Multi-Stream Code</h3>
+<div class="code-box"><span class="cell-num">multistream.cu — 4 streams, round-robin</span>
+<span style="color:#6a9955;">// Create 4 streams</span>
+<span style="color:#569cd6;">cudaStream_t</span> streams[<span style="color:#ce9178;">4</span>];
+<span style="color:#569cd6;">for</span> (<span style="color:#569cd6;">int</span> i=<span style="color:#ce9178;">0</span>; i<<span style="color:#ce9178;">4</span>; i++) <span style="color:#4ec9b0;">cudaStreamCreate</span>(&streams[i]);
+
+<span style="color:#6a9955;">// Process 4 batches — each in a DIFFERENT stream</span>
+<span style="color:#569cd6;">for</span> (<span style="color:#569cd6;">int</span> i=<span style="color:#ce9178;">0</span>; i<<span style="color:#ce9178;">4</span>; i++) {
+  <span style="color:#569cd6;">int</span> s = i % <span style="color:#ce9178;">4</span>;  <span style="color:#6a9955;">// Round-robin across streams</span>
+  <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(d[i], h[i], size, H2D, streams[s]);
+  process_kernel<<<blocks, threads, <span style="color:#ce9178;">0</span>, streams[s]>>>(d[i], N);
+  <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(h[i], d[i], size, D2H, streams[s]);
+}
+<span style="color:#6a9955;">// Frame 1 computes in S0 while frame 2 uploads in S1!</span></div>
+
+<h3>📊 Results Table</h3>
+<table class="param">
+<tr><th>Method</th><th>Time</th><th>GPU Utilization</th><th>Speedup</th></tr>
+<tr><td style="color:var(--red);">Single Stream</td><td style="color:var(--red);font-weight:700;">131.62 ms</td><td>~40% (GPU waits during transfers)</td><td>1×</td></tr>
+<tr><td style="color:var(--green);">4 Streams</td><td style="color:var(--green);font-weight:700;">18.60 ms</td><td>~95% (overlap transfer + compute)</td><td style="color:var(--amber);font-weight:700;">7.07×</td></tr>
+</table>
+
+<div class="quiz" id="q1"><div class="question">Why doesn't 4-stream give exactly 4× speedup?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q1',this)">A. Overlap isn't perfect — the first upload and last download can't overlap with anything (startup/wind-down). Plus the copy engine and compute engine share memory bandwidth. 7.07× from 4 streams is actually exceptional — it means overlap is nearly perfect.</div>
+<div class="option" onclick="checkQuiz('q1',this)">B. Streams have a bug that slows them down</div>
+<div class="option" onclick="checkQuiz('q1',this)">C. The GPU is slower when using multiple streams</div>
+</div><div class="feedback" id="q1-fb"></div></div>
+</div></div>`},{
+  id:'6D.3',title:'CUDA Graphs — Capture Once, Replay Forever',
+  fact:'<strong>Each kernel launch costs ~5μs of CPU overhead.</strong> For 100 kernel launches per frame at 1000 FPS, that is 500μs per second wasted on launch overhead. CUDA Graphs capture the whole workflow and replay it in ~0.5μs total.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6D.3</span> CUDA Graphs — Capture Once, Replay Forever</h2>
+
+<div class="pipeline">
+<div class="pipeline-stage highlight">📸 Capture</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage">🏗️ Instantiate</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage">▶️ Replay</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage">🔁 Replay again</div>
+</div>
+
+<h3>💻 CUDA Graph Code</h3>
+<div class="code-box"><span class="cell-num">cuda_graphs.cu</span>
+<span style="color:#6a9955;">// Step 1: Begin capture</span>
+<span style="color:#4ec9b0;">cudaStreamBeginCapture</span>(stream, cudaStreamCaptureModeGlobal);
+
+<span style="color:#6a9955;">// Step 2: Launch kernels as normal (RECORDED, not executed)</span>
+preprocess<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(...);
+inference<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(...);
+nms<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(...);
+
+<span style="color:#6a9955;">// Step 3: End capture → get graph object</span>
+<span style="color:#569cd6;">cudaGraph_t</span> graph;
+<span style="color:#4ec9b0;">cudaStreamEndCapture</span>(stream, &graph);
+
+<span style="color:#6a9955;">// Step 4: Instantiate (optimize for THIS GPU)</span>
+<span style="color:#569cd6;">cudaGraphExec_t</span> instance;
+<span style="color:#4ec9b0;">cudaGraphInstantiate</span>(&instance, graph);
+
+<span style="color:#6a9955;">// Step 5: Replay — in ONE call!</span>
+<span style="color:#4ec9b0;">cudaGraphLaunch</span>(instance, stream);  <span style="color:#6a9955;">// ~0.5μs instead of N×5μs!</span></div>
+
+<table class="param">
+<tr><th>Method</th><th>Launch Overhead</th><th>Use When</th></tr>
+<tr><td>Individual launches</td><td style="color:var(--red);">~5μs per kernel</td><td>Few kernels, simple pipelines</td></tr>
+<tr><td style="color:var(--green);">CUDA Graph</td><td style="color:var(--green);">~0.5μs total</td><td>Many kernels (>20), repeated pipelines</td></tr>
+</table>
+
+<div class="callout"><span style="font-size:1rem;">⚠️</span><span style="font-size:0.65rem;">CUDA Graphs only work with FIXED shapes. No dynamic allocations inside the graph. Best for inference pipelines where input size never changes (always 640×640).</span></div>
+
+<div class="quiz" id="q2"><div class="question">When should you NOT use CUDA Graphs?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. When input sizes vary, or you have only 2-3 kernel launches. The graph capture overhead + fixed-shape constraint isn't worth it for tiny pipelines. CUDA Graphs shine with 20+ kernel launches at fixed sizes.</div>
+<div class="option" onclick="checkQuiz('q2',this)">B. CUDA Graphs should always be used — they always help</div>
+<div class="option" onclick="checkQuiz('q2',this)">C. When using an AMD GPU</div>
+</div><div class="feedback" id="q2-fb"></div></div>
+</div></div>`},{
+  id:'6D.4',title:'🖐️ Exercise 1 — Run the Multi-Stream Demo',
+  fact:'<strong>You already have the code!</strong> The 6_Multistream.ipynb notebook in Colab runs the exact 7.07× benchmark. Just open, compile, and run.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6D.4</span> 🖐️ Exercise 1 — Run the Multi-Stream Demo</h2>
+
+<h3>💻 Step 1: Open the Notebook</h3>
+<div class="code-box"><span class="cell-num">CELL — Open in Colab</span>
+<span style="color:#4ec9b0;">https://colab.research.google.com/github/ashokmulchandani/CUDA-GPU-Colab-Computer-Vision-Project-Ashok-1/blob/main/6_Multistream.ipynb</span></div>
+
+<h3>🔨 Step 2: Compile + Run</h3>
+<div class="code-box"><span class="cell-num">CELL — Compile and Execute</span>
+<span style="color:#6a9955;"># The notebook writes multistream.cu, then:</span>
+<span style="color:#569cd6;">!nvcc</span> multistream.cu -o multistream -lm
+<span style="color:#569cd6;">!./multistream</span>
+
+<span style="color:#6a9955;"># Expected output:</span>
+<span style="color:#6a9955;"># === CUDA Multi-Stream Demo ===</span>
+<span style="color:#6a9955;"># METHOD 1: Single Stream — 131.62 ms</span>
+<span style="color:#6a9955;"># METHOD 2: Multi-Stream — 18.60 ms</span>
+<span style="color:#6a9955;"># Speedup: 7.07x faster!</span></div>
+
+<h3>📊 Record Your Results</h3>
+<table class="param">
+<tr><th>Metric</th><th>Expected</th><th>Your Value</th></tr>
+<tr><td>Single Stream Time</td><td>~131 ms</td><td>___ ms</td></tr>
+<tr><td>Multi-Stream Time</td><td>~19 ms</td><td>___ ms</td></tr>
+<tr><td>Speedup</td><td>~7×</td><td>___×</td></tr>
+<tr><td>GPU Model</td><td>T4</td><td>___</td></tr>
+</table>
+
+<h3>🧪 Experiment: Try Different Stream Counts</h3>
+<div class="code-box"><span class="cell-num">CELL — Modify and Re-run</span>
+<span style="color:#6a9955;">// Change #define NUM_STREAMS 4 → try 1, 2, 4, 8</span>
+<span style="color:#6a9955;">// Recompile and see how speedup changes</span>
+<span style="color:#569cd6;">!nvcc</span> multistream.cu -o multistream -lm && <span style="color:#569cd6;">!./multistream</span></div>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Opened the Colab notebook and verified Tesla T4 GPU</div>
+<div class="check-item"><span class="check-box">☐</span> Compiled and ran multistream.cu — got ~7× speedup</div>
+<div class="check-item"><span class="check-box">☐</span> Tried at least 2 different stream counts (1, 2, 4, 8)</div>
+</div>
+</div></div>`},{
+  id:'6D.5',title:'🖐️ Exercise 2 — Apply Streams to YOLO Pipeline',
+  fact:'<strong>In production, streams make the difference between 30 FPS and 200 FPS.</strong> Frame N+1 preprocesses while frame N does inference. The GPU never stops working.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6D.5</span> 🖐️ Exercise 2 — Apply Multi-Stream Thinking to YOLO</h2>
+
+<h3>🎯 The Production Multi-Stream Pipeline</h3>
+<div class="eq-box">
+<span style="color:var(--text-muted);">Frame 0: [Preprocess] → [TRT Infer] → [NMS] → [Display]</span>
+<span style="color:var(--text-muted);">Frame 1: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[Preprocess] → [TRT Infer] → [NMS] → [Display]</span>
+<span style="color:var(--text-muted);">Frame 2: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[Preprocess] → [TRT Infer] → [NMS] → [Display]</span>
+
+<span style="color:var(--cyan);">With 3 streams: 3 frames in flight simultaneously!</span>
+<span style="color:var(--green);">Stream 0 preprocesses while Stream 1 runs TRT while Stream 2 does NMS.</span></div>
+
+<h3>📊 Reflection — Fill This In</h3>
+<table class="param">
+<tr><th>Question</th><th>Your Answer</th></tr>
+<tr><td>Why can't we use streams if Frame 2 depends on Frame 1's result?</td><td style="text-align:left;font-size:0.55rem;">___</td></tr>
+<tr><td>What happens if we DON'T use pinned memory?</td><td style="text-align:left;font-size:0.55rem;">___</td></tr>
+<tr><td>Why does the YOLO pipeline benefit MORE from streams than matmul?</td><td style="text-align:left;font-size:0.55rem;">___</td></tr>
+<tr><td>How many streams would you use for a 4-camera system?</td><td style="text-align:left;font-size:0.55rem;">___</td></tr>
+</table>
+
+<div class="checklist">
+<div class="check-item"><span class="check-box">☐</span> Can explain why pinned memory is REQUIRED for async copies</div>
+<div class="check-item"><span class="check-box">☐</span> Can sketch the timeline for 4 cameras with 4 streams</div>
+<div class="check-item"><span class="check-box">☐</span> Understand when CUDA Graphs would help the YOLO pipeline</div>
+</div>
+</div></div>`},{
+  id:'6D.6',title:'Phase 6D Summary — Multi-Stream Complete',
+  fact:'<strong>Multi-stream is the cheapest performance win in CUDA.</strong> No kernel changes. No algorithm changes. Just understanding how to submit work to the GPU. 7× speedup for free.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6D.6</span> Phase 6D Summary — Multi-Stream Complete</h2>
+<div class="big-stat"><div class="number">6D ✅</div><div class="label">MULTI-STREAM CUDA — OVERLAP EVERYTHING</div></div>
+
+<h3>✅ What You Learned</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">🧵</span> <strong>Streams = independent GPU work queues.</strong> Operations within a stream are ordered. Operations across streams can overlap.</div>
+<div class="check-item"><span class="check-box">📌</span> <strong>Pinned memory is MANDATORY</strong> for async transfers. malloc() silently makes cudaMemcpyAsync synchronous.</div>
+<div class="check-item"><span class="check-box">🔄</span> <strong>Round-robin stream assignment</strong> distributes work across streams. frame % NUM_STREAMS determines which stream gets the work.</div>
+<div class="check-item"><span class="check-box">⚡</span> <strong>7.07× speedup</strong> on Tesla T4 with 4 streams — GPU utilization from 40% → 95%.</div>
+<div class="check-item"><span class="check-box">📸</span> <strong>CUDA Graphs</strong> capture entire workflows for ~0.5μs replay — 1000× less launch overhead.</div>
+<div class="check-item"><span class="check-box">🎯</span> <strong>Production pattern:</strong> Frame N+1 preprocesses while Frame N infers while Frame N-1 does NMS.</div>
+</div>
+</div></div>`}
+];
+
+window.checkQuiz=function(id,el){var q=document.getElementById(id);if(q.dataset.answered==='true')return;var os=q.querySelectorAll('.option'),fb=document.getElementById(id+'-fb'),ok=el.dataset.correct==='true';os.forEach(function(o){if(o.dataset.correct==='true')o.classList.add('correct')});if(!ok)el.classList.add('wrong');fb.className='feedback show '+(ok?'correct':'wrong');fb.textContent=ok?'✅ Correct!':'❌ Not quite.';q.dataset.answered='true'}
+var cur=0,vis=new Set([0]);
+function renderSlide(i){cur=i;vis.add(i);document.getElementById('slideContainer').innerHTML=S[i].render();updateDots();updateChips();document.getElementById('funFactText').innerHTML='<strong>'+S[i].id+':</strong> '+S[i].fact;document.getElementById('stepLabel').textContent=(i+1)+'/'+S.length;document.getElementById('prevBtn').disabled=i===0;var nb=document.getElementById('nextBtn');if(i===S.length-1){nb.textContent='✓ Complete';nb.style.background='var(--green-bg)';nb.style.borderColor='var(--green)';nb.style.color='var(--green)'}else{nb.textContent='Next →';nb.style.background='var(--cyan-bg)';nb.style.borderColor='var(--cyan)';nb.style.color='var(--cyan)'}document.getElementById('slideContainer').scrollIntoView({behavior:'smooth',block:'start'});
+setTimeout(function(){document.querySelectorAll('.code-box').forEach(function(box){var p=box.parentElement;if(!p.classList.contains('code-wrapper')){var w=document.createElement('div');w.className='code-wrapper';p.insertBefore(w,box);w.appendChild(box);var b=document.createElement('button');b.className='copy-btn2';b.textContent='Copy';b.onclick=function(){var c=box.cloneNode(true);navigator.clipboard.writeText(c.textContent.trim()).then(function(){b.textContent='Copied!';b.classList.add('copied');setTimeout(function(){b.textContent='Copy';b.classList.remove('copied')},2000)})};w.appendChild(b)}})},50)}
+function goTo(i){if(i>=0&&i<S.length)renderSlide(i)}
+function updateDots(){document.getElementById('stepDots').innerHTML=S.map(function(s,i){var c=i===cur?'active':vis.has(i)?'done':'';return '<div class="step-dot '+c+'" onclick="goTo('+i+')"></div>'}).join('')}
+function updateChips(){document.getElementById('topicChips').innerHTML=S.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<S.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
+renderSlide(0);
+</script>
+</body>
+</html>
