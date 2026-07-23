@@ -688,6 +688,38 @@ All interactive modules follow the MLOPS System Design project pattern: single-f
 
 All linked in CUDA_PLAN.md (Phase sections + Interactive Learning Modules table) and README.md.
 
+### Session: 2026-07-23 — Phase 4 Visuals + Phase 6A/6B Built
+
+**Phase 4 YOLO upgraded** (13 slides now, was 8):
+- 5 hands-on exercise slides (4.9-4.13) with Colab code cells + copy buttons
+- Inline visual diagrams: bounding box anatomy, NMS before/after, thread organization
+- 5 linked animations: `bounding_box_visualizer.html`, `yolo_pipeline_visualizer.html`, `cnn_backbone_visualizer.html`, `tensorrt_explainer.html`, `maxpool_animation.html`
+
+**New animations built for Phase 4:**
+- `bounding_box_visualizer.html` — Box anatomy, IoU, NMS, Grid Cells (4 tabs)
+- `yolo_pipeline_visualizer.html` — 3 stages × 3 sub-steps with code
+- `cnn_backbone_visualizer.html` — 6-level pyramid, channels, params, 3D filter explainer
+- `tensorrt_explainer.html` — 5 tabs: Before TRT, Layer Fusion, FP16, Auto-Tuning, Result
+- `filter_sliding_animation.html` — 3×3 filter on 5×5 input, 6 filter types
+- `inner_loops_animation.html` — 25 multiplications per thread, 28×28 grid, output heatmap
+- `cnn_28x28_sliding.html` — Full 28×28 with 5×5 filter, 576 positions
+- `maxpool_animation.html` — 2×2 window, max per window, index tracking
+- `flatten_fc_softmax.html` — 5-step pipeline: Flatten→FC→Softmax
+- `multichannel_conv_animation.html` — 3D filter across channels, 4 layer presets
+- `llama_neuron_comparison.html` — MLP vs Llama neuron math side-by-side
+
+**Phase 6A TensorRT built** (`phase6A_tensorrt.html`, 7 slides):
+- 5 concept slides: 4 TRT optimizations, Export pipeline, FP32/FP16/INT8, Dynamic batching + serialization, GPU auto-detection
+- 2 exercise slides with Colab code cells: Export YOLO to TRT (5 steps from fresh Colab), Benchmark precision modes
+- ONNX explainer (Open Neural Network Exchange, protobuf format, MS+Meta 2017)
+
+**Phase 6B Triton built** (`phase6B_triton.html`, 8 slides):
+- 6 concept slides with visuals: HTTP vs gRPC comparison (text vs binary), A/B testing 3-step diagram, Deployment chain, Model repository, Dynamic batching config
+- 2 exercise slides: Docker setup on GPU VM, concurrent request test for dynamic batching
+- `triton_practice/` directory created with real config.pbtxt and README
+
+**Total HTMLs: 22** (from ~8 originally)
+
 ### Recommended Next Revisions
 - **Phase 5** → Replace "VGG16 from scratch" with "Applied MLOps Bridge": take existing TF chicken disease model → TensorRT → Triton → CI/CD
 - **Phase 8** → Expand into 3 sub-phases: 8A (Self-attention + multi-head kernels), 8B (GPT-style decoder + KV-Cache), 8C (Flash Attention + FP16 optimization)
