@@ -157,6 +157,60 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
     <span class="val" id="shmVal">0 KB</span>
   </div>
 
+  <!-- BLOCK & THREAD GRID VISUAL -->
+  <div style="background:var(--card);border:2px solid var(--cyan);border-radius:12px;padding:0.8rem;margin:0.8rem 0;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.5rem;">🧱 How Blocks Sit in a Grid — Threads Inside a Block</div>
+
+    <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;">
+      <!-- Grid of blocks -->
+      <div style="text-align:center;">
+        <div style="font-size:0.45rem;color:var(--tdim);margin-bottom:0.3rem;">Grid: <span id="gX">2</span> × <span id="gY">2</span> blocks = <span id="gTotal">4</span> total</div>
+        <div id="blockGridViz" style="display:inline-grid;gap:3px;"></div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">Each square = 1 block</div>
+      </div>
+
+      <!-- Zoom into ONE block -->
+      <div style="text-align:center;">
+        <div style="font-size:0.45rem;color:var(--tdim);margin-bottom:0.3rem;">1 Block: <span id="bX">16</span> × <span id="bY">16</span> = <span id="bTotal">256</span> threads</div>
+        <div id="blockZoomViz" style="display:inline-grid;gap:1px;border:2px solid var(--amber);border-radius:4px;padding:2px;background:var(--raised);"></div>
+        <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">Each dot = 1 thread</div>
+      </div>
+
+      <!-- Stats -->
+      <div style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);line-height:1.9;min-width:180px;">
+        <div>Grid: <span id="gsX" style="color:var(--cyan);">2</span> × <span id="gsY" style="color:var(--cyan);">2</span></div>
+        <div>Block: <span id="bsX" style="color:var(--amber);">16</span> × <span id="bsY" style="color:var(--amber);">16</span></div>
+        <div>Threads/block: <strong id="thrPerBlock" style="color:var(--green);">256</strong></div>
+        <div>Total threads: <strong id="totThr" style="color:var(--cyan);">1024</strong></div>
+        <div>Warps/block: <strong id="wrpPerBlock" style="color:var(--violet);">8</strong></div>
+        <div>Total warps: <strong id="totWrp" style="color:var(--violet);">32</strong></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:0.5rem;">
+      <div style="text-align:center;">
+        <div style="font-size:0.4rem;color:var(--tmut);">Grid Size</div>
+        <input type="range" min="1" max="4" value="2" oninput="updateBlockViz()" id="gridXSlider" style="width:80px;accent-color:var(--cyan);">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="gxVal">2</span></span>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.4rem;color:var(--tmut);">Block Size</div>
+        <input type="range" min="4" max="32" step="4" value="16" oninput="updateBlockViz()" id="blockSizeSlider" style="width:80px;accent-color:var(--amber);">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);">× <span id="bsVal">16</span></span>
+      </div>
+    </div>
+
+    <!-- Comparison table -->
+    <table style="margin:0.5rem auto;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.45rem;">
+      <tr style="background:var(--raised);"><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Our CNN</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">YOLO Preprocess</th><th style="padding:0.3rem;border:1px solid var(--border);color:var(--tdim);">Real CNN conv</th></tr>
+      <tr>
+        <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">2×2</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">1024</span> total</td>
+        <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">40×40×3</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">1,228,800</span> total</td>
+        <td style="padding:0.3rem;border:1px solid var(--border);">Grid: <span style="color:var(--cyan);">2×2×512</span><br>Block: <span style="color:var(--amber);">16×16</span><br>= <span style="color:var(--green);">256</span> thr/block<br>= <span style="color:var(--cyan);">524,288</span> total</td>
+      </tr>
+    </table>
+  </div>
+
   <div class="note">
     <strong style="color:var(--cyan);">T4 Limits:</strong> Max 64 warps/SM | Max 32 blocks/SM | 65,536 registers/SM | 64 KB shared memory/SM<br>
     <strong style="color:var(--amber);">Occupancy = min(block_limit, register_limit, shared_memory_limit, warp_limit) / 64</strong>
@@ -187,6 +241,31 @@ function setPreset(i,btn){
   document.getElementById('shmVal').textContent=(p.shm/1024)+' KB';
   document.getElementById('presetLabel').textContent=p.label;
   updateSim();
+}
+function updateBlockViz(){
+  var gx=parseInt(document.getElementById('gridXSlider').value);var gy=gx;
+  var bs=parseInt(document.getElementById('blockSizeSlider').value);
+  document.getElementById('gxVal').textContent=gx;document.getElementById('bsVal').textContent=bs;
+  // Block grid
+  var gh='';for(var r=0;r<gy;r++){for(var c=0;c<gx;c++){gh+='<div style="width:30px;height:30px;background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--cyan);">B'+r+','+c+'</div>'}}
+  document.getElementById('blockGridViz').style.gridTemplateColumns='repeat('+gx+',30px)';
+  document.getElementById('blockGridViz').innerHTML=gh;
+  // Block zoom
+  var bh='';var maxShow=Math.min(bs,20);
+  for(var r=0;r<maxShow;r++){for(var c=0;c<maxShow;c++){var isWarpEdge=(c%32===0||c%32===31);var bg=isWarpEdge?'var(--amber)':'var(--green)';bh+='<div style="width:'+(bs>16?'5px':'7px')+';height:'+(bs>16?'5px':'7px')+';background:'+bg+';opacity:0.7;border-radius:1px;" title="Thread ('+r+','+c+')"></div>'}}
+  if(bs>20)bh+='<div style="font-size:0.35rem;color:var(--tmut);grid-column:1/-1;text-align:center;">'+(bs-20)+' more rows...</div>';
+  document.getElementById('blockZoomViz').style.gridTemplateColumns='repeat('+maxShow+',1fr)';
+  document.getElementById('blockZoomViz').innerHTML=bh;
+  // Stats
+  var thrPerBlock=bs*bs,totalThr=gx*gy*thrPerBlock,wrpPerBlock=Math.ceil(thrPerBlock/32),totWrp=totalThr/32;
+  document.getElementById('gX').textContent=gx;document.getElementById('gY').textContent=gy;document.getElementById('gTotal').textContent=gx*gy;
+  document.getElementById('bX').textContent=bs;document.getElementById('bY').textContent=bs;document.getElementById('bTotal').textContent=thrPerBlock;
+  document.getElementById('gsX').textContent=gx;document.getElementById('gsY').textContent=gy;
+  document.getElementById('bsX').textContent=bs;document.getElementById('bsY').textContent=bs;
+  document.getElementById('thrPerBlock').textContent=thrPerBlock;
+  document.getElementById('totThr').textContent=totalThr;
+  document.getElementById('wrpPerBlock').textContent=wrpPerBlock;
+  document.getElementById('totWrp').textContent=totWrp;
 }
 function updateSim(){
   let thr=parseInt(document.getElementById('thrSlider').value);
@@ -282,7 +361,7 @@ function updateSim(){
 ${limitMsg}`;
 }
 
-updateSim();
+updateSim();updateBlockViz();
 </script>
 </body>
 </html>
