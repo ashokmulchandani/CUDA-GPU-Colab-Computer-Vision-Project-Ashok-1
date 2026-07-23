@@ -93,6 +93,24 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient
       💡 <strong style="color:var(--amber);">Occupancy measures WARPS, not CUDA cores.</strong> The GPU hides memory latency by switching between warps.<br>
       More active warps = more chances to find work while others wait. Max = 64 warps/SM = 100% occupancy.
     </div>
+
+    <!-- CALCULATION TABLE -->
+    <div style="background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.6rem 0.8rem;margin-top:0.4rem;text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.4rem;">📊 How Are These Numbers Calculated?</div>
+      <table style="margin:0 auto;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.45rem;">
+        <tr style="background:var(--raised);"><th style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--tdim);">What</th><th style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--tdim);">Per SM</th><th style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--tdim);">× 40 SMs</th><th style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);">GPU Total</th></tr>
+        <tr><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">CUDA Cores</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">64</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">× 40</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);font-weight:700;">2,560</td></tr>
+        <tr><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">Max Threads</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">2,048</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">× 40</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);font-weight:700;">81,920</td></tr>
+        <tr><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">Max Warps</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">64</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">× 40</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);font-weight:700;">2,560</td></tr>
+        <tr><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">Max Blocks</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">32</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">× 40</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);font-weight:700;">1,280</td></tr>
+        <tr><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">Registers</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">65,536</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">× 40</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);font-weight:700;">2,621,440</td></tr>
+        <tr><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">Shared Memory</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">64 KB</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);">× 40</td><td style="padding:0.3rem 0.5rem;border:1px solid var(--border);color:var(--cyan);font-weight:700;">2.5 MB</td></tr>
+      </table>
+      <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">
+        ⚡ <strong style="color:var(--amber);">VRAM (16 GB) and Bandwidth (320 GB/s)</strong> are hardware specs — not derived from SM count. They're fixed by NVIDIA.<br>
+        🧮 <strong style="color:var(--cyan);">Everything else = Per-SM spec × 40 SMs.</strong> The SM is the building block. The GPU is just 40 copies of it.
+      </div>
+    </div>
   </div>
 
   <div class="stats-row">
