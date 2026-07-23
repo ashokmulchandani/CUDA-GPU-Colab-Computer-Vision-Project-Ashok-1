@@ -528,6 +528,10 @@ function updateSim(){
     </div>
 
     <!-- HOW DID WE GET THAT NUMBER -->
+    <div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:6px;padding:0.4rem 0.8rem;margin-top:0.5rem;text-align:center;font-size:0.5rem;color:var(--tdim);">
+      💡 <strong style="color:var(--cyan);">How do you know the register count? You PROFILE it!</strong> Nsight Compute (<code>ncu --set full</code>) tells you exactly how many registers each thread uses. You don't guess — you measure. The slider values here are examples of what a profiler would report.
+    </div>
+
     <div style="background:var(--raised);border:1px solid var(--amber);border-radius:8px;padding:0.6rem;margin-top:0.5rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);line-height:2;">
       <strong style="color:var(--amber);">🔍 How did we get ${regsPerBlock.toLocaleString()} registers per block?</strong><br>
       ${thr} threads per block ÷ 32 threads/warp = <strong style="color:var(--cyan);">${warpPerBlock} warps</strong><br>
