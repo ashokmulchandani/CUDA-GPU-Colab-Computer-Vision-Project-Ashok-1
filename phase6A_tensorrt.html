@@ -282,7 +282,8 @@ const slides=[{
 <span style="color:#569cd6;">from</span> ultralytics <span style="color:#569cd6;">import</span> YOLO
 
 <span style="color:#6a9955;"># This downloads yolov8n.pt automatically (~6 MB) on first run</span>
-<span style="color:#6a9955;"># The .pt file is the TRAINED model — all 3.15M weights included</span>
+<span style="color:#6a9955;"># Built by Ultralytics — pre-trained on COCO (118K images, 80 classes)</span>
+<span style="color:#6a9955;"># We did NOT train this. We are USING their trained weights for inference.</span>
 <span style="color:#c586c0;">model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.pt'</span>)  <span style="color:#6a9955;">// downloads + loads in one line!</span>
 
 <span style="color:#6a9955;"># Test: run inference on a sample image to verify it works</span>
