@@ -167,7 +167,8 @@ h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient
       <strong style="color:var(--amber);">Key insight:</strong> Each output channel = ONE 3D filter (h × w × all_input_channels)<br>
       <strong style="color:var(--cyan);">The 3D filter slides across the 2D image, reading ALL input channels at each position.</strong><br>
       → 16 output channels = 16 different 3D filters, each learning a different pattern across all 3 RGB channels.<br>
-      → At deeper layers, each filter sees ALL previous channels — that is why "channels grow" = more patterns being combined.
+      → At deeper layers, each filter sees ALL previous channels — that is why "channels grow" = more patterns being combined.<br>
+      <a href="multichannel_conv_animation.html" style="color:var(--cyan);">🎬 Watch the 3D filter animation →</a>
     </div>
   </div>
 
