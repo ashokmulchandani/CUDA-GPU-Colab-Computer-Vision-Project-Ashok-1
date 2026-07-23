@@ -289,11 +289,35 @@ const slides=[{
 <tr><td style="color:var(--green);">TensorRT FP16</td><td>7.9 MB</td><td>~7min</td><td style="text-align:center;">~11.3ms</td><td style="text-align:center;">~89</td></tr>
 </table>
 
+<h3>💾 Step 4: Verify Serialization — The Engine File IS Your Saved Model</h3>
+<div class="code-box"><span class="cell-num">CELL — Check Serialized Engine</span>
+<span style="color:#6a9955;"># After export, the .engine file IS the serialized TensorRT engine</span>
+<span style="color:#569cd6;">import</span> os
+
+<span style="color:#6a9955;"># Check: the engine file exists on disk</span>
+<span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"Engine file:"</span>, <span style="color:#ce9178;">"yolov8n.engine"</span>)
+<span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"Size:"</span>, os.path.getsize(<span style="color:#ce9178;">"yolov8n.engine"</span>)/<span style="color:#ce9178;">1024**2</span>, <span style="color:#ce9178;">"MB"</span>)
+
+<span style="color:#6a9955;"># THIS is serialization: the engine is saved to disk</span>
+<span style="color:#6a9955;"># You can now copy this file to any server with a T4 GPU</span>
+
+<span style="color:#6a9955;"># Load it back — no rebuilding needed!</span>
+<span style="color:#c586c0;">trt_model</span> = <span style="color:#4ec9b0;">YOLO</span>(<span style="color:#ce9178;">'yolov8n.engine'</span>)  <span style="color:#6a9955;">// loads in ~100ms!</span>
+<span style="color:#569cd6;">print</span>(<span style="color:#ce9178;">"Engine loaded and ready for inference!"</span>)</div>
+
+<h3>📊 Step 5: Record Your Full Results</h3>
+<table class="param">
+<tr><th>Format</th><th>File Size</th><th>Export Time</th><th>Load Time</th><th>Inference Time</th></tr>
+<tr><td>PyTorch (.pt)</td><td>6.3 MB</td><td>—</td><td>~1s</td><td style="text-align:center;">___ ms</td></tr>
+<tr><td>ONNX (.onnx)</td><td>12.3 MB</td><td>~7s</td><td>~200ms</td><td style="text-align:center;">___ ms</td></tr>
+<tr><td style="color:var(--green);">TensorRT (.engine)</td><td>7.9 MB</td><td style="color:var(--red);">~7 min</td><td style="color:var(--green);">~100ms</td><td style="text-align:center;">~11.3ms</td></tr>
+</table>
+
 <div class="checklist">
-<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to ONNX format</div>
-<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to TensorRT FP16 engine</div>
-<div class="check-item"><span class="check-box">☐</span> <strong style="color:var(--amber);">💾 Serialization check:</strong> Found <code>yolov8n.engine</code> in your files — that IS the serialized engine! Built once (7 min), loads forever (100ms).</div>
-<div class="check-item"><span class="check-box">☐</span> Compared file sizes — noticed ONNX is largest (12.3MB), TRT is optimized smallest (7.9MB)</div>
+<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to ONNX format (.onnx, 12.3 MB)</div>
+<div class="check-item"><span class="check-box">☐</span> Exported YOLOv8n to TensorRT FP16 engine (.engine, 7.9 MB)</div>
+<div class="check-item"><span class="check-box">☐</span> <strong style="color:var(--amber);">💾 Verified serialization:</strong> Found <code>yolov8n.engine</code> on disk — loaded it with <code>YOLO('yolov8n.engine')</code> in ~100ms</div>
+<div class="check-item"><span class="check-box">☐</span> Compared file sizes + load times across all 3 formats</div>
 <div class="check-item"><span class="check-box">☐</span> Ran inference with the TRT engine and recorded timing</div>
 </div>
 </div></div>`},{
