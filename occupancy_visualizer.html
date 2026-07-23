@@ -524,7 +524,38 @@ function updateSim(){
       </tr>
     </table>
     <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin-top:0.5rem;">
-      ${bottlenecks.length>0?`🔴 <strong style="color:var(--red);">Registers are the bottleneck.</strong> Each block uses ${regsPerBlock.toLocaleString()} registers. SM only has 65,536. To increase occupancy: use fewer registers per thread.`:`✅ Balanced — no single bottleneck.`}
+      ${bottlenecks.length>0?`🔴 <strong style="color:var(--red);">Registers are the bottleneck.</strong> Each block uses ${regsPerBlock.toLocaleString()} registers. SM only has 65,536.`:`✅ Balanced — no single bottleneck.`}
+    </div>
+
+    <!-- WHAT-IF TABLE -->
+    <div style="margin-top:0.5rem;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;text-align:center;">🔧 What If I Reduce Registers Per Thread? (keeping threads=${thr})</div>
+      <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;">
+        <tr style="background:var(--raised);">
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Regs/Thread</th>
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Regs/Block</th>
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Blocks (reg limit)</th>
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Blocks (warp limit)</th>
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--cyan);">Blocks/SM</th>
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--green);">Occupancy</th>
+          <th style="padding:0.4rem;border:1px solid var(--border);color:var(--tdim);">Verdict</th>
+        </tr>
+        ${[Math.max(16,reg-48),Math.max(16,reg-32),Math.max(16,reg-16),reg,Math.min(128,reg+16),Math.min(128,reg+32)].filter(function(v,i,arr){return arr.indexOf(v)===i&&v>=16&&v<=128}).map(function(r){
+          var rpb=r*warpPerBlock*32;
+          var blkR=Math.min(MAX_BLOCKS_PER_SM,Math.floor(MAX_REGS_PER_SM/rpb));
+          var blkW=Math.min(MAX_BLOCKS_PER_SM,Math.floor(MAX_WARPS_PER_SM/warpPerBlock));
+          var finalB=Math.min(blkR,blkW);
+          var occ=Math.round((finalB*warpPerBlock/MAX_WARPS_PER_SM)*100);
+          var isCurrent=(r===reg);
+          var bg=isCurrent?'background:rgba(57,210,255,0.1);':'';
+          var verdict=occ>=100?'✅ Perfect':occ>=66?'🟡 Good':occ>=33?'🟠 OK':'🔴 Low';
+          return '<tr style="'+bg+'"><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:'+(isCurrent?'var(--cyan)':'var(--tdim)')+';font-weight:'+(isCurrent?'700':'400')+';">'+(isCurrent?'👉 ':'')+r+(isCurrent?' (now)':'')+'</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--amber);">'+rpb.toLocaleString()+'</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;'+(blkR<=blkW?'color:var(--red);font-weight:700;':'')+'">'+blkR+'</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;">'+blkW+'</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;color:var(--cyan);font-weight:700;">'+finalB+'</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;font-weight:700;font-size:0.6rem;color:'+(occ>=66?'var(--green)':occ>=33?'var(--amber)':'var(--red)')+';">'+occ+'%</td><td style="padding:0.4rem;border:1px solid var(--border);text-align:center;font-size:0.5rem;">'+verdict+'</td></tr>';
+        }).join('')}
+      </table>
+      <div style="font-size:0.5rem;color:var(--tdim);text-align:center;margin-top:0.4rem;">
+        💡 <strong style="color:var(--green);">To remove the register bottleneck:</strong> reduce regs/thread until the "Blocks (reg limit)" column ≥ "Blocks (warp limit)".<br>
+        Then warps become the limiting factor — which is fine because every warp slot is filled = 100% occupancy.
+      </div>
     </div>
   </div>
 </div>`;
