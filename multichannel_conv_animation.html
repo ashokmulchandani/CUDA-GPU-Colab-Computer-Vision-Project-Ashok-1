@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Filter — How Multi-Channel Convolution Works</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7;--magenta:#ff6ec7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df;--magenta:#bf3989}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:950px;margin:0 auto;padding:1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.65rem;margin-bottom:0.8rem}
+
+.panels{display:flex;gap:0.8rem;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.7rem}
+.panel-label{font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);letter-spacing:0.04em;margin-bottom:0.4rem}
+
+/* Grids */
+.gt{border-collapse:collapse;margin:0 auto}
+.gt td{width:36px;height:36px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.55rem;border:1px solid var(--border);transition:0.15s}
+.gt td.in-patch{border:2px solid var(--amber)!important;background:rgba(255,179,71,0.3)!important}
+.gt td.active{border:2px solid var(--cyan)!important;background:var(--cyan-bg)!important;font-weight:700}
+.gt td.R{color:var(--red)}.gt td.G{color:var(--green)}.gt td.B{color:var(--cyan)}
+
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem;margin:0.5rem auto;max-width:700px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;min-height:40px}
+
+.ctrls{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}.btn:disabled{opacity:0.3;cursor:not-allowed}
+
+.stats{display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin:0.3rem 0}
+.st{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;text-align:center}
+.st .val{font-family:'Orbitron',sans-serif;font-size:0.8rem;font-weight:700}.st .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+
+.note{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem;line-height:1.5}
+@media(max-width:750px){.gt td{width:28px;height:28px;font-size:0.5rem}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>3D Filter — Multi-Channel Convolution</h1>
+  <p class="subtitle">A "3×3 filter" is actually <strong>3×3×C</strong> (C = input channels). It reads ALL input channels at every position. <span id="infoText">Here: 3 channels (like RGB).</span></p>
+
+  <div class="stats">
+    <div class="st" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);" id="chLabel">3ch</div><div class="lbl">Input Channels</div></div>
+    <div class="st" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);" id="wLabel">27</div><div class="lbl">Weights per Filter</div></div>
+    <div class="st" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);" id="sumLabel">0.00</div><div class="lbl">Running Sum</div></div>
+  </div>
+
+  <div class="panels">
+    <!-- 3 Channel grids -->
+    <div id="channelGrids" style="display:flex;gap:0.4rem;flex-wrap:wrap;justify-content:center;"></div>
+    <!-- Filter cubes -->
+    <div class="panel" style="border-top:3px solid var(--amber);min-width:140px;">
+      <div class="panel-label">🔍 3D Filter (3×3×3)</div>
+      <div id="filterCubes" style="display:flex;flex-direction:column;gap:2px;"></div>
+      <div class="note" style="margin-top:0.4rem;">3 planes × 9 weights = <strong style="color:var(--amber);">27 weights</strong></div>
+    </div>
+  </div>
+
+  <div class="comp" id="compBox">Press ▶ Play to see the 3D filter slide across all channels at each position</div>
+
+  <div class="ctrls">
+    <button class="btn" onclick="changeStep(-1)" id="prevBtn">◀</button>
+    <button class="btn primary" onclick="toggleAuto()" id="autoBtn">▶ Play</button>
+    <button class="btn" onclick="changeStep(1)" id="nextBtn">Next ▶</button>
+    <button class="btn" onclick="resetAll()">↺ Reset</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--tdim);" id="stepLbl">0/27</span>
+  </div>
+
+  <div class="note">
+    Each output channel = ONE 3D filter. 16 output channels = 16 different 3D filters, each with 3×3×3=27 weights.<br>
+    At deeper layers (128→256ch): each filter has 3×3×128 = <strong style="color:var(--red);">1,152 weights!</strong>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('mc-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('mc-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+// 3 channels x 5x5 input
+const chData=[
+  [[0.2,0.1,0.9,0.8,0.0],[0.1,0.0,0.7,0.9,0.1],[0.0,0.2,0.6,0.8,0.1],[0.1,0.1,0.5,0.7,0.2],[0.0,0.0,0.3,0.6,0.1]], // R-like
+  [[0.1,0.2,0.4,0.5,0.1],[0.0,0.1,0.3,0.4,0.0],[0.2,0.0,0.2,0.5,0.2],[0.1,0.3,0.1,0.3,0.1],[0.0,0.1,0.0,0.2,0.0]], // G-like
+  [[0.0,0.1,0.1,0.0,0.2],[0.1,0.0,0.2,0.1,0.0],[0.0,0.2,0.1,0.0,0.1],[0.2,0.0,0.0,0.2,0.0],[0.1,0.1,0.0,0.1,0.2]]  // B-like
+];
+// 3D filter: 3 channels x 3x3
+const fltData=[
+  [[0.2,0.3,-0.1],[0.1,0.4,-0.2],[-0.1,-0.2,-0.3]], // ch0 weights
+  [[0.1,0.2,-0.1],[0.0,0.3,-0.1],[-0.1,-0.1,-0.2]], // ch1 weights
+  [[0.0,0.1,-0.1],[-0.1,0.2,0.0],[-0.1,0.0,-0.1]]  // ch2 weights
+];
+
+let step=0,autoTimer=null,spd=400;
+// step 0=start, 1..27=positions (9 spatial × 3 channels)
+
+function renderAll(){
+  let pR=1,pC=1; // spatial position of filter (centered on 5x5)
+  let chIdx=-1,spIdx=-1;
+  if(step>0&&step<=27){
+    chIdx=Math.floor((step-1)/9);
+    spIdx=(step-1)%9;
+    pR=Math.floor(spIdx/3);
+    pC=spIdx%3;
+  }
+
+  // Render 3 channel grids
+  let gh='';
+  for(let ch=0;ch<3;ch++){
+    let isActiveCh=(ch===chIdx);
+    gh+=`<div class="panel" style="border-top:3px solid ${['var(--red)','var(--green)','var(--cyan)'][ch]};opacity:${isActiveCh||chIdx===-1?'1':'0.4'}">`;
+    gh+=`<div class="panel-label" style="color:${['var(--red)','var(--green)','var(--cyan)'][ch]};">${['Channel 0 (R-like)','Channel 1 (G-like)','Channel 2 (B-like)'][ch]}</div>`;
+    gh+='<table class="gt">';
+    for(let r=0;r<5;r++){gh+='<tr>';
+      for(let c=0;c<5;c++){
+        let inPatch=(isActiveCh&&r>=pR&&r<pR+3&&c>=pC&&c<pC+3);
+        let isActiveCell=(inPatch&&r===pR+1&&c===pC+1); // center of patch
+        let cls='';
+        if(isActiveCell)cls='active';
+        else if(inPatch)cls='in-patch';
+        let v=chData[ch][r][c];
+        let clr=v>0.7?'var(--text)':v>0.4?'var(--tdim)':'var(--tmut)';
+        gh+=`<td class="${cls}" style="color:${clr};font-weight:${v>0.7?'600':'400'}">${v.toFixed(1)}</td>`;
+      }gh+='</tr>';}
+    gh+='</table></div>';
+  }
+  document.getElementById('channelGrids').innerHTML=gh;
+
+  // Render filter cubes
+  let fh='';
+  for(let ch=0;ch<3;ch++){
+    let isActiveCh=(ch===chIdx);
+    fh+=`<div style="margin-bottom:2px;opacity:${isActiveCh||chIdx===-1?'1':'0.4'}">`;
+    fh+=`<div style="font-size:0.4rem;color:${['var(--red)','var(--green)','var(--cyan)'][ch]};margin-bottom:1px;">Ch ${ch}</div>`;
+    fh+='<table class="gt">';
+    for(let r=0;r<3;r++){fh+='<tr>';
+      for(let c=0;c<3;c++){
+        let v=fltData[ch][r][c];
+        let isActive=(isActiveCh&&r===1&&c===1);
+        let sgn=v>=0?'+':'−';
+        let bg=v>0.15?'rgba(63,185,80,0.3)':v<-0.1?'rgba(248,81,73,0.3)':'rgba(255,179,71,0.08)';
+        let clr=v>0.15?'var(--green)':v<-0.1?'var(--red)':'var(--tmut)';
+        fh+=`<td style="background:${bg};color:${clr};font-weight:${Math.abs(v)>0.1?'600':'400'};${isActive?'border:2px solid var(--cyan)!important;background:var(--cyan-bg)!important;':''}">${sgn}${Math.abs(v).toFixed(1)}</td>`;
+      }fh+='</tr>';}
+    fh+='</table></div>';
+  }
+  document.getElementById('filterCubes').innerHTML=fh;
+
+  // Compute running sum
+  let sum=0,comp='';
+  if(step>0&&step<=27){
+    let chDone=Math.floor((step-1)/9);
+    let spDone=(step-1)%9;
+    let cnt=0;
+    comp='<span style="color:#6a9955;">// 3D filter reads ALL 3 channels at position ('+pR+','+pC+')</span>\n';
+    for(let ch=0;ch<3;ch++){
+      for(let sp=0;sp<9;sp++){
+        if(ch<chDone||(ch===chDone&&sp<=spDone)){
+          let r=Math.floor(sp/3),c=sp%3;
+          let pv=chData[ch][pR+r][pC+c],w=fltData[ch][r][c],prod=pv*w;
+          sum+=prod;cnt++;
+          let isCur=(ch===chIdx&&sp===spDone);
+          let ps=prod>=0?'+':'−';
+          if(isCur)comp+=`<span style="color:var(--cyan);font-weight:700;">→ Ch${ch}[${pR+r},${pC+c}]×F${ch}[${r},${c}] = ${pv.toFixed(2)}×${w>=0?'+':''}${w.toFixed(1)} = ${ps}${Math.abs(prod).toFixed(3)} ← NOW</span>\n`;
+          else comp+=`  Ch${ch}[${pR+r},${pC+c}]×F${ch}[${r},${c}] = ${pv.toFixed(2)}×${w>=0?'+':''}${w.toFixed(1)} = ${ps}${Math.abs(prod).toFixed(3)}\n`;
+        }
+      }
+    }
+    if(step<27)comp+=`\n<span style="color:#6a9955;">... ${27-step} more multiplications across all channels ...</span>\n`;
+    if(step===27)comp+=`\n<span style="color:#6a9955;">──────────────────────────────</span>\n<span style="color:var(--green);font-weight:700;">FINAL SUM = ${sum.toFixed(3)} ← ONE output pixel for ONE output channel!</span>\n<span style="color:#6a9955;">This is just 1 of 27 × 16 filters × 576 positions = 248,832 computations per forward pass!</span>`;
+  } else {
+    comp='Press ▶ Play to see the 3D filter slide through ALL channels at each spatial position';
+  }
+  document.getElementById('compBox').innerHTML=comp;
+  document.getElementById('sumLabel').textContent=sum.toFixed(3);
+  document.getElementById('stepLbl').textContent=step+'/27';
+  document.getElementById('prevBtn').disabled=step===0;
+  document.getElementById('nextBtn').disabled=step===27;
+}
+
+function changeStep(d){let ns=step+d;if(ns<0||ns>27)return;step=ns;renderAll()}
+function toggleAuto(){
+  if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary');return;}
+  if(step>=27)resetAll();
+  document.getElementById('autoBtn').textContent='⏸ Stop';document.getElementById('autoBtn').classList.add('primary');
+  autoTimer=setInterval(function(){if(step<27){step++;renderAll()}else{clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary')}},spd);
+}
+function resetAll(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;document.getElementById('autoBtn').textContent='▶ Play';document.getElementById('autoBtn').classList.remove('primary')}step=0;renderAll()}
+
+renderAll();document.getElementById('prevBtn').disabled=true;
+</script>
+</body>
+</html>
