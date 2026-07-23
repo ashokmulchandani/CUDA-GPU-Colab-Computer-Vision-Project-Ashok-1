@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nsight Systems & Compute — Interactive Toolkit</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:950px;margin:0 auto;padding:1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.2rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.65rem;margin-bottom:0.8rem}
+
+.tabs{display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin-bottom:0.8rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.tab:hover{border-color:var(--cyan);color:var(--cyan)}.tab.active{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;margin:0.8rem 0;text-align:left}
+.panel h3{font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--cyan);margin-bottom:0.5rem;text-align:center}
+
+/* Timeline */
+.tl-row{display:flex;align-items:center;gap:0.5rem;margin:0.3rem 0}
+.tl-label{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);min-width:50px}
+.tl-track{flex:1;height:24px;background:var(--raised);border-radius:4px;position:relative;overflow:hidden}
+.tl-block{position:absolute;top:2px;height:20px;border-radius:3px;font-size:0.4rem;text-align:center;line-height:20px;color:var(--text);font-family:'JetBrains Mono',monospace;transition:0.5s}
+.tl-idle{background:rgba(248,81,73,0.3);border:1px solid var(--red)}
+.tl-copy{background:rgba(255,179,71,0.3);border:1px solid var(--amber)}
+.tl-kernel{background:rgba(63,185,80,0.4);border:1px solid var(--green)}
+
+/* Roofline chart */
+.roof-chart{position:relative;width:100%;max-width:500px;height:200px;background:var(--raised);border:1px solid var(--border);border-radius:8px;margin:0.5rem auto}
+.roof-dot{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid;transform:translate(-50%,-50%);cursor:pointer;transition:0.3s}
+.roof-dot:hover{transform:translate(-50%,-50%) scale(1.5);z-index:5}
+.roof-dot .tooltip{display:none;position:absolute;bottom:20px;left:10px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tdim);white-space:nowrap}
+.roof-dot:hover .tooltip{display:block}
+
+table.data{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.5rem;margin:0.5rem 0}
+table.data th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}
+table.data td{padding:0.4rem;border:1px solid var(--border);text-align:center}
+
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:6px;padding:0.6rem 0.8rem;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;white-space:pre-wrap;overflow-x:auto}
+
+.stats-row{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.8rem;text-align:center}
+.stat .val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700}.stat .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+
+.pipeline-flow{display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.5rem 0}
+.pf-step{background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.6rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim)}
+.pf-arrow{color:var(--cyan)}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>Nsight Systems & Compute — Interactive Toolkit</h1>
+  <p class="subtitle">Profile → Find bottleneck → Fix → Measure. The complete GPU profiling workflow with real data from our Phase 3.5 CNN.</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0,this)">📹 Systems</button>
+    <button class="tab" onclick="switchTab(1,this)">🔬 Compute</button>
+    <button class="tab" onclick="switchTab(2,this)">📊 Roofline</button>
+    <button class="tab" onclick="switchTab(3,this)">🔄 Workflow</button>
+  </div>
+
+  <div id="tabContent"></div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('ni-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('ni-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+function switchTab(i,btn){document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');renderTab(i)}
+
+function renderTab(i){
+  var h='';
+  if(i===0){ // SYSTEMS
+    h+=`<div class="panel"><h3>📹 Nsight Systems — Timeline View (Simulated)</h3>
+    <p style="font-size:0.6rem;color:var(--tdim);text-align:center;">This is what Nsight Systems shows for our CNN training loop. <strong style="color:var(--red);">Red gaps = GPU idle.</strong> The GPU waits while Python loads the next batch.</p>
+    <div id="timelineSim"></div>
+    <div style="text-align:center;margin-top:0.5rem;">
+      <button class="tab" onclick="animateTimeline()" style="font-size:0.5rem;">▶ Animate</button>
+      <button class="tab" onclick="drawTimeline('sequential')" style="font-size:0.5rem;">📋 Sequential</button>
+      <button class="tab" onclick="drawTimeline('overlap')" style="font-size:0.5rem;">⚡ Overlapped (Streams)</button>
+      <button class="tab" onclick="drawTimeline('idle')" style="font-size:0.5rem;">🐌 CPU Idle</button>
+    </div></div>
+
+    <div class="panel"><h3>📋 What Nsight Systems Captures</h3>
+    <table class="data">
+    <tr><th>Signal</th><th>What It Means</th><th>How to Read It</th></tr>
+    <tr><td>CUDA API calls</td><td>CPU telling GPU what to do</td><td style="color:var(--cyan);">Thick blue bars = many API calls</td></tr>
+    <tr><td>Kernel executions</td><td>GPU actually computing</td><td style="color:var(--green);">Green blocks = GPU working</td></tr>
+    <tr><td>Memory copies (H2D/D2H)</td><td>Data moving CPU↔GPU</td><td style="color:var(--amber);">Amber blocks = transfer happening</td></tr>
+    <tr><td>GPU idle gaps</td><td>GPU waiting for CPU</td><td style="color:var(--red);">Red gaps = WASTED GPU time</td></tr>
+    <tr><td>Stream overlap</td><td>Multiple streams running</td><td style="color:var(--violet);">Stacked bars = good overlap</td></tr>
+    </table></div>
+
+    <div class="code-box"><span style="color:#6a9955;"># Run in Colab:</span>
+<span style="color:#569cd6;">!nsys</span> profile --stats=true ./cnn_mnist
+<span style="color:#6a9955;"># Creates report1.nsys-rep — open in Nsight Systems GUI (free from NVIDIA)</span></div>`;
+    setTimeout(function(){drawTimeline('sequential')},100);
+  }
+  else if(i===1){ // COMPUTE
+    h+=`<div class="panel"><h3>🔬 Nsight Compute — Kernel Deep-Dive</h3>
+    <p style="font-size:0.6rem;color:var(--tdim);text-align:center;">Real data from profiling <strong style="color:var(--cyan);">conv2d_forward</strong> on Tesla T4 (Colab)</p>
+
+    <div class="stats-row">
+      <div class="stat" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);">61.6%</div><div class="lbl">SM Throughput</div></div>
+      <div class="stat" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);">1.08%</div><div class="lbl">DRAM Throughput</div></div>
+      <div class="stat" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);">(2,2,512)×(16,16)</div><div class="lbl">Launch Config</div></div>
+      <div class="stat" style="border-top:2px solid var(--violet);"><div class="val" style="color:var(--violet);">T4 CC 7.5</div><div class="lbl">GPU Device</div></div>
+    </div>
+
+    <table class="data">
+    <tr><th>Metric Group</th><th>Key Metric</th><th>Our Value</th><th>Meaning</th></tr>
+    <tr><td>Compute</td><td>SM Throughput %</td><td style="color:var(--amber);">61.61%</td><td>Using 61% of GPU math power</td></tr>
+    <tr><td>Memory</td><td>DRAM Throughput %</td><td style="color:var(--cyan);">1.08%</td><td>Barely touching GPU memory bandwidth</td></tr>
+    <tr><td>Occupancy</td><td>Achieved Occupancy</td><td>~50%</td><td>Limited by registers per thread</td></tr>
+    <tr><td>Warp Stalls</td><td>Long Scoreboard</td><td>Moderate</td><td>Some global memory wait</td></tr>
+    <tr><td>Warp Stalls</td><td>Not Selected</td><td>High</td><td style="color:var(--green);">GPU is busy — good!</td></tr>
+    <tr><td>Instructions</td><td>Executed per cycle</td><td>~2.5</td><td>Moderate ILP</td></tr>
+    </table></div>
+
+    <div class="code-box"><span style="color:#6a9955;"># Run in Colab (from Phase 3.5 notebook):</span>
+<span style="color:#569cd6;">!ncu</span> --kernel-name conv2d_forward --launch-count <span style="color:#ce9178;">1</span> \\
+  --metrics sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.pct_of_peak_sustained_elapsed \\
+  ./cnn_mnist
+
+<span style="color:#6a9955;"># For ALL metrics:</span>
+<span style="color:#569cd6;">!ncu</span> --kernel-name conv2d_forward --launch-count <span style="color:#ce9178;">1</span> --set full ./cnn_mnist</div>`;
+  }
+  else if(i===2){ // ROOFLINE
+    h+=`<div class="panel"><h3>📊 Roofline Model — Memory vs Compute Bound</h3>
+    <div class="roof-chart" id="roofChart" style="height:220px;"></div>
+    <p style="font-size:0.5rem;color:var(--tdim);text-align:center;margin-top:0.3rem;">Our conv2d_forward is in the <strong style="color:var(--cyan);">compute-bound region</strong> (high FLOP/byte, below peak compute).<br>To improve: reduce instruction count, not memory access.</p>
+
+    <table class="data">
+    <tr><th>Kernel</th><th>FLOP/Byte</th><th>GFLOPS</th><th>Bound</th><th>Fix Strategy</th></tr>
+    <tr><td style="color:var(--cyan);">conv2d_forward</td><td>25.0</td><td>3,150</td><td style="color:var(--cyan);">Compute</td><td>Reduce instructions, loop unrolling</td></tr>
+    <tr><td style="color:var(--amber);">naive_matmul</td><td>0.125</td><td>190</td><td style="color:var(--red);">Memory</td><td>Shared memory tiling</td></tr>
+    <tr><td style="color:var(--green);">tiled_matmul</td><td>2.0</td><td>3,800</td><td style="color:var(--amber);">Near ridge</td><td>Already well-optimized</td></tr>
+    <tr><td style="color:var(--violet);">cuBLAS Sgemm</td><td>8.0</td><td>7,200</td><td style="color:var(--green);">Compute (near peak)</td><td>Hand-tuned by NVIDIA</td></tr>
+    </table></div>`;
+    setTimeout(drawRoofline,100);
+  }
+  else if(i===3){ // WORKFLOW
+    h+=`<div class="panel"><h3>🔄 The Complete Profiling Workflow</h3>
+    <div class="pipeline-flow">
+      <div class="pf-step">1. Nsight<br>Systems</div><div class="pf-arrow">→</div>
+      <div class="pf-step">2. Find<br>Bottleneck</div><div class="pf-arrow">→</div>
+      <div class="pf-step">3. Nsight<br>Compute</div><div class="pf-arrow">→</div>
+      <div class="pf-step">4. Roofline<br>Diagnosis</div><div class="pf-arrow">→</div>
+      <div class="pf-step">5. Fix +<br>Re-profile</div><div class="pf-arrow">→</div>
+      <div class="pf-step">6. Measure<br>Speedup</div>
+    </div>
+
+    <table class="data">
+    <tr><th>Step</th><th>Tool</th><th>Question Answered</th><th>Our CNN Example</th></tr>
+    <tr><td>1</td><td style="color:var(--cyan);">Nsight Systems</td><td>Which kernel is slowest?</td><td>conv2d_forward takes longest</td></tr>
+    <tr><td>2</td><td style="color:var(--amber);">Analysis</td><td>Is it the bottleneck?</td><td>Yes — 49 FLOPs per thread, repeated 294K times</td></tr>
+    <tr><td>3</td><td style="color:var(--violet);">Nsight Compute</td><td>WHY is it slow?</td><td>Compute-bound: SM 61.6%, DRAM 1.08%</td></tr>
+    <tr><td>4</td><td style="color:var(--green);">Roofline</td><td>Memory or compute?</td><td>Compute-bound — optimize math, not memory</td></tr>
+    <tr><td>5</td><td style="color:var(--amber);">Optimize</td><td>What to change?</td><td>Loop unrolling, reduce register pressure</td></tr>
+    <tr><td>6</td><td style="color:var(--green);">Re-profile</td><td>Did it help?</td><td>Target: SM > 75%, tiled version DRAM > 15%</td></tr>
+    </table></div>`;
+  }
+  document.getElementById('tabContent').innerHTML=h;
+}
+
+// ── Timeline Animation ──
+var tlFrame=0,tlTimer=null;
+function drawTimeline(mode){
+  clearInterval(tlTimer);tlTimer=null;
+  var el=document.getElementById('timelineSim');if(!el)return;
+  var cpuBlocks,gpuBlocks;
+  if(mode==='sequential'){
+    cpuBlocks=[{x:0,w:30,label:'H→D',type:'copy'},{x:32,w:50,label:'KERNEL',type:'kernel'},{x:84,w:30,label:'D→H',type:'copy'}];
+    gpuBlocks=[{x:2,w:28,label:'Copy',type:'copy'},{x:34,w:48,label:'KERNEL (GPU)',type:'kernel'},{x:86,w:28,label:'Copy',type:'copy'}];
+  }else if(mode==='overlap'){
+    cpuBlocks=[{x:0,w:20,label:'H→D',type:'copy'},{x:22,w:20,label:'H→D2',type:'copy'},{x:44,w:20,label:'H→D3',type:'copy'},{x:66,w:25,label:'Wait',type:'idle'}];
+    gpuBlocks=[{x:2,w:18,label:'K1',type:'kernel'},{x:22,w:18,label:'K2',type:'kernel'},{x:42,w:18,label:'K3',type:'kernel'}];
+  }else{
+    cpuBlocks=[{x:0,w:60,label:'Python: loading batch... (CPU bound!)',type:'idle'},{x:62,w:35,label:'KERNEL',type:'kernel'}];
+    gpuBlocks=[{x:0,w:62,label:'IDLE — waiting for CPU!',type:'idle'},{x:64,w:33,label:'KERNEL',type:'kernel'}];
+  }
+  var h='';
+  [{label:'CPU',blocks:cpuBlocks},{label:'GPU',blocks:gpuBlocks}].forEach(function(row){
+    h+='<div class="tl-row"><span class="tl-label">'+row.label+'</span><div class="tl-track" style="width:100%;">';
+    row.blocks.forEach(function(b){
+      h+='<div class="tl-block tl-'+b.type+'" style="left:'+b.x+'px;width:'+b.w+'px;">'+b.label+'</div>';
+    });
+    h+='</div></div>';
+  });
+  el.innerHTML=h+'<div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">'+(mode==='sequential'?'❌ No overlap — GPU waits during copies':mode==='overlap'?'✅ Overlapped — GPU never idle! (CUDA Streams)':'🐌 CPU is the bottleneck — GPU sits idle')+'</div>';
+}
+function animateTimeline(){
+  var modes=['sequential','idle','overlap'];var m=0;
+  drawTimeline(modes[0]);
+  clearInterval(tlTimer);
+  tlTimer=setInterval(function(){m=(m+1)%3;drawTimeline(modes[m])},2000);
+}
+
+// ── Roofline Chart ──
+function drawRoofline(){
+  var el=document.getElementById('roofChart');if(!el)return;
+  var w=el.clientWidth-40,h=200;
+  var peakCompute=8100,peakBW=320;
+  var svg='<svg width="'+el.clientWidth+'" height="220" style="display:block;">';
+  // Axes
+  svg+='<line x1="40" y1="20" x2="40" y2="'+ (20+h) +'" stroke="var(--border)" stroke-width="1"/>';
+  svg+='<line x1="40" y1="'+(20+h)+'" x2="'+(40+w)+'" y2="'+(20+h)+'" stroke="var(--border)" stroke-width="1"/>';
+  // Peak compute line
+  for(var x=0;x<=w;x+=5){
+    var ox=Math.max(0.1,x/w*10);
+    var y=Math.min(peakCompute,ox*peakBW);
+    var py=20+h-(y/peakCompute*h);
+    svg+='<circle cx="'+(40+x)+'" cy="'+py+'" r="1" fill="var(--cyan)" opacity="0.3"/>';
+  }
+  // Points
+  var points=[{name:'conv2d',x:25,y:3150,color:'var(--cyan}'},{name:'naive_matmul',x:0.125,y:190,color:'var(--red)'},{name:'tiled_matmul',x:2,y:3800,color:'var(--green)'},{name:'cuBLAS',x:8,y:7200,color:'var(--violet)'}];
+  points.forEach(function(p){
+    var px=40+(p.x/10*w),py=20+h-(p.y/peakCompute*h);
+    svg+='<circle cx="'+px+'" cy="'+py+'" r="6" fill="'+p.color+'" stroke="var(--text)" stroke-width="2" opacity="0.8"/>';
+    svg+='<text x="'+(px+8)+'" y="'+(py-8)+'" font-family="JetBrains Mono" font-size="9" fill="var(--tdim)">'+p.name+'</text>';
+  });
+  // Labels
+  svg+='<text x="'+(40+w/2)+'" y="'+(20+h+15)+'" font-family="JetBrains Mono" font-size="9" fill="var(--tmut)" text-anchor="middle">Operational Intensity (FLOP/byte) →</text>';
+  svg+='<text x="15" y="'+(20+h/2)+'" font-family="JetBrains Mono" font-size="9" fill="var(--tmut)" text-anchor="middle" transform="rotate(-90,15,'+(20+h/2)+')">GFLOPS →</text>';
+  svg+='<text x="'+(40+w/2)+'" y="15" font-family="JetBrains Mono" font-size="9" fill="var(--cyan)" text-anchor="middle">Peak Compute ('+peakCompute+' GFLOPS)</text>';
+  // Labels on chart
+  svg+='<text x="'+(40+20)+'" y="'+(20+20)+'" font-family="JetBrains Mono" font-size="8" fill="var(--red)">Memory-Bound</text>';
+  svg+='<text x="'+(40+w-80)+'" y="'+(20+30)+'" font-family="JetBrains Mono" font-size="8" fill="var(--cyan)">Compute-Bound</text>';
+  svg+='</svg>';
+  el.innerHTML=svg;
+}
+
+renderTab(0);
+</script>
+</body>
+</html>
