@@ -395,8 +395,35 @@ const S=[{
 <span style="color:#c586c0;">detections</span> = <span style="color:#c586c0;">response</span>.<span style="color:#c586c0;">json</span>()
 <span style="color:#569cd6;">print</span>(<span style="color:#c586c0;">detections</span>)  <span style="color:#6a9955;">// Your YOLO detections, served by Triton!</span></div>
 
-<h3>📊 Step 3: Measure Round-Trip Latency</h3>
-<div class="code-box"><span class="cell-num">CELL 6 — Benchmark</span>
+<h3>📦 Step 3: Test Dynamic Batching with Concurrent Requests</h3>
+<div class="code-box"><span class="cell-num">CELL 6 — Send 8 Concurrent Requests (Dynamic Batching Test)</span>
+<span style="color:#569cd6;">import</span> time, threading
+<span style="color:#569cd6;">import</span> numpy <span style="color:#569cd6;">as</span> np
+
+<span style="color:#c586c0;">results</span> = []
+<span style="color:#569cd6;">def</span> <span style="color:#c586c0;">send_request</span>(<span style="color:#c586c0;">req_id</span>):
+  <span style="color:#c586c0;">t0</span> = time.<span style="color:#c586c0;">time</span>()
+  <span style="color:#c586c0;">r</span> = requests.<span style="color:#569cd6;">post</span>(<span style="color:#ce9178;">'http://localhost:8000/v2/models/yolo/infer'</span>, json=<span style="color:#c586c0;">payload</span>)
+  <span style="color:#c586c0;">elapsed</span> = (time.<span style="color:#c586c0;">time</span>()-<span style="color:#c586c0;">t0</span>)*<span style="color:#ce9178;">1000</span>
+  <span style="color:#c586c0;">results</span>.<span style="color:#c586c0;">append</span>((<span style="color:#c586c0;">req_id</span>, <span style="color:#c586c0;">elapsed</span>))
+  <span style="color:#569cd6;">print</span>(<span style="color:#569cd6;">f</span><span style="color:#ce9178;">"Req {req_id}: {elapsed:.1f}ms"</span>)
+
+<span style="color:#6a9955;"># Send 8 requests at the SAME time (within 100μs of each other)</span>
+<span style="color:#c586c0;">threads</span> = []
+<span style="color:#569cd6;">for</span> i <span style="color:#569cd6;">in</span> <span style="color:#569cd6;">range</span>(<span style="color:#ce9178;">8</span>):
+  <span style="color:#c586c0;">t</span> = threading.<span style="color:#c586c0;">Thread</span>(target=<span style="color:#c586c0;">send_request</span>, args=(i,))
+  <span style="color:#c586c0;">threads</span>.<span style="color:#c586c0;">append</span>(<span style="color:#c586c0;">t</span>)
+<span style="color:#569cd6;">for</span> <span style="color:#c586c0;">t</span> <span style="color:#569cd6;">in</span> <span style="color:#c586c0;">threads</span>: <span style="color:#c586c0;">t</span>.<span style="color:#c586c0;">start</span>()
+<span style="color:#569cd6;">for</span> <span style="color:#c586c0;">t</span> <span style="color:#569cd6;">in</span> <span style="color:#c586c0;">threads</span>: <span style="color:#c586c0;">t</span>.<span style="color:#c586c0;">join</span>()
+
+<span style="color:#6a9955;"># All 8 should complete in ~the same time as 1 request (~12ms each)</span>
+<span style="color:#6a9955;"># Without batching: 8 x 12ms = 96ms total GPU time</span>
+<span style="color:#6a9955;"># With batching: 1 batch x 12ms = 12ms total GPU time (8x throughput!)</span>
+<span style="color:#c586c0;">avg</span> = np.<span style="color:#c586c0;">mean</span>([<span style="color:#c586c0;">r</span>[<span style="color:#ce9178;">1</span>] <span style="color:#569cd6;">for</span> <span style="color:#c586c0;">r</span> <span style="color:#569cd6;">in</span> <span style="color:#c586c0;">results</span>])
+<span style="color:#569cd6;">print</span>(<span style="color:#569cd6;">f</span><span style="color:#ce9178;">"\nAll 8 avg: {avg:.1f}ms per request (with dynamic batching)"</span>)</div>
+
+<h3>📊 Step 4: Measure Round-Trip Latency</h3>
+<div class="code-box"><span class="cell-num">CELL 7 — Sequential Benchmark (100 requests)</span>
 <span style="color:#569cd6;">import</span> time
 <span style="color:#c586c0;">times</span> = []
 <span style="color:#569cd6;">for</span> i <span style="color:#569cd6;">in</span> <span style="color:#569cd6;">range</span>(<span style="color:#ce9178;">100</span>):
