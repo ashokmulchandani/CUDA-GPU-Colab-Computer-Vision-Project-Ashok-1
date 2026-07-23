@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Occupancy — SMs, Warps & Threads Visualized</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--amber:#ffb347;--green:#3fb950;--red:#f85149;--violet:#a371f7}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--amber:#9a6700;--green:#1a7f37;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:0.3s}
+.theme-btn{position:fixed;top:1rem;right:1rem;z-index:10;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:0.8rem}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.container{max-width:950px;margin:0 auto;padding:1rem;text-align:center}
+h1{font-family:'Orbitron',sans-serif;font-size:1.1rem;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.3rem}
+.subtitle{color:var(--tdim);font-size:0.65rem;margin-bottom:0.8rem}
+
+/* GPU Layout */
+.gpu-box{background:var(--card);border:2px solid var(--cyan);border-radius:12px;padding:1rem;margin:0.8rem 0;display:inline-block}
+.gpu-label{font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--cyan);margin-bottom:0.5rem}
+.sm-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;max-width:500px;margin:0 auto}
+.sm-cell{width:50px;height:50px;background:var(--raised);border:1px solid var(--border);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:0.3s;position:relative}
+.sm-cell.active{background:rgba(57,210,255,0.15);border-color:var(--cyan)}
+.sm-cell .sm-num{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut)}
+.sm-cell .warp-count{font-family:'Orbitron',sans-serif;font-size:0.6rem;color:var(--cyan);font-weight:700}
+.sm-cell .warp-max{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+
+/* Warp detail */
+.warp-bar{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin:0.5rem 0}
+.warp-slot{width:16px;height:16px;border-radius:3px;transition:0.3s}
+.warp-slot.used{background:var(--cyan)}.warp-slot.free{background:var(--raised);border:1px solid var(--border)}
+
+/* Controls */
+.controls{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.5rem 0}
+.btn{font-family:'JetBrains Mono',monospace;font-size:0.55rem;padding:0.4rem 0.8rem;border-radius:100px;border:1px solid var(--border);background:var(--raised);color:var(--tdim);cursor:pointer;transition:0.2s}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}.btn.primary{background:var(--cyan-bg);border-color:var(--cyan);color:var(--cyan)}
+
+.slider-row{display:flex;align-items:center;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0}
+.slider-row input{width:150px;accent-color:var(--cyan)}
+.slider-row label{font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);min-width:120px;text-align:right}
+.slider-row .val{font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);font-weight:700;min-width:60px;text-align:left}
+
+.stats-row{display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.8rem;text-align:center}
+.stat .val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700}.stat .lbl{font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--tmut)}
+
+.comp{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:0.6rem;margin:0.5rem auto;max-width:700px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4}
+
+/* Warp zoom */
+.warp-zoom{display:flex;gap:2px;justify-content:center;flex-wrap:wrap;margin:0.4rem 0}
+.thread-cell{width:8px;height:8px;border-radius:1px;transition:0.3s}
+.thread-cell.active{background:var(--green)}.thread-cell.stall{background:var(--red)}.thread-cell.idle{background:var(--raised);border:0.5px solid var(--border)}
+
+.note{font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tmut);margin-top:0.3rem}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()">☀️</button>
+<div class="container">
+  <h1>GPU Occupancy — SMs, Blocks, Warps & Threads</h1>
+  <p class="subtitle">Tesla T4: 40 SMs. Each SM = max 64 warps (2,048 threads). Occupancy = how many warps are ACTUALLY active. <strong>Adjust the sliders to see how your kernel choices affect occupancy.</strong></p>
+
+  <div class="stats-row">
+    <div class="stat" style="border-top:2px solid var(--cyan);"><div class="val" style="color:var(--cyan);" id="occPct">50%</div><div class="lbl">Occupancy</div></div>
+    <div class="stat" style="border-top:2px solid var(--amber);"><div class="val" style="color:var(--amber);" id="activeWarps">32</div><div class="lbl">Active Warps / SM</div></div>
+    <div class="stat" style="border-top:2px solid var(--green);"><div class="val" style="color:var(--green);" id="activeBlocks">4</div><div class="lbl">Blocks / SM</div></div>
+    <div class="stat" style="border-top:2px solid var(--violet);"><div class="val" style="color:var(--violet);" id="totalWarps">1280</div><div class="lbl">Total Warps (all SMs)</div></div>
+  </div>
+
+  <!-- GPU VISUAL -->
+  <div class="gpu-box">
+    <div class="gpu-label">🖥️ Tesla T4 GPU — 40 SMs</div>
+    <div class="sm-grid" id="smGrid"></div>
+  </div>
+
+  <div class="note">Click an SM to zoom into its warps →</div>
+  <div id="smZoom" style="margin:0.5rem 0;"></div>
+
+  <div class="comp" id="compBox"></div>
+
+  <!-- SLIDERS -->
+  <div class="slider-row">
+    <label>Threads per Block:</label>
+    <input type="range" min="64" max="1024" step="32" value="256" oninput="updateSim()" id="thrSlider">
+    <span class="val" id="thrVal">256</span>
+  </div>
+  <div class="slider-row">
+    <label>Registers per Thread:</label>
+    <input type="range" min="16" max="128" step="8" value="64" oninput="updateSim()" id="regSlider">
+    <span class="val" id="regVal">64</span>
+  </div>
+  <div class="slider-row">
+    <label>Shared Memory / Block (KB):</label>
+    <input type="range" min="0" max="48" step="4" value="0" oninput="updateSim()" id="shmSlider">
+    <span class="val" id="shmVal">0 KB</span>
+  </div>
+
+  <div class="note">
+    <strong style="color:var(--cyan);">T4 Limits:</strong> Max 64 warps/SM | Max 32 blocks/SM | 65,536 registers/SM | 64 KB shared memory/SM<br>
+    <strong style="color:var(--amber);">Occupancy = min(block_limit, register_limit, shared_memory_limit, warp_limit) / 64</strong>
+  </div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.querySelector('.theme-btn').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('occ-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('occ-theme')==='light'){document.body.classList.add('light');document.querySelector('.theme-btn').textContent='🌙'}
+
+const SM_COUNT=40,MAX_WARPS_PER_SM=64,MAX_BLOCKS_PER_SM=32,MAX_REGS_PER_SM=65536,MAX_SHM_PER_SM=64*1024;
+let zoomSM=-1;
+
+function updateSim(){
+  let thr=parseInt(document.getElementById('thrSlider').value);
+  let reg=parseInt(document.getElementById('regSlider').value);
+  let shm=parseInt(document.getElementById('shmSlider').value)*1024;
+  document.getElementById('thrVal').textContent=thr;
+  document.getElementById('regVal').textContent=reg;
+  document.getElementById('shmVal').textContent=(shm/1024)+' KB';
+
+  let warpPerBlock=Math.ceil(thr/32);
+  let regsPerBlock=warpPerBlock*32*reg;
+  let maxBlocksByRegs=Math.floor(MAX_REGS_PER_SM/regsPerBlock);
+  let maxBlocksByShm=shm>0?Math.floor(MAX_SHM_PER_SM/shm):MAX_BLOCKS_PER_SM;
+  let maxBlocksByWarps=Math.floor(MAX_WARPS_PER_SM/warpPerBlock);
+  let blocksPerSM=Math.min(MAX_BLOCKS_PER_SM,maxBlocksByRegs,maxBlocksByShm,maxBlocksByWarps);
+  let warpsPerSM=blocksPerSM*warpPerBlock;
+  let occupancy=Math.round((warpsPerSM/MAX_WARPS_PER_SM)*100);
+
+  document.getElementById('occPct').textContent=occupancy+'%';
+  document.getElementById('occPct').style.color=occupancy>66?'var(--green)':occupancy>33?'var(--amber)':'var(--red)';
+  document.getElementById('activeWarps').textContent=warpsPerSM;
+  document.getElementById('activeBlocks').textContent=blocksPerSM;
+  document.getElementById('totalWarps').textContent=warpsPerSM*SM_COUNT;
+
+  // Render SM grid
+  let gh='';
+  for(let i=0;i<SM_COUNT;i++){
+    let isZoom=(i===zoomSM);
+    let warpPct=Math.min(100,(warpsPerSM/MAX_WARPS_PER_SM)*100);
+    gh+=`<div class="sm-cell active" onclick="zoomSM=${i};updateSim()" style="border-color:${isZoom?'var(--amber)':'var(--border)'};${isZoom?'box-shadow:0 0 10px var(--amber);':''}">
+      <div class="sm-num">SM${i}</div>
+      <div class="warp-count">${warpsPerSM}</div>
+      <div class="warp-max">/64 warps</div>
+    </div>`;
+  }
+  document.getElementById('smGrid').innerHTML=gh;
+
+  // Zoom into one SM
+  let zh='';
+  if(zoomSM>=0){
+    zh+=`<div style="background:var(--card);border:2px solid var(--amber);border-radius:10px;padding:0.8rem;text-align:center;max-width:700px;margin:0 auto;">`;
+    zh+=`<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.4rem;">🔍 SM ${zoomSM} — ${warpsPerSM} Active Warps (of 64 max) = ${occupancy}% Occupancy</div>`;
+    zh+=`<div class="warp-bar" style="max-width:600px;">`;
+    for(let w=0;w<MAX_WARPS_PER_SM;w++){
+      let isUsed=w<warpsPerSM;
+      zh+=`<div class="warp-slot ${isUsed?'used':'free'}" title="Warp ${w}: ${isUsed?'ACTIVE':'IDLE'}"></div>`;
+    }
+    zh+=`</div>`;
+    zh+=`<div style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">`;
+    zh+=`<span style="color:var(--cyan);">■ ${warpsPerSM} active</span> &nbsp;`;
+    zh+=`<span style="color:var(--tmut);">■ ${MAX_WARPS_PER_SM-warpsPerSM} idle</span>`;
+    zh+=`</div>`;
+
+    // Thread-level view
+    zh+=`<div style="margin-top:0.5rem;font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);">Each Warp = 32 Threads (showing first ${Math.min(blocksPerSM,4)} blocks)</div>`;
+    for(let b=0;b<Math.min(blocksPerSM,4);b++){
+      zh+=`<div style="margin:0.3rem 0;"><span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--cyan);">Block ${b}:</span> `;
+      for(let w=0;w<Math.min(warpPerBlock,4);w++){
+        zh+=`<span style="font-family:'JetBrains Mono',monospace;font-size:0.4rem;color:var(--amber);">W${w}</span> `;
+        for(let t=0;t<Math.min(thr/warpPerBlock,8);t++){
+          zh+=`<span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:1px;margin:0 0.5px;" title="Thread ${b*warpPerBlock*32+w*32+t}"></span>`;
+        }
+        if(thr/warpPerBlock>8)zh+=`<span style="font-size:0.35rem;color:var(--tmut);">+${Math.floor(thr/warpPerBlock)-8} more</span>`;
+      }
+      if(warpPerBlock>4)zh+=`<span style="font-size:0.4rem;color:var(--tmut);"> +${warpPerBlock-4} more warps</span>`;
+      zh+=`</div>`;
+    }
+    if(blocksPerSM>4)zh+=`<div style="font-size:0.4rem;color:var(--tmut);">+ ${blocksPerSM-4} more blocks...</div>`;
+    zh+=`</div>`;
+  }
+  document.getElementById('smZoom').innerHTML=zh;
+
+  // Computation box
+  let limitMsg='';
+  if(maxBlocksByRegs<=maxBlocksByWarps&&maxBlocksByRegs<=maxBlocksByShm)limitMsg=`<span style="color:var(--red);">LIMITED BY REGISTERS!</span> ${regsPerBlock} regs/block × ${blocksPerSM} blocks = ${regsPerBlock*blocksPerSM} / ${MAX_REGS_PER_SM} registers`;
+  else if(maxBlocksByShm<=maxBlocksByWarps)limitMsg=`<span style="color:var(--amber);">LIMITED BY SHARED MEMORY!</span> ${(shm/1024)}KB/block × ${blocksPerSM} blocks = ${shm*blocksPerSM/1024}KB / ${MAX_SHM_PER_SM/1024}KB`;
+  else if(maxBlocksByWarps<=maxBlocksByRegs)limitMsg=`<span style="color:var(--cyan);">LIMITED BY WARPS!</span> ${warpPerBlock} warps/block × ${blocksPerSM} blocks = ${warpsPerSM} / ${MAX_WARPS_PER_SM} warps`;
+  else limitMsg=`<span style="color:var(--green);">LIMITED BY MAX BLOCKS/SM!</span> ${blocksPerSM} / ${MAX_BLOCKS_PER_SM} max blocks`;
+
+  document.getElementById('compBox').innerHTML=`
+<span style="color:#6a9955;">// Calculation for Threads=${thr}, Regs=${reg}, SharedMem=${(shm/1024)}KB</span>
+<span style="color:#6a9955;">// Warps per block = ceil(Threads/32) = ceil(${thr}/32) = ${warpPerBlock}</span>
+<span style="color:#6a9955;">// Registers per block = ${warpPerBlock}×32×${reg} = ${regsPerBlock} registers</span>
+
+<span style="color:var(--amber);">Blocks/SM by register limit: floor(${MAX_REGS_PER_SM}/${regsPerBlock}) = ${maxBlocksByRegs}</span>
+<span style="color:var(--amber);">Blocks/SM by shared mem limit: floor(${MAX_SHM_PER_SM/1024}KB/${(shm/1024)}KB) = ${shm>0?maxBlocksByShm:'N/A (no shared mem)'}</span>
+<span style="color:var(--amber);">Blocks/SM by warp limit: floor(${MAX_WARPS_PER_SM}/${warpPerBlock}) = ${maxBlocksByWarps}</span>
+
+<span style="color:var(--cyan);font-weight:700;">Blocks/SM = min(32, ${maxBlocksByRegs}, ${shm>0?maxBlocksByShm:'∞'}, ${maxBlocksByWarps}) = ${blocksPerSM}</span>
+<span style="color:var(--violet);font-weight:700;">Warps/SM = ${blocksPerSM} × ${warpPerBlock} = ${warpsPerSM}</span>
+<span style="color:var(--green);font-weight:700;">Occupancy = ${warpsPerSM} / 64 = ${occupancy}%</span>
+
+${limitMsg}`;
+}
+
+updateSim();
+</script>
+</body>
+</html>

@@ -191,6 +191,8 @@ const S=[{
 <div class="slide"><div class="card">
 <h2><span class="num">6C.4</span> Occupancy & Warp Stalls — What Limits Your Kernel</h2>
 
+<div class="callout"><span style="font-size:1.1rem;">🎮</span><span><strong style="color:var(--cyan);">Interactive Visualizer:</strong> Adjust threads, registers, and shared memory to see how occupancy changes — <a href="occupancy_visualizer.html" style="color:var(--cyan);">GPU Occupancy Visualizer</a>. 40 SMs × 64 warps each, click to zoom.</span></div>
+
 <h3>🏢 Occupancy — How Full Are Your SMs?</h3>
 <p>A T4 has 40 SMs. Each SM can run up to 64 warps (2,048 threads) simultaneously. <strong style="color:var(--cyan);">Occupancy = actual active warps / maximum possible warps.</strong></p>
 
