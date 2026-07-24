@@ -555,6 +555,78 @@ const S=[{
 and its output needs to be consumed. Custom CUDA kernels on both sides handle this — <strong style="color:var(--green);">all via GPU pointers, zero memory copies.</strong>
 </div>
 
+<div style="background:var(--raised);border:2px solid var(--cyan);border-radius:10px;padding:0.8rem 1rem;margin:0.6rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">🧠 YOLO ≠ PyTorch — The Model vs The Engine That Runs It</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.5rem 0;">
+
+<!-- LEFT: The MODEL -->
+<div style="flex:1;min-width:200px;text-align:center;background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);">📐 THE MODEL (Math)</div>
+<div style="font-size:0.5rem;color:var(--tdim);margin:0.3rem 0;"><strong style="color:var(--amber);">YOLOv5s</strong></div>
+<div style="font-size:0.45rem;color:var(--tmut);line-height:1.5;">
+225 layers<br>
+3.15 million weights<br>
+Convolutions + BatchNorm + SiLU<br>
+Architecture designed by Ultralytics<br><br>
+<strong style="color:var(--amber);">This NEVER changes.</strong><br>
+<span style="font-size:0.4rem;">Same math, same weights, same output.</span>
+</div>
+</div>
+
+<!-- MIDDLE: The ENGINES -->
+<div style="font-size:1.3rem;color:var(--tdim);display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
+<div>runs on</div>
+<div style="font-size:1rem;">↘</div>
+<div>or</div>
+<div style="font-size:1rem;">↙</div>
+</div>
+
+<!-- RIGHT: Two engines -->
+<div style="flex:1.5;min-width:300px;display:flex;flex-direction:column;gap:0.5rem;">
+
+<div style="background:var(--card);border:2px solid var(--red);border-radius:6px;padding:0.5rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.2rem;">🐍 PyTorch (Engine 1)</div>
+<div style="font-size:0.45rem;color:var(--tmut);">
+How it runs YOLO: <strong style="color:var(--red);">8-15ms</strong><br>
+• Python framework, general-purpose autograd<br>
+• Runs ANY model (not just YOLO)<br>
+• Easy to use: <code>model = torch.hub.load('yolov5s')</code><br>
+• <strong style="color:var(--red);">Slow because:</strong> builds computation graph,<br>
+&nbsp;&nbsp;checks gradients, Python overhead per op
+</div>
+</div>
+
+<div style="display:flex;align-items:center;gap:0.3rem;justify-content:center;">
+<div style="font-size:0.45rem;color:var(--green);">export via ONNX →</div>
+<div style="font-size:1rem;color:var(--green);">↓</div>
+</div>
+
+<div style="background:var(--card);border:2px solid var(--green);border-radius:6px;padding:0.5rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.2rem;">⚡ TensorRT (Engine 2)</div>
+<div style="font-size:0.45rem;color:var(--tmut);">
+How it runs YOLO: <strong style="color:var(--green);">4-7ms</strong><br>
+• C++ framework, GPU-specific optimization<br>
+• Runs the SAME YOLO model (same weights!)<br>
+• Harder to set up: <code>trtexec --onnx=model.onnx</code><br>
+• <strong style="color:var(--green);">Fast because:</strong> pre-optimizes for T4,<br>
+&nbsp;&nbsp;fuses layers, uses FP16, no Python overhead
+</div>
+</div>
+
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tdim);text-align:center;margin-top:0.5rem;">
+💡 <strong style="color:var(--amber);">YOLO is the CAR. PyTorch and TRT are two different ENGINES that can power it.</strong><br>
+Same car, same speed limit, same destination. One engine is fuel-efficient but slow. The other is tuned for racing.<br>
+<strong style="color:var(--green);">When we say "TRT replaces PyTorch" — we mean we SWAP the engine. The car (YOLO model) stays exactly the same.</strong>
+</div>
+
+</div>
+</div>
+
 <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
 <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">❓ FAQ: TRT Integration — Common Questions Answered</div>
 <div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
