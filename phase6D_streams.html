@@ -118,9 +118,10 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 </table>
 
 <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
-  💡 <strong style="color:var(--amber);">1 Frame = 1 Image.</strong> A 30 FPS video produces 30 frames (images) per second.<br>
-  <strong style="color:var(--cyan);">1 Stream = 1 GPU lane.</strong> Each stream can process ONE frame at a time.<br>
-  <strong style="color:var(--green);">3 streams = 3 frames in flight simultaneously.</strong> Frame 3 preprocesses while Frame 2 infers while Frame 1 does NMS.
+  💡 <strong style="color:var(--amber);">1 Frame = 1 Image = 1 Batch.</strong> A "batch" is just one chunk of independent work.<br>
+  In the benchmark: 4 batches of 10M floats. In YOLO: 4 batches = 4 video frames.<br>
+  <strong style="color:var(--cyan);">1 Stream processes 1 batch at a time.</strong> Same concept, different data.<br>
+  <strong style="color:var(--green);">3 streams = 3 batches/frames in flight simultaneously.</strong>
 </div>
 
 <h3>🎬 Frame Pipeline — WITHOUT vs WITH Streams</h3>
