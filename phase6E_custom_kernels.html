@@ -678,50 +678,85 @@ app = FastAPI()
 <h2><span class="num">6E.7</span> End-to-End YOLO Pipeline — Everything Together</h2>
 <div class="big-stat"><div class="number">6E ✅</div><div class="label">CUSTOM CUDA KERNELS IN PRODUCTION</div></div>
 
-<h3>🏗️ Complete Architecture</h3>
+<h3>🏗️ Complete Architecture — WITH NVDEC</h3>
 <div class="pipeline">
-<div class="pipeline-stage highlight" style="min-width:55px;">📹<br>Camera</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage highlight" style="min-width:55px;">⬆️<br>Upload</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage" style="border-color:var(--cyan);min-width:60px;">⚡ K1<br>Preprocess<br>12μs</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage" style="border-color:var(--violet);min-width:60px;">🧠 K2<br>TRT Engine<br>4ms</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage" style="border-color:var(--green);min-width:60px;">🎯 K3<br>NMS<br>0.1ms</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage highlight" style="min-width:55px;">⬇️<br>Download</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage highlight" style="min-width:55px;">🖥️<br>Display</div>
+<div class="pipeline-stage highlight" style="min-width:50px;">📹<br>Camera</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--amber);min-width:55px;">🎬 NVDEC<br><span style="font-size:0.35rem;">GPU HW</span><br>0.5ms</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--cyan);min-width:50px;">⚡ K1<br>Preprocess<br>12μs</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--violet);min-width:50px;">🧠 K2<br>TRT Engine<br>4ms</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--green);min-width:50px;">🎯 K3<br>NMS<br>0.1ms</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight" style="min-width:50px;">⬇️<br>Download</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight" style="min-width:50px;">🖥️<br>Display</div>
 </div>
 
-<table class="param" style="margin:0.5rem auto;max-width:800px;">
-<tr><th style="width:80px;">Stage</th><th>What</th><th>Where</th><th>Time</th><th>Custom CUDA?</th></tr>
-<tr><td>1. Capture</td><td style="font-size:0.5rem;">Camera → host buffer (pinned memory)</td><td>CPU</td><td>—</td><td>N/A</td></tr>
-<tr><td>2. Upload</td><td style="font-size:0.5rem;">cudaMemcpyAsync H→D (pinned → VRAM)</td><td>PCIe</td><td>~0.4ms</td><td>N/A</td></tr>
-<tr style="background:rgba(57,210,255,0.04);"><td>3. Preprocess</td><td style="font-size:0.5rem;">Resize 640×640 + normalize + HWC→CHW</td><td>GPU</td><td style="color:var(--cyan);font-weight:700;">12μs</td><td style="color:var(--cyan);">✅ Kernel 1</td></tr>
-<tr><td>4. TRT Engine</td><td style="font-size:0.5rem;">YOLOv5s TensorRT FP16 inference</td><td>GPU</td><td>~4ms</td><td>N/A (TRT)</td></tr>
-<tr style="background:rgba(63,185,80,0.04);"><td>5. NMS</td><td style="font-size:0.5rem;">Filter overlapping boxes, keep best detections</td><td>GPU</td><td style="color:var(--green);font-weight:700;">0.1ms</td><td style="color:var(--green);">✅ Kernel 3</td></tr>
-<tr><td>6. Download</td><td style="font-size:0.5rem;">cudaMemcpyAsync D→H (results → host)</td><td>PCIe</td><td>~0.05ms</td><td>N/A</td></tr>
-<tr style="background:rgba(255,179,71,0.06);"><td>📦 Total</td><td colspan="2" style="font-weight:700;color:var(--green);">All-GPU pipeline (CPU only handles I/O)</td><td style="color:var(--green);font-weight:700;">~4.5ms</td><td style="color:var(--green);">✅ 2 custom kernels</td></tr>
+<table class="param" style="margin:0.5rem auto;max-width:850px;">
+<tr><th style="width:80px;">Step</th><th>What</th><th>Where</th><th>Time</th><th>Custom CUDA?</th></tr>
+<tr style="background:rgba(255,179,71,0.04);"><td>0. NVDEC</td><td style="font-size:0.5rem;">Decode H.264 → raw NV12 in VRAM</td><td>GPU HW</td><td style="color:var(--amber);font-weight:700;">~0.5ms</td><td>N/A (ASIC)</td></tr>
+<tr><td>1. Preprocess</td><td style="font-size:0.5rem;">NV12→RGB + Resize 640+Normalize + HWC→CHW</td><td>GPU</td><td style="color:var(--cyan);font-weight:700;">12μs</td><td style="color:var(--cyan);">✅ Kernel 1</td></tr>
+<tr><td>2. TRT Engine</td><td style="font-size:0.5rem;">YOLOv5s TensorRT FP16 inference</td><td>GPU</td><td>~4ms</td><td>N/A (TRT)</td></tr>
+<tr style="background:rgba(63,185,80,0.04);"><td>3. NMS</td><td style="font-size:0.5rem;">Filter overlapping boxes, keep best detections</td><td>GPU</td><td style="color:var(--green);font-weight:700;">0.1ms</td><td style="color:var(--green);">✅ Kernel 2</td></tr>
+<tr><td>4. Download</td><td style="font-size:0.5rem;">cudaMemcpyAsync D→H (results → host)</td><td>PCIe</td><td>~0.05ms</td><td>N/A</td></tr>
+<tr style="background:rgba(255,179,71,0.06);"><td>📦 Total</td><td colspan="2" style="font-weight:700;color:var(--green);">NVDEC + Preprocess + TRT + NMS — ALL on GPU. CPU only sends H.264 packets, receives boxes.</td><td style="color:var(--green);font-weight:700;">~4.6ms</td><td style="color:var(--green);">✅ 2 custom kernels</td></tr>
 </table>
 
-<h3>📊 Full Comparison — All Approaches</h3>
-<table class="param" style="margin:0.5rem auto;max-width:800px;">
-<tr><th>Pipeline</th><th>Preprocess</th><th>Inference</th><th>NMS</th><th>Total</th><th>FPS</th></tr>
-<tr><td style="color:var(--red);">🐍 Pure Python</td><td style="color:var(--red);">5-10ms CPU</td><td style="color:var(--red);">8-15ms PyTorch</td><td style="color:var(--red);">3-8ms CPU</td><td style="color:var(--red);">16-33ms</td><td style="color:var(--red);">30-62</td></tr>
-<tr><td style="color:var(--amber);">⚙️ PyTorch + TRT</td><td style="color:var(--amber);">2-5ms GPU</td><td style="color:var(--green);">4-7ms TRT</td><td style="color:var(--amber);">1-3ms CPU</td><td style="color:var(--amber);">7-15ms</td><td style="color:var(--amber);">66-143</td></tr>
-<tr><td style="color:var(--green);">⚡ Custom CUDA</td><td style="color:var(--green);"><strong>0.012ms</strong></td><td style="color:var(--green);">4-7ms TRT</td><td style="color:var(--green);"><strong>0.1ms</strong></td><td style="color:var(--green);"><strong>4.1ms</strong></td><td style="color:var(--green);"><strong>244</strong></td></tr>
-<tr style="background:rgba(57,210,255,0.04);"><td style="color:var(--cyan);">⚡⚡ CUDA + Streams</td><td colspan="2" style="color:var(--cyan);">Overlapped: upload frame N+1 while processing frame N</td><td style="color:var(--cyan);">0.1ms</td><td style="color:var(--cyan);"><strong>~3.5ms</strong></td><td style="color:var(--cyan);"><strong>~286</strong></td></tr>
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.5rem 0;">
+<div style="flex:1;min-width:250px;background:var(--raised);border:2px solid var(--red);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--red);margin-bottom:0.3rem;">❌ WITHOUT Integration (Separate Tools)</div>
+<div style="font-size:0.42rem;color:var(--tdim);line-height:1.6;">
+1️⃣ <strong style="color:var(--red);">CPU: FFmpeg decode H.264 (10ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Raw RGB in CPU RAM<br>
+2️⃣ <strong style="color:var(--red);">PCIe: upload to GPU (0.4ms)</strong><br>
+3️⃣ <strong style="color:var(--amber);">GPU: Run trtexec standalone (4ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Save detections to disk<br>
+4️⃣ <strong style="color:var(--red);">CPU: Load .txt file, parse boxes</strong><br>
+5️⃣ <strong style="color:var(--red);">CPU: Run torchvision.nms (3ms)</strong><br>
+<strong style="color:var(--red);">Total: ~17ms. 4 tools. 3 data copies.</strong>
+</div>
+</div>
+<div style="font-size:1.2rem;color:var(--green);display:flex;align-items:center;">→</div>
+<div style="flex:1;min-width:250px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--green);margin-bottom:0.3rem;">✅ WITH Integration (Single C++ Binary)</div>
+<div style="font-size:0.42rem;color:var(--tdim);line-height:1.6;">
+1️⃣ <strong style="color:var(--amber);">GPU HW: NVDEC decode (0.5ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Raw NV12 already in VRAM ✅<br>
+2️⃣ <strong style="color:var(--cyan);">GPU: Preprocess kernel (12μs)</strong><br>
+3️⃣ <strong style="color:var(--green);">GPU: TRT engine (4ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Detections in VRAM buffer ✅<br>
+4️⃣ <strong style="color:var(--green);">GPU: NMS kernel (0.1ms)</strong><br>
+<strong style="color:var(--green);">Total: ~4.6ms. 1 binary. 0 data copies. ALL GPU.</strong>
+</div>
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">"Integration" = everything in ONE process, sharing GPU memory pointers.</strong> Without it, you pay the tax of serialization, disk I/O, and CPU↔GPU copies between every stage.<br>
+The TRT engine is just a C++ object — you call <code>context->enqueueV2()</code>. You can put this call ANYWHERE in your C++ pipeline. Integration means doing that instead of running separate programs.
+</div>
+
+<h3>📊 Full Comparison — All Approaches (with NVDEC)</h3>
+<table class="param" style="margin:0.5rem auto;max-width:850px;">
+<tr><th>Pipeline</th><th>Video Decode</th><th>Preprocess</th><th>Inference</th><th>NMS</th><th>Total</th><th>FPS</th></tr>
+<tr><td style="color:var(--red);">🐍 Pure Python</td><td style="color:var(--red);">CPU FFmpeg 10ms</td><td style="color:var(--red);">5-10ms CPU</td><td style="color:var(--red);">8-15ms PyTorch</td><td style="color:var(--red);">3-8ms CPU</td><td style="color:var(--red);">26-43ms</td><td style="color:var(--red);">23-38</td></tr>
+<tr><td style="color:var(--amber);">⚙️ PyTorch + TRT</td><td style="color:var(--red);">CPU FFmpeg 10ms</td><td style="color:var(--amber);">2-5ms GPU</td><td style="color:var(--green);">4-7ms TRT</td><td style="color:var(--amber);">1-3ms CPU</td><td style="color:var(--amber);">17-25ms</td><td style="color:var(--amber);">40-59</td></tr>
+<tr><td style="color:var(--green);">⚡ Custom CUDA</td><td style="color:var(--amber);">GPU NVDEC 0.5ms</td><td style="color:var(--green);"><strong>0.012ms</strong></td><td style="color:var(--green);">4-7ms TRT</td><td style="color:var(--green);"><strong>0.1ms</strong></td><td style="color:var(--green);"><strong>~4.6ms</strong></td><td style="color:var(--green);"><strong>217</strong></td></tr>
+<tr style="background:rgba(57,210,255,0.04);"><td style="color:var(--cyan);">⚡⚡ CUDA + Streams</td><td style="color:var(--amber);">NVDEC parallel</td><td colspan="2" style="color:var(--cyan);">Overlapped: NVDEC frame N+1 while GPU processes frame N</td><td style="color:var(--cyan);">0.1ms</td><td style="color:var(--cyan);"><strong>~4ms</strong></td><td style="color:var(--cyan);"><strong>250</strong></td></tr>
 </table>
 
 <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.5rem 0;">
-💡 <strong style="color:var(--green);">This is the production stack:</strong> Phase 6D (Streams + Graphs) + Phase 6E (Custom Kernels) work TOGETHER.<br>
-Streams overlap frames. Graphs eliminate launch overhead. Custom kernels eliminate CPU bottlenecks. Together: <strong style="color:var(--green);">30 FPS → 286 FPS on the same T4 GPU.</strong>
+💡 <strong style="color:var(--green);">This is the production stack:</strong> Phase 6D (Streams + Graphs) + Phase 6E (NVDEC + Custom Kernels + TRT Integration) work TOGETHER.<br>
+NVDEC eliminates CPU video decode. Custom kernels eliminate CPU pre/post. Streams overlap frames. Graphs eliminate launch overhead.<br>
+Together: <strong style="color:var(--green);">23 FPS (Python) → 250 FPS (Production) on the same T4 GPU. 11× speedup.</strong>
 </div>
 
 <h3>✅ What You Learned — Phase 6E Complete</h3>
 <div class="checklist">
 <div class="check-item"><span class="check-box">⚡</span> <strong>Preprocess Kernel:</strong> Fused resize+normalize+HWC→CHW in one GPU pass. 12μs vs 5-10ms. 419× faster.</div>
 <div class="check-item"><span class="check-box">🎯</span> <strong>NMS Kernel:</strong> GPU-side box filtering eliminates GPU→CPU→GPU round-trip. 0.1ms vs 3-8ms. 30× faster.</div>
+<div class="check-item"><span class="check-box">🎬</span> <strong>NVDEC:</strong> Dedicated GPU hardware decodes H.264 directly to VRAM. 0.5ms vs 10ms CPU. Zero-copy to preprocess.</div>
 <div class="check-item"><span class="check-box">📦</span> <strong>Batched Preprocessing:</strong> 32 images in one kernel launch saturates GPU. 5× throughput vs per-image launches.</div>
-<div class="check-item"><span class="check-box">🔗</span> <strong>TensorRT Integration:</strong> Custom pre/post kernels + TRT engine = complete GPU pipeline. Zero Python in hot path.</div>
+<div class="check-item"><span class="check-box">🔗</span> <strong>TRT Integration:</strong> Preprocess + TRT + NMS in ONE C++ binary, sharing GPU pointers. No separate tools, no disk I/O.</div>
 <div class="check-item"><span class="check-box">🐍</span> <strong>Python Bindings:</strong> pybind11 wraps C++/CUDA into importable Python module. FastAPI-ready production serving.</div>
-<div class="check-item"><span class="check-box">🏗️</span> <strong>End-to-End:</strong> Video→GPU→Preprocess→TRT→NMS→Display = 4.1ms = 244 FPS. With streams: 286 FPS.</div>
+<div class="check-item"><span class="check-box">🏗️</span> <strong>End-to-End:</strong> NVDEC→Preprocess→TRT→NMS = 4.6ms = 217 FPS. With Streams: 250 FPS. 11× over Python.</div>
 </div>
 </div></div>`
 }];
