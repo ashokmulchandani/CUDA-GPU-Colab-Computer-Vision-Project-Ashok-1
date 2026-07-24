@@ -658,6 +658,98 @@ The 7.07× speedup number is real, but the REAL lesson is: <strong style="color:
 	<strong>Formula:</strong> <code style="color:var(--cyan);">Total Time = GPU_compute + PCIe_transfers + CPU_overhead + Sync_points</code>. Custom CUDA eliminates the last two terms entirely.
 	</div>
 	</div>
+
+
+	<h3>📐 How Are These ms &amp; FPS Numbers Calculated?</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+	  The numbers in the table above aren't made up — they come from real measurements and simple formulas.<br>
+	  Here's exactly how each timing is derived:
+	</div>
+
+	<table class="param" style="margin:0.5rem auto;max-width:750px;">
+	<tr><th style="width:100px;">Step</th><th style="color:var(--magenta);">🐍 Python/NumPy</th><th style="color:var(--red);">🔴 PyTorch (GPU)</th><th style="color:var(--green);">⚡ Custom CUDA</th></tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">📥 Preprocess<br><span style="font-size:0.45rem;">(per 640×640 frame)</span></td>
+	  <td style="font-size:0.45rem;color:var(--magenta);"><strong>~5-10ms</strong><br>• cv2.resize: ~2-3ms<br>• np.float32 & divide/255: ~1-2ms<br>• np.transpose(2,0,1): ~1-2ms<br>• np.expand_dims: ~1ms<br><em>Measured: Colab CPU cell</em></td>
+	  <td style="font-size:0.45rem;color:var(--red);"><strong>~2-5ms</strong><br>• torch.from_numpy: ~1ms (CPU→GPU copy)<br>• F.resize + F.normalize: ~0.5-1ms<br>• tensor.permute: ~0.5-1ms<br>• Autograd tracks every op<br><em>Measured: Colab GPU cell</em></td>
+	  <td style="font-size:0.45rem;color:var(--green);"><strong>~12μs (0.012ms)</strong><br>• 1 fused CUDA kernel<br>• All 3 ops in ONE pass<br>• No autograd, no Python<br>• <strong style="color:var(--green);">419× faster than CPU</strong><br><em>Benchmarked in Phase 4 notebook</em></td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🎯 NMS<br><span style="font-size:0.45rem;">(per frame, ~50 boxes)</span></td>
+	  <td style="font-size:0.45rem;color:var(--magenta);"><strong>~3-8ms</strong><br>• torchvision.ops.nms on CPU<br>• O(n²) pairwise IoU<br>• 50 boxes = 1,225 comparisons<br>• CPU iterates sequentially</td>
+	  <td style="font-size:0.45rem;color:var(--red);"><strong>~1-3ms</strong><br>• GPU→CPU copy: ~0.5ms<br>• CPU torchvision.nms: ~1-2ms<br>• CPU→GPU copy (boxes): ~0.5ms<br>• Breaks GPU pipeline!</td>
+	  <td style="font-size:0.45rem;color:var(--green);"><strong>~0.1-0.5ms</strong><br>• 1 CUDA NMS kernel on GPU<br>• Parallel IoU computation<br>• NO GPU→CPU→GPU bounce<br>• <strong style="color:var(--green);">~30× faster than CPU</strong><br><em>Custom kernel, Phase 4/6E</em></td>
+	</tr>
+	<tr style="background:rgba(255,179,71,0.06);">
+	  <td style="color:var(--amber);font-weight:700;">📦 Total<br><span style="font-size:0.45rem;">(pre+inf+post)</span></td>
+	  <td style="font-size:0.45rem;color:var(--magenta);"><strong>~15-25ms</strong><br>5-10 + 5-8 + 3-8 = 13-26ms</td>
+	  <td style="font-size:0.45rem;color:var(--red);"><strong>~10-18ms</strong><br>2-5 + 5-8 + 1-3 = 8-16ms</td>
+	  <td style="font-size:0.45rem;color:var(--green);"><strong>~5-8ms</strong><br>0.012 + 4-7 + 0.5 = 4.5-7.5ms<br><strong style="color:var(--green);">Fully GPU-resident pipeline</strong></td>
+	</tr>
+	</table>
+
+	<div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.3rem;">🔢 ms → FPS Conversion Formula</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+	<strong>Formula:</strong> <code style="color:var(--cyan);">FPS = 1000 ÷ time_per_frame_ms</code><br>
+	&nbsp;&nbsp;&nbsp;15ms → 1000÷15 = <strong style="color:var(--magenta);">~67 FPS</strong> &nbsp;|&nbsp; 25ms → 1000÷25 = <strong style="color:var(--red);">~40 FPS</strong> &nbsp;|&nbsp; 5ms → 1000÷5 = <strong style="color:var(--green);">200 FPS</strong> &nbsp;|&nbsp; 8ms → 1000÷8 = <strong style="color:var(--green);">125 FPS</strong><br>
+	<strong>Why does ms matter?</strong> Each millisecond of processing time directly eats into your frame budget. Lower ms = higher FPS ceiling.
+	</div>
+	</div>
+
+	<h3>🎥 What FPS Does Input Video Come In At? — Do We Need to Beat It?</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);line-height:1.8;margin:0.5rem 0;">
+
+	<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:stretch;margin:0.8rem 0;">
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--border);border-radius:8px;padding:0.7rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">📹 USB Webcam</div>
+	    <div style="font-size:0.5rem;color:var(--tdim);"><strong style="color:var(--amber);">30 FPS</strong> (sometimes 60)<br>Budget per frame: <strong>33ms</strong></div>
+	    <div style="font-size:0.45rem;color:var(--green);margin-top:0.3rem;">Numpy: ❌ (slot to CPU)<br>PyTorch: ✅ (fits in 33ms)<br>CUDA: ✅✅ (massive headroom)</div>
+	  </div>
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--border);border-radius:8px;padding:0.7rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">📡 IP Camera (RTSP)</div>
+	    <div style="font-size:0.5rem;color:var(--tdim);"><strong style="color:var(--amber);">15-30 FPS</strong> (up to 60)<br>Budget per frame: <strong>33-66ms</strong></div>
+	    <div style="font-size:0.45rem;color:var(--green);margin-top:0.3rem;">Numpy: ✅ (barely at 15 FPS)<br>PyTorch: ✅<br>CUDA: ✅✅</div>
+	  </div>
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--amber);border-radius:8px;padding:0.7rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">🏭 Multi-Camera Server</div>
+	    <div style="font-size:0.5rem;color:var(--tdim);"><strong style="color:var(--amber);">4 cams × 30 FPS = 120 FPS</strong><br>Budget per frame: <strong>8.3ms</strong></div>
+	    <div style="font-size:0.45rem;color:var(--red);margin-top:0.3rem;">Numpy: ❌ (impossible)<br>PyTorch: ❌ (too slow)<br>CUDA: ✅ (5-8ms fits!)</div>
+	  </div>
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.7rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">⚡ High-Speed Camera</div>
+	    <div style="font-size:0.5rem;color:var(--tdim);"><strong style="color:var(--green);">120-240+ FPS</strong><br>Budget per frame: <strong>4-8ms</strong></div>
+	    <div style="font-size:0.45rem;color:var(--green);margin-top:0.3rem;">CUDA only: Fits at 5-8ms!<br>GPU + CUDA is the ONLY way<br>to keep up in real-time.</div>
+	  </div>
+	</div>
+
+	<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">🎯 YES — You MUST Beat the Input FPS. Here's Why.</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+	<strong>The Golden Rule of Real-Time Vision:</strong><br>
+	<code style="color:var(--cyan);">Processing Time per Frame &lt; 1 ÷ Input FPS</code><br><br>
+	<strong>If your pipeline is SLOWER than input:</strong><br>
+	&nbsp;&nbsp;❌ Frames queue up in a buffer → memory fills → you start DROPPING frames<br>
+	&nbsp;&nbsp;❌ Latency grows: by the time you detect a person, they've already left the frame<br>
+	&nbsp;&nbsp;❌ Multi-camera setup becomes impossible<br><br>
+	<strong>If your pipeline is FASTER than input:</strong><br>
+	&nbsp;&nbsp;✅ Every frame gets processed — zero drops<br>
+	&nbsp;&nbsp;✅ GPU has idle time → can handle MORE cameras or higher resolution<br>
+	&nbsp;&nbsp;✅ Latency is bounded — detection happens within ms of the event<br><br>
+	<strong>Example with 30 FPS input:</strong><br>
+	&nbsp;&nbsp;Frame budget = 1000÷30 = <strong style="color:var(--amber);">33.3ms per frame</strong><br>
+	&nbsp;&nbsp;Numpy CPU (15-25ms): ✅ fits, but barely — no room for other processing<br>
+	&nbsp;&nbsp;PyTorch GPU (10-18ms): ✅ fits comfortably — ~50% headroom<br>
+	&nbsp;&nbsp;Custom CUDA (5-8ms): ✅✅ <strong style="color:var(--green);">massive headroom — 75-85% idle!</strong> Can add tracking, zone logic, alerts, all within budget.<br><br>
+	<strong>With 4 cameras at 30 FPS each (120 FPS total):</strong><br>
+	&nbsp;&nbsp;Budget per frame = 1000÷120 = <strong style="color:var(--red);">8.3ms</strong><br>
+	&nbsp;&nbsp;Numpy: ❌ Way too slow<br>
+	&nbsp;&nbsp;PyTorch: ❌ At 10-18ms, can't keep up<br>
+	&nbsp;&nbsp;Custom CUDA: ✅ At 5-8ms, <strong style="color:var(--green);">fits within budget!</strong> This is why production systems use CUDA.
+	</div>
+	</div>
+
+	</div>
 <h3>📊 Results Table</h3>
 <table class="param">
 <tr><th>Method</th><th>Time</th><th>GPU Utilization</th><th>Speedup</th></tr>
