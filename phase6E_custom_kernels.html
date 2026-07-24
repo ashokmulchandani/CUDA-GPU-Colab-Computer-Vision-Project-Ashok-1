@@ -555,6 +555,37 @@ const S=[{
 and its output needs to be consumed. Custom CUDA kernels on both sides handle this — <strong style="color:var(--green);">all via GPU pointers, zero memory copies.</strong>
 </div>
 
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">❓ FAQ: TRT Integration — Common Questions Answered</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+
+<strong style="color:var(--cyan);">Q1: Does TRT replace the CPU?</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--red);">NO.</strong> The CPU still handles: capturing frames from camera, sending H.264 packets to NVDEC, receiving final detection boxes, and displaying results. TRT only replaces <strong style="color:var(--green);">PyTorch for the inference step</strong> — it makes the GPU compute faster. The CPU is still the "manager" — it just does less work per frame.<br><br>
+
+<strong style="color:var(--cyan);">Q2: Can we skip TRT entirely? What happens?</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--green);">Yes, absolutely.</strong> TRT is an OPTIMIZATION, not a requirement. Without TRT you'd use raw PyTorch on GPU:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<code>CUDA Preprocess (12μs) → <strong style="color:var(--red);">PyTorch model.forward() (8-15ms)</strong> → CUDA NMS (0.1ms) = ~8-15ms total</code><br>
+&nbsp;&nbsp;Still works! Still all-GPU! Just 2-3× slower. TRT gives you 4ms instead of 10ms — that's the only difference.<br>
+&nbsp;&nbsp;<strong style="color:var(--amber);">The preprocess and NMS custom kernels work with ANY inference engine</strong> — PyTorch, ONNX Runtime, TensorRT, or even raw CUDA.<br><br>
+
+<strong style="color:var(--cyan);">Q3: Can I integrate TRT with PyTorch? (Python, not just C++)</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--green);">YES — 3 ways to do it:</strong><br>
+&nbsp;&nbsp;&nbsp;&nbsp;1️⃣ <code>torch-tensorrt</code> (nvidia-pyindex): Compile a <code>torch.nn.Module</code> directly → TRT. Python-native.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;2️⃣ <code>torch2trt</code> (NVIDIA-AI-IOT): <code>model_trt = torch2trt(model, [input])</code> — drop-in replacement.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3️⃣ Build .engine via CLI, load in Python: <code>import tensorrt as trt; runtime.deserialize_cuda_engine()</code><br>
+&nbsp;&nbsp;<strong style="color:var(--cyan);">Full Python pipeline:</strong> <code>img = cv2.imread() → yolo_cuda.preprocess(img) # pybind11 → trt_model(input) # torch-tensorrt → yolo_cuda.nms(output) # pybind11</code><br>
+&nbsp;&nbsp;The custom CUDA kernels are still called via pybind11. TRT is called via torch-tensorrt. Everything runs in Python!<br><br>
+
+<strong style="color:var(--cyan);">Q4: Does PyTorch also get exported to ONNX?</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--green);">YES — that's the standard path:</strong><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<code>PyTorch (.pt) → torch.onnx.export() → ONNX (.onnx) → trtexec → TensorRT (.engine)</code><br>
+&nbsp;&nbsp;ONNX is the "bridge format." PyTorch exports to ONNX. Then TRT imports from ONNX. You can also skip ONNX and use <code>torch-tensorrt</code> directly (no intermediate file).<br><br>
+
+<strong style="color:var(--green);">🔑 Bottom line:</strong> TRT is just a faster GPU inference engine. You can use it from Python OR C++. The custom CUDA pre/post kernels work either way. The "integration" we show in C++ is the FASTEST possible path — but Python + pybind11 + torch-tensorrt gives you 90% of the speed with 10% of the complexity.
+
+</div>
+</div>
+
 <div class="pipeline">
 <div class="pipeline-stage highlight">📥 Custom CUDA Preprocess</div><div class="pipeline-arrow">→</div>
 <div class="pipeline-stage highlight">🧠 TensorRT Engine</div><div class="pipeline-arrow">→</div>
