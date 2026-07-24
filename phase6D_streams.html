@@ -213,6 +213,28 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
   Same idea in YOLO: split video into individual frames. Frame N+1 preprocesses while Frame N does inference.
 </div>
 
+<h3>🎓 Why This Exact Example? — The Teaching Design Behind 4 × 40 MB</h3>
+<div style="background:linear-gradient(135deg,var(--amber-bg),var(--magenta-bg));border:1px solid var(--amber);border-radius:var(--radius-sm);padding:0.8rem 1.2rem;margin:1rem 0;">
+<div style="font-size:0.55rem;color:var(--tdim);line-height:1.8;">
+This entire scenario is <strong style="color:var(--amber);">deliberately designed for learning</strong>. Every number was chosen to make the concept crystal clear:
+
+<table class="param" style="margin:0.6rem auto;max-width:680px;">
+<tr><th style="color:var(--cyan);">Design Choice</th><th style="color:var(--cyan);">Why This Value?</th><th style="color:var(--cyan);">What It Teaches</th></tr>
+<tr><td style="color:var(--amber);font-weight:700;">10M floats = 40 MB</td><td style="font-size:0.5rem;"><strong>Big enough to measure, small enough to fit.</strong> At ~12 GB/s PCIe, 40 MB takes ~3ms to transfer — long enough for the timer to catch, short enough the demo runs in seconds. On a T4 (16 GB VRAM), 4 batches × 3 buffers × 40 MB = 480 MB — fits with PLENTY of room.</td><td style="font-size:0.5rem;color:var(--green);">Transfer time is VISIBLE and MEASURABLE. You can SEE the difference between sequential and overlapped.</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">4 batches</td><td style="font-size:0.5rem;"><strong>Not too few, not too many.</strong> 2 batches = barely any overlap to show. 8+ batches = diminishing returns (T4 has 1 copy engine, so after 3-4 streams the copy queue just backs up). 4 batches with 4 streams = each stream handles exactly 1 batch — <strong style="color:var(--cyan);">cleanest possible demonstration.</strong></td><td style="font-size:0.5rem;color:var(--green);">Shows the GOLDILOCKS number: just enough streams to keep both the copy engine AND compute engine busy.</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Synthetic data</td><td style="font-size:0.5rem;"><strong>No I/O bottleneck confusion.</strong> Real images would add disk read time, decoding time, variable sizes. The example uses <code>h_data[i][j] = (float)(i+1)</code> — pure in-memory data. <strong style="color:var(--cyan);">Isolates ONE variable: stream vs no-stream.</strong></td><td style="font-size:0.5rem;color:var(--green);">Teaches that benchmarking should isolate the thing you're measuring. No confounding factors.</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Simple kernel</td><td style="font-size:0.5rem;"><strong>Compute time ≈ transfer time.</strong> The kernel does <code>val = sqrt(val*2+1)² + 1</code> — cheap enough that the GPU finishes computing right when the next transfer arrives. If the kernel were 100× slower, streams wouldn't help (GPU would be compute-bound). If 100× faster, the copy engine would be the bottleneck.</td><td style="font-size:0.5rem;color:var(--green);">Shows WHEN streaming helps: when compute and transfer times are BALANCED. Real pipelines (YOLO, video) often have this property naturally.</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">4 streams (not 1, not 16)</td><td style="font-size:0.5rem;"><strong>Matches the batch count.</strong> With 4 batches and 4 streams, the round-robin <code>i % 4</code> assigns each batch to its OWN stream. This creates the textbook "perfect overlap" pattern. In production with continuous frames, any number of streams works — but <strong style="color:var(--cyan);">4 is the sweet spot</strong> on most GPUs (1 copy engine + enough SMs to parallelize).</td><td style="font-size:0.5rem;color:var(--green);">Demonstrates the core pattern: N streams = N lanes of simultaneous work. The code is trivially adaptable to 2, 3, or 8 streams.</td></tr>
+</table>
+
+<div style="font-size:0.55rem;color:var(--tdim);margin-top:0.5rem;text-align:center;">
+<strong style="color:var(--amber);">🔑 Key Insight:</strong> This is NOT a production workload. It's a <strong style="color:var(--cyan);">microscope slide</strong> — a carefully prepared sample that makes the streaming concept visible.<br>
+In production, you'd apply the SAME pattern with real data: video frames (4.8 MB each), batched API requests, multi-camera feeds.<br>
+The 7.07× speedup number is real, but the REAL lesson is: <strong style="color:var(--green);">keep the GPU fed, never let it wait for data.</strong>
+</div>
+</div>
+</div>
+
 <h3>💻 The Multi-Stream Code</h3>
 <div class="code-box"><span class="cell-num">multistream.cu — 4 streams, round-robin</span>
 <span style="color:#6a9955;">// Create 4 streams</span>
@@ -262,7 +284,7 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <tr><td style="color:var(--amber);font-weight:700;">Streams Created</td><td style="font-size:0.5rem;">0 (uses default stream 0)<br>Everything serialized</td><td style="font-size:0.5rem;">4 streams via <code>cudaStreamCreate()</code><br>Round-robin: <code>i % 4</code></td></tr>
 <tr><td style="color:var(--amber);font-weight:700;">GPU Utilization</td><td style="font-size:0.5rem;color:var(--red);">~40%<br>GPU waits during every copy</td><td style="font-size:0.5rem;color:var(--green);">~95%<br>Copy + compute overlap = GPU busy</td></tr>
 <tr><td style="color:var(--amber);font-weight:700;">T4 Threads Used</td><td style="font-size:0.5rem;">2 blocks × 256 threads = 512<br>Per SM: ~13 threads (low!)</td><td style="font-size:0.5rem;">4 streams × 2×256 = 2,048<br>Per SM: ~51 threads (better!)</td></tr>
-<tr><td style="color:var(--amber);font-weight:700;">T4 Occupancy</td><td style="font-size:0.5rem;color:var(--red);">~0.6% (512 / 81,920 threads)<br>GPU massively underutilized</td><td style="font-size:0.5rem;color:var(--green);">~2.5% (2,048 / 81,920)<br>Still low — kernel is simple, 4× better</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">T4 Occupancy</td><td style="font-size:0.5rem;color:var(--red);">~1.25% (512 / 40,960 threads)<br>GPU massively underutilized</td><td style="font-size:0.5rem;color:var(--green);">~5% (2,048 / 40,960)<br>Still low — kernel is simple, 4× better</td></tr>
 <tr><td style="color:var(--amber);font-weight:700;">Speedup</td><td style="font-size:0.6rem;color:var(--red);font-weight:700;">131.62 ms (1×)</td><td style="font-size:0.6rem;color:var(--green);font-weight:700;">18.60 ms (7.07×)</td></tr>
 </table>
 
@@ -270,6 +292,105 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
   💡 Streams don't change threads/block or occupancy. They change <strong style="color:var(--cyan);">WHEN work happens</strong> — overlapping transfers with compute.<br>
   The GPU has the SAME compute power in both cases. Streams just keep it BUSIER by never letting it wait for data.
 </div>
+
+
+	<h3>🧮 Deep Dive: GPU Resource Utilization — Blocks, Warps, Registers &amp; the T4 Ceiling</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.8rem;">
+	  The kernel is <code>process_kernel&lt;&lt;&lt;2, 256&gt;&gt;&gt;</code> — 2 blocks, 256 threads each. Same kernel, same launch config in both cases.<br>
+	  Multi-stream runs 4 copies concurrently. Below: what actually happens on the silicon.
+	</div>
+
+	<table class="param" style="margin:0.5rem auto;max-width:800px;">
+	<tr>
+	  <th style="width:130px;">GPU Resource</th>
+	  <th style="color:var(--red);">❌ Single Stream (1 batch at a time)</th>
+	  <th style="color:var(--green);">✅ 4 Streams (4 batches in flight)</th>
+	  <th style="color:var(--cyan);">🏗️ Tesla T4 Total Capacity</th>
+	  <th style="color:var(--amber);">% Used (4-stream)</th>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Blocks</td>
+	  <td style="font-size:0.5rem;">2 blocks<br>(only 1 batch active)</td>
+	  <td style="font-size:0.5rem;">4 streams × 2 = <strong style="color:var(--green);">8 blocks</strong></td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">640</strong> (40 SMs × 16 max blocks/SM)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">1.25%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Warps</td>
+	  <td style="font-size:0.5rem;">512 ÷ 32 = <strong style="color:var(--red);">16 warps</strong><br>(per SM: ~0.4 warps)</td>
+	  <td style="font-size:0.5rem;">2,048 ÷ 32 = <strong style="color:var(--green);">64 warps</strong><br>(per SM: ~1.6 warps)</td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">1,280</strong> (40 SMs × 32 warps/SM)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">5%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Threads</td>
+	  <td style="font-size:0.5rem;">2 × 256 = <strong style="color:var(--red);">512</strong></td>
+	  <td style="font-size:0.5rem;">4 × 2 × 256 = <strong style="color:var(--green);">2,048</strong></td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">40,960</strong> (40 SMs × 1,024 threads/SM)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">5%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Registers Used</td>
+	  <td style="font-size:0.5rem;">~10 regs/thread × 512 = <strong style="color:var(--red);">~5,120</strong></td>
+	  <td style="font-size:0.5rem;">~10 regs/thread × 2,048 = <strong style="color:var(--green);">~20,480</strong></td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">2,621,440</strong> (40 SMs × 65,536 regs/SM)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">0.78%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Shared Memory</td>
+	  <td style="font-size:0.5rem;"><strong>0 bytes</strong> (kernel doesn't use it)<br>All data in registers only</td>
+	  <td style="font-size:0.5rem;"><strong>0 bytes</strong> (same kernel, no shared mem)</td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">2,560 KB</strong> (40 SMs × 64 KB/SM)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">0%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Compute Throughput</td>
+	  <td style="font-size:0.5rem;">~50M FLOPs in ~131ms = <strong style="color:var(--red);">~0.38 GFLOPS</strong></td>
+	  <td style="font-size:0.5rem;">~200M FLOPs in ~19ms = <strong style="color:var(--green);">~10.5 GFLOPS</strong></td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">8,100 GFLOPS</strong> (8.1 TFLOPS FP32)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">0.13%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Memory Bandwidth<br><span style="font-size:0.45rem;">(GPU VRAM ↔ SMs)</span></td>
+	  <td style="font-size:0.5rem;">80 MB ÷ 131ms = <strong style="color:var(--red);">~0.6 GB/s</strong></td>
+	  <td style="font-size:0.5rem;">320 MB ÷ 19ms = <strong style="color:var(--green);">~17 GB/s</strong></td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">320 GB/s</strong> (GDDR6)</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">5.3%</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">PCIe Bandwidth<br><span style="font-size:0.45rem;">(CPU ↔ GPU)</span></td>
+	  <td style="font-size:0.5rem;">80 MB ÷ 131ms = <strong style="color:var(--red);">~0.6 GB/s</strong><br>(GPU starved — PCIe idle most of the time)</td>
+	  <td style="font-size:0.5rem;">320 MB ÷ 19ms = <strong style="color:var(--green);">~17 GB/s</strong><br>(close to theoretical max!)</td>
+	  <td style="font-size:0.5rem;"><strong style="color:var(--cyan);">~12-16 GB/s</strong><br>(PCIe Gen3 ×16 actual)<br><span style="font-size:0.4rem;color:var(--tmut);">~16 GB/s theoretical</span></td>
+	  <td style="font-size:0.5rem;color:var(--amber);">~100%</td>
+	</tr>
+	<tr style="background:rgba(255,179,71,0.08);">
+	  <td style="color:var(--amber);font-weight:700;">⚡ Bottleneck<br><span style="font-size:0.45rem;">(Roofline Analysis)</span></td>
+	  <td style="font-size:0.5rem;color:var(--red);font-weight:700;">MEMORY-BOUND<br><span style="font-size:0.45rem;">GPU sits idle ~60% of time<br>waiting for PCIe transfers</span></td>
+	  <td style="font-size:0.5rem;color:var(--green);font-weight:700;">MEMORY-BOUND<br><span style="font-size:0.45rem;">PCIe pushed to ~100% —<br>this is as fast as data can move!</span></td>
+	  <td style="font-size:0.5rem;">Roofline Ridge:<br><strong style="color:var(--cyan);">~25 FLOP/byte</strong><br><span style="font-size:0.45rem;">(8.1 TFLOPS ÷ 320 GB/s)</span></td>
+	  <td style="font-size:0.5rem;color:var(--amber);font-weight:700;">Arith. Intensity:<br>~0.6 FLOP/byte<br><span style="font-size:0.45rem;">(50M FLOPs ÷ 80 MB)</span></td>
+	</tr>
+	</table>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--amber);">Both single-stream and multi-stream are MEMORY-BOUND.</strong> The GPU's compute units (SMs) are barely taxed — the bottleneck is getting data across the PCIe bus.<br>
+	  Multi-stream doesn't change the arithmetic intensity — it just <strong style="color:var(--green);">keeps the PCIe pipe full</strong> instead of letting it go idle between batches.<br>
+	  <strong style="color:var(--cyan);">The 7.07× speedup comes from PCIe saturation, not from using more GPU compute.</strong>
+	</div>
+
+	<div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.3rem;">🔍 How to Identify Memory-Bound vs Compute-Bound</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+	<strong>1. Calculate Arithmetic Intensity (AI):</strong> FLOPs ÷ Bytes moved from DRAM.<br>
+	&nbsp;&nbsp;&nbsp;This kernel: ~5 FLOPs per float ÷ 8 bytes (4 read + 4 write) = <strong style="color:var(--amber);">~0.6 FLOP/byte</strong><br>
+	<strong>2. Find the Roofline Ridge:</strong> Peak FLOPs ÷ Peak Memory Bandwidth.<br>
+	&nbsp;&nbsp;&nbsp;T4 FP32: 8,100 GFLOPS ÷ 320 GB/s = <strong style="color:var(--cyan);">~25 FLOP/byte</strong><br>
+	<strong>3. Compare:</strong> If AI &lt; 25 → <strong style="color:var(--red);">MEMORY-BOUND</strong>. If AI &gt; 25 → <strong style="color:var(--green);">COMPUTE-BOUND</strong>.<br>
+	&nbsp;&nbsp;&nbsp;This kernel is ~40× below the ridge — memory bandwidth is the limiter, not compute.<br>
+	<strong>4. Streams help memory-bound kernels:</strong> Overlapping PCIe transfers hides the latency. For compute-bound kernels (e.g., large matmul), streams give less benefit because the GPU is already busy computing.
+	</div>
+	</div>
 
 <h3>📊 Results Table</h3>
 <table class="param">
@@ -285,9 +406,9 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <div class="option" onclick="checkQuiz('q1',this)">C. The GPU is slower when using multiple streams</div>
 </div><div class="feedback" id="q1-fb"></div></div>
 </div></div>`},{
-  id:'6D.3',title:'CUDA Graphs — Capture Once, Replay Forever',
-  fact:'<strong>Each kernel launch costs ~5μs of CPU overhead.</strong> For 100 kernel launches per frame at 1000 FPS, that is 500μs per second wasted on launch overhead. CUDA Graphs capture the whole workflow and replay it in ~0.5μs total.',
-  render:()=>`
+	id:'6D.3',title:'CUDA Graphs — Capture Once, Replay Forever',
+	fact:'<strong>Each kernel launch costs ~5μs of CPU overhead.</strong> For 100 kernel launches per frame at 1000 FPS, that is 500μs per second wasted on launch overhead. CUDA Graphs capture the whole workflow and replay it in ~0.5μs total.',
+	render:()=>`
 <div class="slide"><div class="card">
 <h2><span class="num">6D.3</span> CUDA Graphs — Capture Once, Replay Forever</h2>
 
@@ -298,41 +419,254 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <div class="pipeline-stage">🔁 Replay again</div>
 </div>
 
-<h3>💻 CUDA Graph Code</h3>
-<div class="code-box"><span class="cell-num">cuda_graphs.cu</span>
-<span style="color:#6a9955;">// Step 1: Begin capture</span>
+<h3>🎬 Animated Timeline — Individual Launches vs CUDA Graph</h3>
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn comp-btn active" onclick="showGraphComp(0,this)" style="font-size:0.45rem;">🔴 Individual Launches</button>
+  <button class="btn comp-btn" onclick="showGraphComp(1,this)" style="font-size:0.45rem;">🟢 CUDA Graph</button>
+</div>
+<div id="graphCompViz" style="background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:1rem;margin:0.5rem 0;min-height:160px;"></div>
+
+<div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:0.3rem;">
+  <div style="font-size:0.45rem;color:var(--tdim);line-height:1.8;">
+    <strong style="color:var(--amber);">🎨 Colors:</strong>
+    <span style="color:var(--red);">■ CPU Overhead</span>
+    <span style="color:var(--green);">■ GPU Work</span>
+    <span style="color:var(--cyan);">■ Graph Launch</span>
+  </div>
+  <div style="font-size:0.45rem;color:var(--tdim);line-height:1.8;">
+    <strong style="color:var(--amber);">🔢 Numbers:</strong>
+    Each colored block = 1 kernel launch. 20 kernels shown.<br>
+    Individual: 20 × 5μs = <strong style="color:var(--red);">100μs wasted</strong>. Graph: 1 × 0.5μs = <strong style="color:var(--green);">0.5μs</strong>.
+  </div>
+</div>
+
+<h3>💻 CUDA Graph Code — 5-Step Recipe</h3>
+<div class="code-box"><span class="cell-num">cuda_graphs.cu — Capture, Instantiate, Replay</span>
+<span style="color:#6a9955;">// Step 1: Begin capture on a stream</span>
 <span style="color:#4ec9b0;">cudaStreamBeginCapture</span>(stream, cudaStreamCaptureModeGlobal);
 
-<span style="color:#6a9955;">// Step 2: Launch kernels as normal (RECORDED, not executed)</span>
-preprocess<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(...);
-inference<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(...);
-nms<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(...);
+<span style="color:#6a9955;">// Step 2: Launch kernels as normal (RECORDED, not executed!)</span>
+preprocess<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(d_input, d_output, W, H);
+inference<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(d_output, d_feats, ...);
+nms<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(d_feats, d_boxes, ...);
+<span style="color:#6a9955;">// ... 15-20 more kernels in a real YOLO pipeline</span>
 
 <span style="color:#6a9955;">// Step 3: End capture → get graph object</span>
 <span style="color:#569cd6;">cudaGraph_t</span> graph;
 <span style="color:#4ec9b0;">cudaStreamEndCapture</span>(stream, &graph);
 
-<span style="color:#6a9955;">// Step 4: Instantiate (optimize for THIS GPU)</span>
+<span style="color:#6a9955;">// Step 4: Instantiate (GPU-specific optimization!)</span>
 <span style="color:#569cd6;">cudaGraphExec_t</span> instance;
-<span style="color:#4ec9b0;">cudaGraphInstantiate</span>(&instance, graph);
+<span style="color:#4ec9b0;">cudaGraphInstantiate</span>(&instance, graph, NULL, NULL, <span style="color:#ce9178;">0</span>);
 
-<span style="color:#6a9955;">// Step 5: Replay — in ONE call!</span>
-<span style="color:#4ec9b0;">cudaGraphLaunch</span>(instance, stream);  <span style="color:#6a9955;">// ~0.5μs instead of N×5μs!</span></div>
+<span style="color:#6a9955;">// Step 5: Replay forever — ONE call, ~0.5μs!</span>
+<span style="color:#569cd6;">for</span> (<span style="color:#569cd6;">int</span> frame = <span style="color:#ce9178;">0</span>; frame < <span style="color:#ce9178;">1000000</span>; frame++) {
+  update_input_buffer(h_input, frame);
+  <span style="color:#4ec9b0;">cudaGraphLaunch</span>(instance, stream);  <span style="color:#6a9955;">// ~0.5μs instead of N×5μs!</span>
+  <span style="color:#4ec9b0;">cudaStreamSynchronize</span>(stream);      <span style="color:#6a9955;">// Wait for result</span>
+}</div>
 
-<table class="param">
-<tr><th>Method</th><th>Launch Overhead</th><th>Use When</th></tr>
-<tr><td>Individual launches</td><td style="color:var(--red);">~5μs per kernel</td><td>Few kernels, simple pipelines</td></tr>
-<tr><td style="color:var(--green);">CUDA Graph</td><td style="color:var(--green);">~0.5μs total</td><td>Many kernels (>20), repeated pipelines</td></tr>
+<h3>📊 Launch Overhead Calculation — How Much CPU Time Is Wasted?</h3>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  Every <code>kernel<<<>>></code> call costs <strong style="color:var(--red);">~5μs of CPU time</strong>. The CPU must validate parameters, dispatch to GPU, update driver bookkeeping.<br>
+  CUDA Graph collapses ALL of that into <strong style="color:var(--green);">ONE call (~0.5μs)</strong>. The CPU just says "do the thing" and the GPU executes the pre-recorded graph.
+</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr>
+  <th style="color:var(--cyan);">Pipeline Size</th>
+  <th style="color:var(--cyan);">Example</th>
+  <th style="color:var(--red);">Individual Launches</th>
+  <th style="color:var(--green);">CUDA Graph</th>
+  <th style="color:var(--amber);">CPU Time Saved</th>
+  <th style="color:var(--violet);">Speedup</th>
+</tr>
+<tr>
+  <td style="font-weight:700;">5 kernels</td>
+  <td style="font-size:0.5rem;">Simple preprocess → infer → post</td>
+  <td style="font-size:0.5rem;color:var(--red);">5 × 5μs = <strong>25μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);"><strong>0.5μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);">24.5μs</td>
+  <td style="font-size:0.5rem;">50×</td>
+</tr>
+<tr>
+  <td style="font-weight:700;">10 kernels</td>
+  <td style="font-size:0.5rem;">Basic CNN inference</td>
+  <td style="font-size:0.5rem;color:var(--red);">10 × 5μs = <strong>50μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);"><strong>0.5μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);">49.5μs</td>
+  <td style="font-size:0.5rem;">100×</td>
+</tr>
+<tr style="background:rgba(255,179,71,0.06);">
+  <td style="font-weight:700;color:var(--amber);">20 kernels</td>
+  <td style="font-size:0.5rem;color:var(--amber);"><strong>YOLO inference pipeline</strong></td>
+  <td style="font-size:0.5rem;color:var(--red);">20 × 5μs = <strong>100μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);"><strong>0.5μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);font-weight:700;">99.5μs</td>
+  <td style="font-size:0.5rem;color:var(--violet);font-weight:700;">200×</td>
+</tr>
+<tr>
+  <td style="font-weight:700;">50 kernels</td>
+  <td style="font-size:0.5rem;">Complex pipeline (TRT decomposes ops)</td>
+  <td style="font-size:0.5rem;color:var(--red);">50 × 5μs = <strong>250μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);"><strong>0.5μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);">249.5μs</td>
+  <td style="font-size:0.5rem;">500×</td>
+</tr>
+<tr>
+  <td style="font-weight:700;">100 kernels</td>
+  <td style="font-size:0.5rem;">Large TensorRT engine with many layers</td>
+  <td style="font-size:0.5rem;color:var(--red);">100 × 5μs = <strong>500μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);"><strong>0.5μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);">499.5μs</td>
+  <td style="font-size:0.5rem;">1,000×</td>
+</tr>
+<tr>
+  <td style="font-weight:700;">200 kernels</td>
+  <td style="font-size:0.5rem;">Multi-model ensemble (Triton pipeline)</td>
+  <td style="font-size:0.5rem;color:var(--red);">200 × 5μs = <strong>1,000μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);"><strong>0.5μs</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);font-weight:700;">999.5μs (1ms!)</td>
+  <td style="font-size:0.5rem;color:var(--violet);font-weight:700;">2,000×</td>
+</tr>
 </table>
 
-<div class="callout"><span style="font-size:1rem;">⚠️</span><span style="font-size:0.65rem;">CUDA Graphs only work with FIXED shapes. No dynamic allocations inside the graph. Best for inference pipelines where input size never changes (always 640×640).</span></div>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+  💡 <strong style="color:var(--amber);">The break-even is around 3-4 kernels.</strong> Below that, the graph capture overhead (~10-20μs one-time) isn't worth it.<br>
+  Above 10 kernels, CUDA Graphs are <strong style="color:var(--green);">almost always a win</strong> for repeated pipelines.
+</div>
 
-<div class="quiz" id="q2"><div class="question">When should you NOT use CUDA Graphs?</div>
+<h3>🎯 Real YOLO Pipeline — Frames Per Second Impact</h3>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+  A typical YOLO inference pipeline has <strong style="color:var(--amber);">~20 kernel launches</strong> (preprocess, backbone conv layers, neck, detection head, NMS).<br>
+  At high FPS, launch overhead becomes a REAL bottleneck — the CPU can't dispatch kernels fast enough.
+</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr>
+  <th style="color:var(--cyan);">Scenario</th>
+  <th style="color:var(--cyan);">FPS</th>
+  <th style="color:var(--red);">CPU Time Lost to Launches<br>(per second)</th>
+  <th style="color:var(--green);">CPU Time with Graph<br>(per second)</th>
+  <th style="color:var(--amber);">Frames Gained</th>
+</tr>
+<tr>
+  <td style="font-weight:700;">Webcam</td>
+  <td style="font-size:0.5rem;">30 FPS</td>
+  <td style="font-size:0.5rem;color:var(--red);">30 × 100μs = <strong>3ms/s (0.3%)</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);">30 × 0.5μs = <strong>0.015ms</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);">Negligible at 30 FPS</td>
+</tr>
+<tr style="background:rgba(255,179,71,0.06);">
+  <td style="font-weight:700;color:var(--amber);">Real-time Video</td>
+  <td style="font-size:0.5rem;color:var(--amber);"><strong>200 FPS</strong></td>
+  <td style="font-size:0.5rem;color:var(--red);">200 × 100μs = <strong>20ms/s (2%)</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);">200 × 0.5μs = <strong>0.1ms</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);">~4 extra frames/sec</td>
+</tr>
+<tr>
+  <td style="font-weight:700;">High-throughput Server</td>
+  <td style="font-size:0.5rem;"><strong>1,000 FPS</strong></td>
+  <td style="font-size:0.5rem;color:var(--red);">1,000 × 100μs = <strong>100ms/s (10%!)</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);">1,000 × 0.5μs = <strong>0.5ms</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);font-weight:700;">~100 extra frames/sec!</td>
+</tr>
+<tr>
+  <td style="font-weight:700;">Multi-Model Triton</td>
+  <td style="font-size:0.5rem;"><strong>5,000 FPS</strong></td>
+  <td style="font-size:0.5rem;color:var(--red);">5,000 × 100μs = <strong>500ms/s (50%!!)</strong></td>
+  <td style="font-size:0.5rem;color:var(--green);">5,000 × 0.5μs = <strong>2.5ms</strong></td>
+  <td style="font-size:0.5rem;color:var(--amber);font-weight:700;">HALF the CPU is freed!</td>
+</tr>
+</table>
+
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">🔑 The Math — Why Graphs Matter More at Scale</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+<strong>CPU budget per frame at 1,000 FPS = 1,000μs (1ms).</strong><br>
+&nbsp;&nbsp;&nbsp;Without graphs: 100μs wasted on kernel launches = <strong style="color:var(--red);">10% of your frame budget GONE.</strong><br>
+&nbsp;&nbsp;&nbsp;With graphs: 0.5μs = <strong style="color:var(--green);">0.05% of budget.</strong> The remaining 99.95% goes to actual work.<br>
+<strong>Formula:</strong> CPU Overhead Saved = (N_kernels × 5μs − 0.5μs) × FPS<br>
+&nbsp;&nbsp;&nbsp;At 20 kernels, 1000 FPS: (100 − 0.5) × 1000 = <strong style="color:var(--amber);">99,500μs = ~100ms of CPU time freed per second.</strong><br>
+<strong style="color:var(--cyan);">That CPU time can now handle MORE requests, or the same throughput with lower latency.</strong>
+</div>
+</div>
+
+<h3>⚖️ CUDA Graphs vs Individual Launches — Complete Comparison</h3>
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr>
+  <th style="width:140px;">What</th>
+  <th style="color:var(--red);">❌ Individual Launches</th>
+  <th style="color:var(--green);">✅ CUDA Graph</th>
+  <th style="color:var(--cyan);">🏗️ Why It Matters</th>
+</tr>
+<tr>
+  <td style="color:var(--amber);font-weight:700;">CPU Overhead</td>
+  <td style="font-size:0.5rem;color:var(--red);">~5μs per kernel launch<br>Scales linearly: N×5μs</td>
+  <td style="font-size:0.5rem;color:var(--green);">~0.5μs per ENTIRE graph<br>Constant: O(1)</td>
+  <td style="font-size:0.5rem;">CPU freed for other work (preprocessing, I/O, serving more requests)</td>
+</tr>
+<tr>
+  <td style="color:var(--amber);font-weight:700;">GPU-Side Timing</td>
+  <td style="font-size:0.5rem;">Kernels execute same as always<br>GPU compute time UNCHANGED</td>
+  <td style="font-size:0.5rem;">Kernels execute same as always<br>GPU compute time UNCHANGED</td>
+  <td style="font-size:0.5rem;color:var(--amber);">Graphs do NOT make GPU faster. They remove CPU bottleneck.</td>
+</tr>
+<tr>
+  <td style="color:var(--amber);font-weight:700;">One-Time Cost</td>
+  <td style="font-size:0.5rem;color:var(--green);">$0 — no setup needed</td>
+  <td style="font-size:0.5rem;">Capture: ~10-20μs<br>Instantiate: ~50-200μs<br>(paid ONCE, amortized over millions of replays)</td>
+  <td style="font-size:0.5rem;">Break-even: ~4-5 replays. After that, pure profit.</td>
+</tr>
+<tr>
+  <td style="color:var(--amber);font-weight:700;">Dynamic Shapes</td>
+  <td style="font-size:0.5rem;color:var(--green);">✅ Works with any size<br>malloc/free inside pipeline OK</td>
+  <td style="font-size:0.5rem;color:var(--red);">❌ Fixed shapes only<br>No dynamic allocations in graph</td>
+  <td style="font-size:0.5rem;">Dealbreaker for variable-size inputs (text, variable batching)</td>
+</tr>
+<tr>
+  <td style="color:var(--amber);font-weight:700;">Debugging</td>
+  <td style="font-size:0.5rem;color:var(--green);">Easy — each kernel visible in profiler</td>
+  <td style="font-size:0.5rem;color:var(--red);">Harder — graph is opaque blob<br>Nsight can "unroll" for debugging</td>
+  <td style="font-size:0.5rem;">Capture in dev with debug flags, strip for production</td>
+</tr>
+<tr>
+  <td style="color:var(--amber);font-weight:700;">Best For</td>
+  <td style="font-size:0.5rem;">Prototyping, dynamic pipelines,<br>pipelines with < 5 kernels</td>
+  <td style="font-size:0.5rem;color:var(--green);">Production inference (>10 kernels),<br>high-FPS video, Triton serving</td>
+  <td style="font-size:0.5rem;color:var(--cyan);">Any repeated pipeline with fixed input size</td>
+</tr>
+</table>
+
+<h3>🔬 What Happens Inside cudaGraphInstantiate?</h3>
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin:0.8rem 0;">
+  <div style="flex:1;min-width:180px;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.3rem;">1️⃣ Validate</div>
+    <div style="font-size:0.45rem;color:var(--tdim);">Checks all kernel params, memory addresses, stream dependencies for correctness</div>
+  </div>
+  <div style="flex:1;min-width:180px;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">2️⃣ Optimize</div>
+    <div style="font-size:0.45rem;color:var(--tdim);">GPU-specific tuning: reorder ops, fuse adjacent kernels where possible, plan memory allocation</div>
+  </div>
+  <div style="flex:1;min-width:180px;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.3rem;">3️⃣ Compile</div>
+    <div style="font-size:0.45rem;color:var(--tdim);">Pre-computes all driver bookkeeping. The "executable" is a single GPU command packet — replay is "fire and forget"</div>
+  </div>
+</div>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  💡 This is why instantiation takes ~100μs — it's doing REAL work. But it's paid ONCE. After that, every replay is ~0.5μs.<br>
+  <strong style="color:var(--green);">1M replays: 500ms CPU time with graphs vs 100,000ms without. That's 3.3 minutes of CPU time SAVED.</strong>
+</div>
+
+<div class="callout"><span style="font-size:1rem;">⚠️</span><span style="font-size:0.65rem;">CUDA Graphs only work with FIXED shapes. No dynamic allocations inside the graph. Best for inference pipelines where input size never changes (always 640×640). For variable shapes, use individual launches or consider CUDA Graph updates (cudaGraphExecUpdate) for limited parameter changes.</span></div>
+
+<div class="quiz" id="q2"><div class="question">You have a YOLO pipeline with 20 kernels running at 500 FPS. How much CPU time do you save per second by switching to CUDA Graphs?</div>
 <div class="options">
-<div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. When input sizes vary, or you have only 2-3 kernel launches. The graph capture overhead + fixed-shape constraint isn't worth it for tiny pipelines. CUDA Graphs shine with 20+ kernel launches at fixed sizes.</div>
-<div class="option" onclick="checkQuiz('q2',this)">B. CUDA Graphs should always be used — they always help</div>
-<div class="option" onclick="checkQuiz('q2',this)">C. When using an AMD GPU</div>
+<div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. ~49,750μs (~50ms). Individual: 20 × 5μs × 500 = 50,000μs. Graph: 1 × 0.5μs × 500 = 250μs. Difference: 49,750μs — that's 5% of a CPU core freed!</div>
+<div class="option" onclick="checkQuiz('q2',this)">B. ~5μs — CUDA Graphs only save the launch overhead of one kernel</div>
+<div class="option" onclick="checkQuiz('q2',this)">C. Nothing — CUDA Graphs only affect GPU speed, not CPU</div>
 </div><div class="feedback" id="q2-fb"></div></div>
+</div></div>`},
 </div></div>`},{
   id:'6D.4',title:'🖐️ Exercise 1 — Run the Multi-Stream Demo',
   fact:'<strong>You already have the code!</strong> The 6_Multistream.ipynb notebook in Colab runs the exact 7.07× benchmark. Just open, compile, and run.',
@@ -571,6 +905,7 @@ showReq(0,document.querySelector('.req-btn'));
 
 // ── Frame Pipeline Comparison ──
 var compIdx=0,compTimer=null;
+var graphCompIdx=0,graphCompTimer=null;
 function showComp(i,btn){
   compIdx=i;if(compTimer)clearInterval(compTimer);
   document.querySelectorAll('.comp-btn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
@@ -627,6 +962,63 @@ function renderComp(){
   }
 }
 </script>
+
+<script>
+// ── CUDA Graph Launch Overhead Visualizer ──
+function showGraphComp(i,btn){
+  graphCompIdx=i;if(graphCompTimer)clearInterval(graphCompTimer);
+  document.querySelectorAll('#graphCompViz').forEach(function(b){});
+  var buttons=document.querySelectorAll('#slideContainer .comp-btn');
+  buttons.forEach(function(b){b.classList.remove('active')});
+  if(btn)btn.classList.add('active');
+  renderGraphComp();
+  if(i===0) graphCompTimer=setInterval(renderGraphComp,1800);
+  if(i===1) graphCompTimer=setInterval(renderGraphComp,3000);
+}
+function renderGraphComp(){
+  var graphBox=document.getElementById('graphCompViz');if(!graphBox)return;
+  var t=new Date().getTime();
+  if(graphCompIdx===0){
+    graphBox.innerHTML='<div style="text-align:center;">'+
+      '<div style="font-family:Orbitron,sans-serif;font-size:0.55rem;color:var(--red);margin-bottom:0.4rem;">🔴 Individual Launches — CPU Wastes 5μs PER kernel (20 kernels = 100μs)</div>'+
+      '<div style="position:relative;width:90%;max-width:700px;height:60px;background:var(--raised);border-radius:4px;overflow:hidden;border:1px solid var(--border);margin:0 auto;">'+
+      '<div style="position:absolute;top:2px;left:0;right:0;display:flex;flex-wrap:wrap;gap:1px;padding:2px;">'+
+      Array.from({length:20},function(_,i){
+        var alpha=((t%1800)/1800)>i*0.05?1:0.3;
+        return '<div style="width:4.2%;height:24px;background:rgba(248,81,73,'+alpha+');border:1px solid var(--red);border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.35rem;color:#fff;">K'+i+'</div>';
+      }).join('')+
+      '</div>'+
+      '<div style="position:absolute;bottom:2px;left:2px;right:2px;height:14px;background:rgba(63,185,80,0.15);border:1px solid var(--green);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.4rem;color:var(--green);">GPU: EXECUTING KERNELS (actual work)</div>'+
+      '</div>'+
+      '<div style="font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;"><strong style="color:var(--red);">CPU LAUNCH OVERHEAD:</strong> 20 kernels × 5μs = <strong style="color:var(--red);">100μs wasted</strong> just telling GPU what to do.</div>'+
+      '<div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">At 1000 FPS: 100μs × 1000 = <strong style="color:var(--red);">100ms CPU time burnt per second</strong> on launch overhead alone!</div>'+
+      '</div>';
+  } else {
+    var phase=(t%3000)/3000;
+    graphBox.innerHTML='<div style="text-align:center;">'+
+      '<div style="font-family:Orbitron,sans-serif;font-size:0.55rem;color:var(--green);margin-bottom:0.4rem;">🟢 CUDA Graph — CPU fires ONE command (~0.5μs). GPU executes ALL kernels.</div>'+
+      '<div style="display:flex;gap:0.8rem;justify-content:center;align-items:flex-end;margin:0.5rem 0;">'+
+      '<div style="text-align:center;">'+
+        '<div style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--cyan);margin-bottom:0.2rem;">CPU</div>'+
+        '<div style="width:40px;height:6px;background:var(--green);border-radius:3px;margin:0 auto;" title="~0.5μs CPU time"></div>'+
+        '<div style="font-size:0.4rem;color:var(--green);margin-top:0.1rem;">0.5μs!</div>'+
+      '</div>'+
+      '<div style="font-size:1rem;color:var(--green);">→</div>'+
+      '<div style="text-align:center;">'+
+        '<div style="font-family:JetBrains Mono,monospace;font-size:0.45rem;color:var(--cyan);margin-bottom:0.2rem;">GPU</div>'+
+        '<div style="position:relative;width:320px;height:40px;background:var(--raised);border:2px solid var(--green);border-radius:6px;overflow:hidden;">'+
+        Array.from({length:20},function(_,i){
+          return '<div style="position:absolute;left:'+((i/20)*100)+'%;width:4.5%;height:100%;background:rgba(63,185,80,'+(0.3+0.7*((phase*3000+i*10)%2000>1000?1:0.4))+');border-right:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.3rem;color:#fff;">'+i+'</div>';
+        }).join('')+
+        '</div>'+
+        '<div style="font-size:0.4rem;color:var(--green);margin-top:0.1rem;">All 20 kernels executed — CPU only said "go!" once</div>'+
+      '</div>'+
+      '</div>'+
+      '<div style="font-size:0.45rem;color:var(--tdim);margin-top:0.5rem;"><strong style="color:var(--green);">CPU LAUNCH OVERHEAD:</strong> 1 graph launch = <strong style="color:var(--green);">0.5μs</strong> — 200× less CPU time wasted!</div>'+
+      '<div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">At 1000 FPS: 0.5μs × 1000 = <strong style="color:var(--green);">0.5ms CPU time per second</strong>. The other 99.95% is available for real work.</div>'+
+      '</div>';
+  }
+}
 </script>
 </body>
 </html>
