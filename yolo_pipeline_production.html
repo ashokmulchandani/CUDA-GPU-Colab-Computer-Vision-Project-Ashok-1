@@ -117,138 +117,85 @@ function setMode(m,btn){
 // ── Drawing helpers ──
 function G(x,y,w,h,c,o,r){return'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="'+(r||3)+'" fill="'+c+'" opacity="'+(o||0.6)+'"/>'}
 function T(x,y,txt,c,fs){return'<text x="'+x+'" y="'+y+'" fill="'+(c||'#fff')+'" font-size="'+(fs||9)+'" font-family="JetBrains Mono" text-anchor="middle">'+txt+'</text>'}
-function L(x1,y1,x2,y2,c){return'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+(c||'var(--tmut)')+'" stroke-width="1" stroke-dasharray="3,4" opacity="0.4"/>'}
+function L(x1,y1,x2,y2,c){return'<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+(c||'#8b949e')+'" stroke-width="1" stroke-dasharray="3,4" opacity="0.4"/>'}
 
 function renderVis(){
   var box=document.getElementById('mainVis'),t=new Date().getTime();
   if(!box)return;
-  var W=box.clientWidth-48;if(W<400)W=400;
-  var H=220,pad=10;
-  // Colors
+  var W=box.clientWidth-48;if(W<400||isNaN(W))W=600;
+  var H=200;
   var R='rgba(248,81,73,0.55)',C='rgba(57,210,255,0.55)',G='rgba(63,185,80,0.55)',A='rgba(255,179,71,0.55)',V='rgba(163,113,247,0.55)';
-  var Rs='var(--red)',Cs='var(--cyan)',Gs='var(--green)';
-
-  function drawGantt(title,rows,desc){
-    var rh=36,gap=6,lw=55,rw=W-lw-10,y0=25;
-    var totalH=Math.max(H-40,rows.length*(rh+gap)+70);
-    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;font-family:JetBrains Mono;">';
-    // Time axis
-    svg+='<rect x="'+lw+'" y="'+y0+'" width="'+rw+'" height="'+(rows.length*(rh+gap)+10)+'" rx="4" fill="none" stroke="var(--border)" stroke-width="1"/>';
-    // Time markers
-    for(var p=0;p<=100;p+=25){
-      var tx=lw+rw*p/100;
-      svg+=L(tx,y0,tx,y0+rows.length*(rh+gap)+10);
-      svg+='<text x="'+tx+'" y="'+(y0-6)+'" fill="var(--tmut)" font-size="8" text-anchor="middle">'+p+'%</text>';
-    }
-    // Rows
-    rows.forEach(function(r,i){
-      var ry=y0+10+i*(rh+gap);
-      svg+=T(lw-6,ry+rh/2+3,r.label,Cs,8);
-      svg+=G(r.x*lw+r.w*rw/100*lw/rw?lw+rw*(r.x||0)/100:lw,ry,rw*(r.w||0)/100,rh,r.color,0.55,3);
-      svg+=T(lw+rw*(r.x||0)/100+rw*(r.w||0)/200,ry+rh/2+4,r.txt||'',null,8);
-    });
-    svg+=T(W/2,totalH-8,desc,'var(--tdim)',9);
-    return svg+'</svg>';
-  }
 
   if(curMode===0){
-    // BASELINE: Gantt chart showing 1 frame sequential
     var rows=[
-      {label:'CPU ⬇',x:0,w:8,color:R,txt:'Preprocess 19ms'},
-      {label:'PCIe ↑',x:8,w:2,color:C},
-      {label:'GPU ⬇',x:10,w:52,color:G,txt:'Inference 168ms (GPU starts here)'},
-      {label:'PCIe ↓',x:62,w:2,color:C},
-      {label:'CPU ⬇',x:64,w:24,color:R,txt:'NMS 73ms'},
-      {label:'GPU ⬇',x:88,w:10,color:'rgba(248,81,73,0.1)',txt:'IDLE 65%!'},
+      {label:'CPU:',x:0,w:8,color:R,txt:'Preprocess 19ms'},
+      {label:'PCIe:',x:8,w:2,color:C},
+      {label:'GPU:',x:10,w:52,color:G,txt:'Inference 168ms'},
+      {label:'PCIe:',x:62,w:2,color:C},
+      {label:'CPU:',x:64,w:24,color:R,txt:'NMS 73ms'},
+      {label:'GPU:',x:88,w:10,color:'rgba(248,81,73,0.12)',txt:'IDLE 65%'},
     ];
-    box.innerHTML='<div style="text-align:center;font-family:JetBrains Mono;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">🔴 Baseline — 252ms/frame — GPU sits idle 65% of the time!</div>'+
-      drawGantt('',rows,'1 frame = 252ms = 4 FPS. GPU idle during all CPU work (preprocess + NMS).');
+    var rh=28,gap=5,lw=50,rw=W-lw-15,totalH=Math.max(H,230);
+    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;">';
+    svg+='<rect x="'+lw+'" y="22" width="'+rw+'" height="'+(rows.length*(rh+gap)+8)+'" rx="4" fill="none" stroke="#555" stroke-width="1"/>';
+    for(var i=0;i<rows.length;i++){
+      var ry=30+i*(rh+gap);
+      var rx=lw+rw*(rows[i].x||0)/100;
+      var rw2=rw*(rows[i].w||0)/100;
+      svg+=T(lw-5,ry+rh/2+4,rows[i].label,'#8b949e',8);
+      if(rw2>0)svg+=G(rx,ry,rw2,rh,rows[i].color,0.55,3);
+      if(rows[i].txt)svg+=T(rx+rw2/2,ry+rh/2+4,rows[i].txt,'#fff',8);
+    }
+    svg+=T(W/2,totalH-6,'🔴 Baseline: 252ms/frame, GPU idle 65%. 4 FPS.','#8b949e',9);
+    box.innerHTML='<div style="text-align:center;font-size:0.5rem;color:#f85149;margin-bottom:0.4rem;">Sequential CPU→GPU→CPU</div>'+svg;
   } else if(curMode===1){
-    // STREAMS: 3 frames overlapped, Gantt style
-    var frames=4,y0=25,rh=28,gap=4,lw=55,rw=W-lw-10;
-    var totalH=y0+frames*(rh+gap)+60;
-    var phase=(t/3000*0.7)%0.7;
-    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;font-family:JetBrains Mono;">';
-    svg+='<rect x="'+lw+'" y="'+y0+'" width="'+rw+'" height="'+(frames*(rh+gap)+10)+'" rx="4" fill="none" stroke="var(--border)"/>';
-    svg+=T(W/2,totalH-12,'🟡 3 Streams: GPU idle 15% → 143 FPS → 7ms/frame (35× faster than baseline!)',Cs,9);
+    var frames=4,y0=28,rh=28,gap=4,lw=50,rw=W-lw-15,totalH=Math.max(H,230);
+    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;">';
+    svg+='<rect x="'+lw+'" y="22" width="'+rw+'" height="'+(frames*(rh+gap)+8)+'" rx="4" fill="none" stroke="#555" stroke-width="1"/>';
     for(var f=0;f<frames;f++){
-      var ry=y0+10+f*(rh+gap);
+      var ry=30+f*(rh+gap);
       var off=((t/3000*0.35)+f*0.2)%0.75;
-      var ux=lw+rw*off, gw=rw*0.48, dx=ux+gw, dw=rw*0.08;
-      svg+=T(lw-6,ry+rh/2+3,'F'+f,Cs,8);
-      svg+=G(ux,ry,ux-lw+rw*0.06,rh,C,0.5,3);
-      svg+=G(ux+rw*0.06,ry,gw,rh,G,0.6,3);
-      svg+=G(ux+rw*0.06+gw,ry,dw,rh,C,0.4,3);
-      svg+=T(ux+rw*0.03,ry+rh/2+3,'↑',null,7);
-      svg+=T(ux+rw*0.06+gw/2,ry+rh/2+3,'GPU ('+(4.1+Math.random()*0.5).toFixed(1)+'ms)',null,7);
-      svg+=T(ux+rw*0.06+gw+dw/2,ry+rh/2+3,'↓',null,7);
+      var ux=lw+rw*off, uw=rw*0.06, gw=rw*0.48, dw=rw*0.08;
+      svg+=T(lw-5,ry+rh/2+4,'F'+f,'#39d2ff',8);
+      svg+=G(ux,ry,uw,rh,C,0.5,3);
+      svg+=G(ux+uw,ry,gw,rh,G,0.6,3);
+      svg+=G(ux+uw+gw,ry,dw,rh,C,0.4,3);
+      svg+=T(ux+uw/2,ry+rh/2+4,'↑','#fff',7);
+      svg+=T(ux+uw+gw/2,ry+rh/2+4,'GPU ~4ms','#fff',7);
+      svg+=T(ux+uw+gw+dw/2,ry+rh/2+4,'↓','#fff',7);
     }
-    svg+=T(W/2,y0-8,'🟡 CUDA Streams — 4 frames in flight, overlapped',Cs,9);
-    box.innerHTML=svg;
+    svg+=T(W/2,totalH-6,'🟡 Streams: 4 frames overlapped. 143 FPS. GPU idle 15%.','#8b949e',9);
+    box.innerHTML='<div style="text-align:center;font-size:0.5rem;color:#ffb347;margin-bottom:0.4rem;">3 Streams: overlapped transfer+compute</div>'+svg;
   } else if(curMode===2){
-    // GRAPH: Visual comparing 20 individual launches vs 1 graph
-    var y0=20,rh=20,lw=70,rw=W-lw-10;
-    var totalH=180;
-    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;font-family:JetBrains Mono;">';
-    // Top: 20 individual
-    svg+=T(W/2,y0-4,'❌ 20 Individual Launches: 20 × 5μs = 100μs CPU time',Rs,9);
-    var boxW=(rw-10)/20;
+    var y0=25,rh=20,lw=50,rw=W-lw-15,totalH=Math.max(H,190);
+    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;">';
+    var boxW=Math.max(3,(rw-10)/20);
     for(var i=0;i<20;i++){
-      var bx=lw+5+i*boxW;
-      svg+=G(bx,y0,boxW-2,rh,R,0.5,2);
-      svg+=T(bx+boxW/2-1,y0+rh/2+3,i,Cs,6);
+      svg+=G(lw+5+i*boxW,y0,boxW-2,rh,R,0.5,2);
+      svg+=T(lw+5+i*boxW+boxW/2,y0+rh/2+4,''+i,'#39d2ff',6);
     }
-    svg+=T(lw-6,y0+rh/2+3,'CPU:',Cs,8);
-    // Arrow
-    svg+=T(W/2,y0+rh+20,'⬇ 1 cudaGraphLaunch() replaces ALL 20',Cs,10);
-    // Bottom: 1 graph
-    var gy=y0+rh+35;
-    svg+=G(lw+5,gy,rw-10,rh+10,Gs,0.7,6);
-    svg+=T(lw+rw/2,gy+rh/2+7,'📸 1 CUDA GRAPH: Preprocess + TRT + NMS — 0.5μs CPU!',null,9);
-    svg+=T(lw-6,gy+rh/2+7,'CPU:',Cs,8);
-    svg+=T(W/2,totalH-6,'🟢 CUDA Graph: 200× less CPU overhead. GPU idle 8%. 222 FPS.',Cs,10);
-    box.innerHTML=svg;
+    svg+=T(lw-5,y0+rh/2+4,'CPU:','#39d2ff',8);
+    svg+=T(W/2,y0+rh+20,'⬇ 1 cudaGraphLaunch = ALL 20','#39d2ff',10);
+    svg+=G(lw+5,y0+rh+35,rw-10,rh+10,Gs,0.7,6);
+    svg+=T(lw+rw/2,y0+rh+35+rh/2+5,'1 GRAPH: Preprocess + TRT + NMS (0.5us)','#fff',9);
+    svg+=T(W/2,totalH-6,'🟢 CUDA Graph: 200x less CPU overhead. 222 FPS.','#8b949e',9);
+    box.innerHTML='<div style="text-align:center;font-size:0.5rem;color:#3fb950;margin-bottom:0.4rem;">20 individual launches vs 1 Graph</div>'+svg;
   } else {
-    // PRODUCTION: Gantt with multiple frames + graph
-    var frames=5, y0=28,rh=22,gap=4,lw=55,rw=W-lw-10;
-    var totalH=y0+frames*(rh+gap)+50;
-    var phase=(t/3000*0.45)%0.7;
-    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;font-family:JetBrains Mono;">';
-    // Background timeline
-    svg+='<rect x="'+lw+'" y="'+(y0-4)+'" width="'+rw+'" height="'+(frames*(rh+gap)+18)+'" rx="5" fill="none" stroke="var(--violet)" stroke-width="1.5"/>';
-    // Time markers
-    for(var p=0;p<=100;p+=25){
-      var mx=lw+rw*p/100;
-      svg+=L(mx,y0-4,mx,y0+frames*(rh+gap)+10,Cs);
-      svg+='<text x="'+mx+'" y="'+(y0-10)+'" fill="var(--tmut)" font-size="7" text-anchor="middle">'+p+'%</text>';
-    }
-    // Each frame: Upload → [GRAPH: Preprocess+TRT+NMS] → Download
+    var frames=5,y0=28,rh=22,gap=4,lw=55,rw=W-lw-15,totalH=Math.max(H,230);
+    var svg='<svg width="'+W+'" height="'+totalH+'" style="display:block;margin:0 auto;">';
+    svg+='<rect x="'+lw+'" y="22" width="'+rw+'" height="'+(frames*(rh+gap)+8)+'" rx="5" fill="none" stroke="#a371f7" stroke-width="1.5"/>';
     for(var f=0;f<frames;f++){
-      var ry=y0+4+f*(rh+gap);
+      var ry=30+f*(rh+gap);
       var off=((t/3000*0.3)+f*0.17)%0.72;
-      var ux=lw+rw*off;
-      var uW=rw*0.05;       // upload takes ~5% of timeline
-      var gW=rw*0.50;       // GPU graph takes ~50%
-      var dW=rw*0.04;       // download takes ~4%
-      // Label
-      svg+=T(lw-6,ry+rh/2+3,'📷 F'+(f+1),Gs,7);
-      // Upload bar
-      svg+=G(ux,ry,uW,rh,Cs,0.5,3);
-      svg+=T(ux+uW/2,ry+rh/2+3,'↑',null,6);
-      // GPU GRAPH bar (the big green block)
-      svg+=G(ux+uW,ry,gW,rh,Gs,0.6,4);
-      svg+=T(ux+uW+gW/2,ry+rh/2+3,'📸 GRAPH: Preprocess+TRT+NMS ('+(3.8+Math.random()*0.4).toFixed(1)+'ms)',null,7);
-      // Download bar
-      svg+=G(ux+uW+gW,ry,dW,rh,Cs,0.4,3);
-      svg+=T(ux+uW+gW+dW/2,ry+rh/2+3,'↓',null,6);
+      var ux=lw+rw*off, uw=rw*0.05, gw=rw*0.50, dw=rw*0.04;
+      svg+=T(lw-5,ry+rh/2+4,'F'+(f+1),'#3fb950',7);
+      svg+=G(ux,ry,uw,rh,C,0.5,3);
+      svg+=G(ux+uw,ry,gw,rh,Gs,0.6,4);
+      svg+=T(ux+uw+gw/2,ry+rh/2+4,'GRAPH: Pre+TRT+NMS ~4.1ms','#fff',7);
+      svg+=G(ux+uw+gw,ry,dw,rh,C,0.4,3);
     }
-    // Vertical "pipeline stage" labels at top
-    svg+=T(lw+rw*0.1,y0-12,'Upload',Cs,7);
-    svg+=T(lw+rw*0.35,y0-12,'GPU (GRAPHS + Streams + Custom CUDA)',Gs,7);
-    svg+=T(lw+rw*0.80,y0-12,'Download',Cs,7);
-    // Summary
-    svg+=T(W/2,totalH-6,'🟣 PRODUCTION: All optimizations. GPU idle 5%. PCIe 95%. 244 FPS. 61× speedup from baseline.',Gs,9);
-    box.innerHTML=svg;
+    svg+=T(W/2,totalH-6,'🟣 Production: All optimizations. GPU idle 5%. 244 FPS.','#8b949e',9);
+    box.innerHTML='<div style="text-align:center;font-size:0.5rem;color:#a371f7;margin-bottom:0.4rem;">Streams + Graph + Custom CUDA</div>'+svg;
   }
 }
 setMode(0,document.getElementById('m0'));
