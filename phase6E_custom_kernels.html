@@ -1,13 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6E: Custom CUDA Kernels — Production Pipelines</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0d1117;--raised:#161b22;--border:#21262d;--text:#e6edf3;--tdim:#8b949e;--tmut:#484f58;--cyan:#39d2ff;--cyan-bg:#39d2ff15;--amber:#ffb347;--amber-bg:#ffb34715;--green:#3fb950;--green-bg:#3fb95015;--magenta:#ff6ec7;--magenta-bg:#ff6ec715;--red:#f85149;--violet:#a371f7;--radius:14px;--radius-sm:8px;--transition:0.3s cubic-bezier(0.4,0,0.2,1)}
+body.light{--bg:#f6f8fa;--card:#fff;--raised:#e8ecf0;--border:#d0d7de;--text:#1f2328;--tdim:#656d76;--tmut:#8b949e;--cyan:#0969da;--cyan-bg:#ddf4ff;--amber:#9a6700;--amber-bg:#fff8c5;--green:#1a7f37;--green-bg:#dafbe1;--magenta:#bf3989;--magenta-bg:#fbefff;--red:#cf222e;--violet:#8250df}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;transition:background 0.3s,color 0.3s}
+.bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+.theme-toggle{position:fixed;top:0.7rem;right:2rem;z-index:200;background:var(--raised);border:1px solid var(--border);color:var(--text);font-size:1.1rem;cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;transition:var(--transition);font-family:'JetBrains Mono',monospace}
+.theme-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+.topbar{position:sticky;top:0;z-index:100;background:rgba(6,9,15,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0.6rem 2rem;display:flex;align-items:center;gap:1rem;font-size:0.8rem}
+.topbar .logo{font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:0.15em;color:var(--green);white-space:nowrap}
+.topbar .step-dots{display:flex;gap:0.4rem;flex:1;justify-content:center}
+.topbar .step-dot{width:28px;height:4px;border-radius:2px;background:var(--border);transition:var(--transition);cursor:pointer}
+.topbar .step-dot.done{background:var(--green)}.topbar .step-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.topbar .step-dot:hover{background:var(--tdim)}
+.topbar .step-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tdim);white-space:nowrap}
+.header{text-align:center;padding:3rem 0 1rem}
+.header .phase-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:0.2em;color:var(--green);border:1px solid var(--green-bg);border-radius:100px;padding:0.4em 1.4em;margin-bottom:1rem}
+.header h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.header .tagline{color:var(--tdim);font-size:0.9rem}
+.topic-list{display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin:1.5rem 0 1rem}
+.topic-chip{font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.04em;padding:0.3rem 0.7rem;border-radius:100px;border:1px solid var(--border);color:var(--tmut);cursor:pointer;transition:var(--transition);background:transparent}
+.topic-chip.visited{border-color:var(--green);color:var(--green);background:var(--green-bg)}.topic-chip.current{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.fun-fact{background:linear-gradient(135deg,var(--amber-bg),var(--magenta-bg));border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.65rem 1.2rem;margin-bottom:1.5rem;font-size:0.78rem;color:var(--tdim);display:flex;align-items:center;gap:0.6rem}
+.fun-fact .bulb{font-size:1.2rem;flex-shrink:0}.fun-fact strong{color:var(--amber)}
+.slide{animation:slideIn 0.35s ease}@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem}
+.card h2{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;color:var(--text)}
+.card h2 .num{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--cyan);background:var(--cyan-bg);border-radius:6px;padding:0.2em 0.6em}
+.card p{color:var(--tdim);margin-bottom:1rem;font-size:0.95rem}
+.card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;color:var(--cyan);margin:1.2rem 0 0.5rem}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+.compare-card{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;transition:var(--transition)}
+.compare-card:hover{transform:translateY(-3px)}.compare-card.bad{border-left:3px solid var(--red)}.compare-card.good{border-left:3px solid var(--green)}.compare-card.best{border-left:3px solid var(--cyan)}
+.compare-card h4{font-family:'Orbitron',sans-serif;font-size:0.72rem;margin-bottom:0.5rem}.compare-card.bad h4{color:var(--red)}.compare-card.good h4{color:var(--green)}.compare-card.best h4{color:var(--cyan)}
+.compare-card p{font-size:0.72rem!important;color:var(--tdim)!important}
+.pipeline{display:flex;align-items:center;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:1rem 0}
+.pipeline-stage{background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.7rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);min-width:70px}
+.pipeline-stage.highlight{border-color:var(--cyan);background:var(--cyan-bg);color:var(--cyan)}
+.pipeline-stage.slow{border-color:var(--red);background:#f8514920;color:var(--red)}
+.pipeline-stage.fast{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+.pipeline-arrow{font-size:0.9rem;color:var(--cyan)}
+.eq-box{background:rgba(0,0,0,0.4);border-left:3px solid var(--cyan);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.7rem;line-height:1.8;color:var(--text);white-space:pre-wrap;overflow-x:auto}
+.code-box{background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--violet);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0;font-family:'JetBrains Mono',monospace;font-size:0.6rem;line-height:1.8;white-space:pre-wrap;overflow-x:auto;color:#d4d4d4;position:relative}
+.code-wrapper{position:relative;margin:1rem 0}.copy-btn2{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:0.55rem;font-weight:600;padding:0.3em 0.7em;border:1px solid #555;border-radius:6px;background:#2d2d2d;color:#ccc;cursor:pointer;transition:0.15s;opacity:0;z-index:5}
+.code-wrapper:hover .copy-btn2{opacity:1}.copy-btn2:hover{background:#333;color:var(--violet);border-color:var(--violet)}.copy-btn2.copied{opacity:1;background:#2d2d2d;color:var(--green);border-color:var(--green)}
+.quiz{background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1.2rem;margin-top:1.5rem}
+.quiz .question{font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--text);margin-bottom:0.8rem}
+.quiz .options{display:flex;flex-direction:column;gap:0.4rem}
+.quiz .option{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.6rem 1rem;font-size:0.82rem;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.quiz .option:hover{border-color:var(--cyan);color:var(--cyan)}.quiz .option.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}.quiz .option.wrong{border-color:var(--red);background:#f8514920;color:var(--red)}
+.quiz .feedback{display:none;margin-top:0.8rem;padding:0.6rem 1rem;border-radius:6px;font-size:0.82rem}.quiz .feedback.show{display:block}.quiz .feedback.correct{background:var(--green-bg);color:var(--green)}.quiz .feedback.wrong{background:#f8514920;color:var(--red)}
+.nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
+.nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
+.nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.kern-btn.active,.viz-btn.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
+.callout{background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.72rem;color:var(--tdim)}
+table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
+table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
+.big-stat{text-align:center;margin:1rem 0}.big-stat .number{font-family:'Orbitron',sans-serif;font-size:2.2rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.big-stat .label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--tmut);margin-top:0.2rem}
+@media(max-width:768px){.app{padding:1rem}.compare-grid{grid-template-columns:1fr}.card{padding:1.2rem}}
+</style>
+</head>
+<body>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+<nav class="topbar"><span class="logo">CUDA — PHASE 6E</span><div class="step-dots" id="stepDots"></div><span class="step-label" id="stepLabel">1/7</span></nav>
+<div class="app">
+<header class="header"><div class="phase-badge">⚡ PHASE 6E — CUSTOM CUDA KERNELS</div><h1>Custom CUDA Kernels in Production Pipelines</h1><p class="tagline">Replace Python bottlenecks with hand-written CUDA — preprocess in 12μs, NMS on GPU, 32 images at once. Built around the YOLO pipeline.</p></header>
+<div class="topic-list" id="topicChips"></div>
+<div class="fun-fact" id="funFact"><span class="bulb">💡</span><span class="fact-text" id="funFactText"></span></div>
+<div id="slideContainer"></div>
+<div class="nav-row"><button class="nav-btn" id="prevBtn" onclick="goTo(cur-1)">← Previous</button><button class="nav-btn primary" id="nextBtn" onclick="goTo(cur+1)">Next →</button></div>
+</div>
+
+<script>
+function toggleTheme(){document.body.classList.toggle('light');document.getElementById('themeToggle').textContent=document.body.classList.contains('light')?'🌙':'☀️';localStorage.setItem('p6e-theme',document.body.classList.contains('light')?'light':'dark')}
+if(localStorage.getItem('p6e-theme')==='light'){document.body.classList.add('light');document.getElementById('themeToggle').textContent='🌙'}
+(function(){var c=document.getElementById('bgCanvas'),ctx=c.getContext('2d'),p=[];function r(){c.width=window.innerWidth;c.height=window.innerHeight}r();window.addEventListener('resize',r);for(var i=0;i<50;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,rr:Math.random()*2+0.5});function a(){ctx.clearRect(0,0,c.width,c.height);var il=document.body.classList.contains('light');var lc=il?'rgba(9,105,218,0.05)':'rgba(57,210,255,0.05)';var dc=il?'rgba(9,105,218,0.25)':'rgba(57,210,255,0.25)';p.forEach(function(pp){pp.x+=pp.vx;pp.y+=pp.vy;if(pp.x<0)pp.x=c.width;if(pp.x>c.width)pp.x=0;if(pp.y<0)pp.y=c.height;if(pp.y>c.height)pp.y=0});for(var i=0;i<p.length;i++)for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x,dy=p[i].y-p[j].y;if(Math.sqrt(dx*dx+dy*dy)<100){ctx.beginPath();ctx.moveTo(p[i].x,p[i].y);ctx.lineTo(p[j].x,p[j].y);ctx.strokeStyle=lc;ctx.lineWidth=0.5;ctx.stroke()}}p.forEach(function(pp){ctx.beginPath();ctx.arc(pp.x,pp.y,pp.rr,0,Math.PI*2);ctx.fillStyle=dc;ctx.fill()});requestAnimationFrame(a)}a()})()
+
+const S=[{
+  id:'6E.1',title:'Why Custom CUDA Kernels? — The 3 Python Bottlenecks in YOLO',
+  fact:'<strong>PyTorch autograd adds invisible overhead.</strong> Every tensor operation is tracked. Every .cpu()/.numpy() call copies data across the PCIe bus. Custom CUDA eliminates both — 419x faster preprocessing, 30x faster NMS.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.1</span> Why Custom CUDA Kernels? — The 3 Python Bottlenecks</h2>
+<p>In a YOLO pipeline, Python/PyTorch creates <strong style="color:var(--red);">3 hidden bottlenecks</strong> that eat your frame budget. Each one is a place where data leaves the GPU or the CPU does unnecessary work.</p>
+
+<div class="compare-grid">
+<div class="compare-card bad"><h4>🔴 Bottleneck 1: Preprocessing</h4>
+<p><strong>Python: 5-10ms</strong><br>cv2.resize() on CPU → np.transpose() → torch.from_numpy() copies to GPU. <strong>3 separate memory passes + PCIe transfer.</strong> The GPU sits idle waiting for data.</p></div>
+<div class="compare-card bad"><h4>🔴 Bottleneck 2: Postprocessing (NMS)</h4>
+<p><strong>Python: 3-8ms</strong><br>GPU computes detections → .cpu() copies to CPU → torchvision.ops.nms() runs on CPU → results go back to GPU. <strong>GPU→CPU→GPU round-trip.</strong></p></div>
+<div class="compare-card bad"><h4>🔴 Bottleneck 3: Autograd Overhead</h4>
+<p><strong>Invisible tax: ~1-3ms</strong><br>PyTorch builds a computation graph for EVERY operation — even during inference when you don't need gradients. with torch.no_grad() helps but doesn't eliminate it.</p></div>
+</div>
+
+<h3>🎯 YOLO Pipeline — BEFORE vs AFTER Custom CUDA</h3>
+<table class="param" style="margin:0.5rem auto;max-width:800px;">
+<tr><th style="width:100px;">Stage</th><th style="color:var(--red);">🐍 Python/PyTorch</th><th style="color:var(--green);">⚡ Custom CUDA</th><th>Speedup</th></tr>
+<tr><td>📥 Preprocess</td><td style="font-size:0.5rem;color:var(--red);">5-10ms (CPU cv2 + np + torch)</td><td style="font-size:0.5rem;color:var(--green);"><strong>12μs</strong> (1 fused GPU kernel)</td><td style="color:var(--amber);font-weight:700;">~419×</td></tr>
+<tr><td>🧠 Inference</td><td style="font-size:0.5rem;">5-8ms (TensorRT)</td><td style="font-size:0.5rem;">4-7ms (TensorRT + CUDA Graph)</td><td>~1.2×</td></tr>
+<tr><td>🎯 NMS</td><td style="font-size:0.5rem;color:var(--red);">3-8ms (CPU torchvision)</td><td style="font-size:0.5rem;color:var(--green);"><strong>0.1-0.5ms</strong> (GPU CUDA NMS)</td><td style="color:var(--amber);font-weight:700;">~30×</td></tr>
+<tr style="background:rgba(63,185,80,0.06);"><td>📦 Total</td><td style="font-size:0.5rem;color:var(--red);">13-26ms (~38-77 FPS)</td><td style="font-size:0.5rem;color:var(--green);"><strong>4.1-7.5ms (~133-244 FPS)</strong></td><td style="color:var(--amber);font-weight:700;">~3×</td></tr>
+</table>
+
+<div style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--green);margin-bottom:0.3rem;">🎯 This Phase: Replace ALL 3 Bottlenecks with Custom CUDA</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+<strong>6E.2:</strong> Preprocess kernel — resize + normalize + HWC→CHW fused → <strong style="color:var(--green);">12μs</strong><br>
+<strong>6E.3:</strong> Custom NMS kernel — GPU-side box filtering → <strong style="color:var(--green);">0.1ms</strong><br>
+<strong>6E.4:</strong> Batched preprocessing — 32 images at once → <strong style="color:var(--green);">bandwidth saturation</strong><br>
+<strong>6E.5:</strong> TensorRT integration — custom pre/post + TRT engine → <strong style="color:var(--green);">seamless pipeline</strong><br>
+<strong>6E.6:</strong> Python bindings (pybind11) — call CUDA from Python → <strong style="color:var(--green);">zero-copy</strong><br>
+<strong>6E.7:</strong> End-to-end pipeline → <strong style="color:var(--green);">133-244 FPS on a T4!</strong>
+</div>
+</div>
+
+<div class="quiz" id="q0"><div class="question">Why is Python preprocessing slow for YOLO?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q0',this)">A. 3 separate operations (resize, normalize, transpose) each touch memory separately, PLUS data must be copied from CPU to GPU. Custom CUDA fuses all 3 into 1 GPU kernel — data never leaves VRAM.</div>
+<div class="option" onclick="checkQuiz('q0',this)">B. Python is interpreted so every line is slow</div>
+<div class="option" onclick="checkQuiz('q0',this)">C. The GPU is not powerful enough for preprocessing</div>
+</div><div class="feedback" id="q0-fb"></div></div>
+</div></div>`
+},{
+  id:'6E.2',title:'Preprocess Kernel — Resize + Normalize + HWC→CHW in ONE Pass',
+  fact:'<strong>12 microseconds instead of 5-10 milliseconds.</strong> One CUDA kernel replaces 3 Python operations. Each pixel visits memory ONCE instead of 3 times. 419× faster.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.2</span> Preprocess Kernel — Resize + Normalize + HWC→CHW Fused</h2>
+
+<h3>🎬 Animated: Python (3 Passes) vs CUDA (1 Pass)</h3>
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn kern-btn active" onclick="showKernVis(0,this)" style="font-size:0.45rem;">🐍 Python: 3 Passes</button>
+  <button class="btn kern-btn" onclick="showKernVis(1,this)" style="font-size:0.45rem;">⚡ CUDA: 1 Fused Pass</button>
+</div>
+<div id="kernVizBox" style="background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:1rem;margin:0.5rem 0;min-height:140px;"></div>
+
+<h3>💻 The Code</h3>
+<div class="code-box"><span class="cell-num">preprocess.cu — 1 kernel, 3 operations</span>
+<span style="color:#569cd6;">__global__</span> <span style="color:#569cd6;">void</span> preprocess_fused(
+    <span style="color:#569cd6;">uchar4</span>* input,     <span style="color:#6a9955;">// Raw camera frame (RGBA interleaved)</span>
+    <span style="color:#569cd6;">float</span>* output,     <span style="color:#6a9955;">// Normalized CHW format for TRT</span>
+    <span style="color:#569cd6;">int</span> srcW, <span style="color:#569cd6;">int</span> srcH, <span style="color:#569cd6;">int</span> dstW, <span style="color:#569cd6;">int</span> dstH)
+{
+    <span style="color:#569cd6;">int</span> x = blockIdx.x * blockDim.x + threadIdx.x;
+    <span style="color:#569cd6;">int</span> y = blockIdx.y * blockDim.y + threadIdx.y;
+    <span style="color:#569cd6;">if</span> (x >= dstW || y >= dstH) <span style="color:#569cd6;">return</span>;
+
+    <span style="color:#6a9955;">// Step 1: BILINEAR RESIZE — map output pixel to source</span>
+    <span style="color:#569cd6;">float</span> sx = (x + <span style="color:#ce9178;">0.5f</span>) * srcW / dstW - <span style="color:#ce9178;">0.5f</span>;
+    <span style="color:#569cd6;">float</span> sy = (y + <span style="color:#ce9178;">0.5f</span>) * srcH / dstH - <span style="color:#ce9178;">0.5f</span>;
+    <span style="color:#569cd6;">int</span> x0 = floorf(sx), y0 = floorf(sy);
+    <span style="color:#569cd6;">int</span> x1 = x0 + <span style="color:#ce9178;">1</span>, y1 = y0 + <span style="color:#ce9178;">1</span>;
+    <span style="color:#569cd6;">float</span> fx = sx - x0, fy = sy - y0;
+
+    <span style="color:#6a9955;">// Read 4 neighboring pixels, interpolate</span>
+    <span style="color:#569cd6;">uchar4</span> p00 = input[y0 * srcW + x0];
+    <span style="color:#569cd6;">uchar4</span> p10 = input[y0 * srcW + x1];
+    <span style="color:#569cd6;">uchar4</span> p01 = input[y1 * srcW + x0];
+    <span style="color:#569cd6;">uchar4</span> p11 = input[y1 * srcW + x1];
+
+    <span style="color:#6a9955;">// Step 2: NORMALIZE — /255.0 in the same pass!</span>
+    <span style="color:#569cd6;">float</span> r = lerp(p00.x,p10.x,p01.x,p11.x,fx,fy) / <span style="color:#ce9178;">255.0f</span>;
+    <span style="color:#569cd6;">float</span> g = lerp(p00.y,p10.y,p01.y,p11.y,fx,fy) / <span style="color:#ce9178;">255.0f</span>;
+    <span style="color:#569cd6;">float</span> b = lerp(p00.z,p10.z,p01.z,p11.z,fx,fy) / <span style="color:#ce9178;">255.0f</span>;
+
+    <span style="color:#6a9955;">// Step 3: HWC→CHW — write in channel-first layout!</span>
+    <span style="color:#569cd6;">int</span> idx = y * dstW + x;
+    output[<span style="color:#ce9178;">0</span> * dstH * dstW + idx] = r;  <span style="color:#6a9955;">// Channel 0 (R)</span>
+    output[<span style="color:#ce9178;">1</span> * dstH * dstW + idx] = g;  <span style="color:#6a9955;">// Channel 1 (G)</span>
+    output[<span style="color:#ce9178;">2</span> * dstH * dstW + idx] = b;  <span style="color:#6a9955;">// Channel 2 (B)</span>
+}</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th>What</th><th style="color:var(--red);">Python (3 passes)</th><th style="color:var(--green);">CUDA (1 pass)</th></tr>
+<tr><td>Memory Accesses</td><td style="color:var(--red);">3 reads + 3 writes = <strong>6 passes</strong></td><td style="color:var(--green);">1 read + 1 write = <strong>2 passes</strong></td></tr>
+<tr><td>CPU↔GPU Transfers</td><td style="color:var(--red);">1 upload (cv2→torch)</td><td style="color:var(--green);">0 (data already on GPU)</td></tr>
+<tr><td>Time</td><td style="color:var(--red);font-weight:700;">5-10ms</td><td style="color:var(--green);font-weight:700;">~12μs</td></tr>
+</table>
+
+	<h3>🎬 NVDEC — GPU Hardware Video Decode (Step 0 Before Preprocess)</h3>
+
+	<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">📖 NVDEC = <strong>N</strong>.<strong>V</strong>idia <strong>Dec</strong>oder — A Separate Chip ON the GPU</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+	<strong>NVDEC is NOT CUDA.</strong> It's a completely separate piece of silicon — an <strong style="color:var(--amber);">ASIC (Application-Specific Integrated Circuit)</strong> hard-wired to do ONE thing: decode compressed video.<br>
+	Think of it like a <strong style="color:var(--cyan);">dedicated appliance</strong> inside the GPU. Just like your kitchen has an oven (for baking) AND a microwave (for reheating) — the GPU has CUDA Cores (for math) AND NVDEC (for video). They work independently and simultaneously.
+	</div>
+	</div>
+
+	<div style="text-align:center;margin:0.5rem 0;">
+	<div style="display:inline-block;background:var(--raised);border:2px solid var(--border);border-radius:12px;padding:1rem;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">🏗️ Tesla T4 GPU Die — What's Inside</div>
+	<svg width="500" height="160" style="display:block;margin:0 auto;font-family:'JetBrains Mono',monospace;">
+	  <!-- GPU outline -->
+	  <rect x="5" y="5" width="490" height="150" rx="10" fill="none" stroke="var(--border)" stroke-width="2"/>
+	  <!-- VRAM banks -->
+	  <rect x="15" y="15" width="110" height="130" rx="4" fill="rgba(57,210,255,0.08)" stroke="var(--cyan)" stroke-width="1"/>
+	  <text x="70" y="85" fill="var(--cyan)" font-size="7" text-anchor="middle">GDDR6 VRAM</text>
+	  <text x="70" y="100" fill="var(--tmut)" font-size="6" text-anchor="middle">16 GB</text>
+	  <rect x="375" y="15" width="110" height="130" rx="4" fill="rgba(57,210,255,0.08)" stroke="var(--cyan)" stroke-width="1"/>
+	  <text x="430" y="85" fill="var(--cyan)" font-size="7" text-anchor="middle">GDDR6 VRAM</text>
+	  <text x="430" y="100" fill="var(--tmut)" font-size="6" text-anchor="middle">16 GB</text>
+	  <!-- SMs (CUDA Cores) -->
+	  <rect x="140" y="20" width="120" height="40" rx="4" fill="rgba(63,185,80,0.15)" stroke="var(--green)" stroke-width="1"/>
+	  <text x="200" y="38" fill="var(--green)" font-size="7" text-anchor="middle">🟩 40 SMs</text>
+	  <text x="200" y="52" fill="var(--tmut)" font-size="6" text-anchor="middle">2,560 CUDA Cores</text>
+	  <!-- NVDEC -->
+	  <rect x="275" y="20" width="100" height="40" rx="4" fill="rgba(255,179,71,0.2)" stroke="var(--amber)" stroke-width="2"/>
+	  <text x="325" y="36" fill="var(--amber)" font-size="7" text-anchor="middle">🟨 NVDEC × 2</text>
+	  <text x="325" y="50" fill="var(--tmut)" font-size="6" text-anchor="middle">Hardware Decoder</text>
+	  <!-- NVENC -->
+	  <rect x="275" y="70" width="100" height="35" rx="4" fill="rgba(163,113,247,0.15)" stroke="var(--violet)" stroke-width="1"/>
+	  <text x="325" y="86" fill="var(--violet)" font-size="7" text-anchor="middle">🟪 NVENC</text>
+	  <text x="325" y="100" fill="var(--tmut)" font-size="6" text-anchor="middle">HW Encoder</text>
+	  <!-- Cache -->
+	  <rect x="140" y="70" width="120" height="35" rx="4" fill="rgba(57,210,255,0.06)" stroke="var(--border)" stroke-width="1"/>
+	  <text x="200" y="86" fill="var(--tmut)" font-size="7" text-anchor="middle">L2 Cache (6 MB)</text>
+	  <!-- PCIe -->
+	  <rect x="140" y="115" width="235" height="25" rx="3" fill="rgba(248,81,73,0.08)" stroke="var(--red)" stroke-width="1" stroke-dasharray="3,2"/>
+	  <text x="257" y="133" fill="var(--red)" font-size="7" text-anchor="middle">PCIe 3.0 ×16 — 12 GB/s to CPU</text>
+	  <!-- Data flow arrow: NVDec -> VRAM -->
+	  <line x1="325" y1="62" x2="70" y2="80" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6"/>
+	  <text x="180" y="78" fill="var(--amber)" font-size="6">decoded frames → VRAM</text>
+	  <!-- Labels -->
+	  <text x="255" y="155" fill="var(--tdim)" font-size="6" text-anchor="middle">NVDEC = separate silicon. Works in PARALLEL with CUDA Cores. Zero SM usage!</text>
+	</svg>
+	</div>
+	</div>
+
+	<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.5rem 0;">
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--red);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--red);margin-bottom:0.3rem;">❌ WITHOUT NVDEC (CPU Decode)</div>
+	    <div style="font-size:0.4rem;color:var(--tdim);line-height:1.6;">
+	      📹 Camera → CPU (H.264 compressed)<br>
+	      ↓ <strong style="color:var(--red);">CPU: FFmpeg/libav decode 10ms</strong><br>
+	      ↓ Raw RGB in <strong style="color:var(--red);">CPU RAM</strong><br>
+	      ↓ <strong style="color:var(--red);">PCIe: upload 4.8MB ~0.4ms</strong><br>
+	      ↓ Raw RGB in VRAM<br>
+	      ↓ Preprocess kernel (12μs)<br>
+	      <strong style="color:var(--red);">Total: ~10.4ms</strong>
+	    </div>
+	  </div>
+	  <div style="font-size:1.2rem;color:var(--green);display:flex;align-items:center;">→</div>
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--green);margin-bottom:0.3rem;">✅ WITH NVDEC (GPU Hardware Decode)</div>
+	    <div style="font-size:0.4rem;color:var(--tdim);line-height:1.6;">
+	      📹 Camera → CPU (H.264 compressed)<br>
+	      ↓ <strong style="color:var(--cyan);">CPU: just passes packet to GPU</strong><br>
+	      ↓ <strong style="color:var(--green);">NVDEC: decode 0.5ms → VRAM!</strong><br>
+	      ↓ Raw RGB already in VRAM<br>
+	      ↓ Preprocess kernel (12μs)<br>
+	      <strong style="color:var(--green);">Total: ~0.5ms — 20× faster!</strong>
+	    </div>
+	  </div>
+	</div>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+	  💡 <strong style="color:var(--amber);">The key insight:</strong> NVDEC writes decoded frames <strong style="color:var(--green);">DIRECTLY into GPU VRAM</strong>. The CPU never touches the raw pixels.<br>
+	  The CPU just says "here's a compressed packet" and NVDEC does the rest — <strong style="color:var(--cyan);">simultaneously with CUDA cores doing math</strong> on the previous frame.
+
+	<div class="pipeline">
+	<div class="pipeline-stage highlight" style="min-width:60px;">📹 Camera<br><span style="font-size:0.4rem;">H.264</span></div><div class="pipeline-arrow">→</div>
+	<div class="pipeline-stage" style="border-color:var(--green);min-width:70px;">🎬 NVDEC<br><span style="font-size:0.4rem;">GPU HW</span></div><div class="pipeline-arrow">→</div>
+	<div class="pipeline-stage" style="border-color:var(--cyan);min-width:70px;">⚡ Preprocess<br><span style="font-size:0.4rem;">CUDA Kernel</span></div><div class="pipeline-arrow">→</div>
+	<div class="pipeline-stage" style="border-color:var(--violet);min-width:65px;">🧠 TRT<br><span style="font-size:0.4rem;">Engine</span></div>
+	</div>
+
+	<table class="param" style="margin:0.5rem auto;max-width:700px;">
+	<tr><th style="width:120px;">What</th><th style="color:var(--red);">❌ CPU Decode (FFmpeg)</th><th style="color:var(--green);">✅ GPU Decode (NVDEC)</th></tr>
+	<tr><td>Where?</td><td style="font-size:0.5rem;color:var(--red);">CPU — software decoder</td><td style="font-size:0.5rem;color:var(--green);">GPU — dedicated silicon (ASIC)</td></tr>
+	<tr><td>Output Location</td><td style="font-size:0.5rem;color:var(--red);">CPU RAM → must copy to GPU!</td><td style="font-size:0.5rem;color:var(--green);"><strong>GPU VRAM directly!</strong> Zero-copy to preprocess.</td></tr>
+	<tr><td>CPU Usage</td><td style="font-size:0.5rem;color:var(--red);">~30-50% of one core per stream</td><td style="font-size:0.5rem;color:var(--green);">~1-2% — hardware does the work</td></tr>
+	<tr><td>Decode Time (1080p)</td><td style="font-size:0.5rem;color:var(--red);">~5-15ms per frame</td><td style="font-size:0.5rem;color:var(--green);"><strong>~0.5-1ms per frame</strong></td></tr>
+	<tr><td>PCIe Transfer?</td><td style="font-size:0.5rem;color:var(--red);">YES — decoded frame must be uploaded</td><td style="font-size:0.5rem;color:var(--green);"><strong>NO — frame already in VRAM!</strong></td></tr>
+	<tr><td>T4 Capability</td><td colspan="2" style="font-size:0.5rem;">2 NVDEC engines — can decode <strong style="color:var(--cyan);">2 streams simultaneously</strong> at 4K, or many more at lower res</td></tr>
+	</table>
+
+	<div class="code-box"><span class="cell-num">NVDEC + CUDA Preprocess — Complete Video Pipeline (C++)</span>
+	<span style="color:#6a9955;">// Step 0: NVDEC decodes H.264 directly into GPU VRAM</span>
+	<span style="color:#569cd6;">cuvidCreateVideoParser</span>(&parser, &parser_params);     <span style="color:#6a9955;">// Create parser</span>
+	<span style="color:#569cd6;">cuvidParseVideoData</span>(parser, &pkt);                   <span style="color:#6a9955;">// Feed compressed packet</span>
+	<span style="color:#6a9955;">// → GPU hardware decodes H.264 → NV12 surface in VRAM</span>
+
+	<span style="color:#4ec9b0;">cuvidMapVideoFrame</span>(decoder, target_idx, &dp, &n, &src); <span style="color:#6a9955;">// Map decoded frame</span>
+
+	<span style="color:#6a9955;">// Step 1: Custom CUDA kernel — NV12 → RGB → Resize → Normalize → CHW (fused!)</span>
+	nv12_to_rgb_preprocess<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(
+	    (<span style="color:#569cd6;">uint8_t</span>*)src,          <span style="color:#6a9955;">// NV12 input (from NVDEC, already in VRAM!)</span>
+	    d_rgb_output,          <span style="color:#6a9955;">// RGB float32 CHW output (for TRT)</span>
+	    srcW, srcH, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>      <span style="color:#6a9955;">// Source dimensions → target 640×640</span>
+	);
+	<span style="color:#6a9955;">// This ONE kernel does: YUV→RGB conversion + Bilinear resize + Normalize + HWC→CHW</span>
+	<span style="color:#6a9955;">// Input: NV12 in VRAM (from NVDEC). Output: float32 CHW in VRAM (for TRT). ZERO CPU!</span>
+
+	<span style="color:#6a9955;">// Step 2: TRT inference (input already in VRAM from preprocess)</span>
+	trt_context->enqueueV2(&bindings, stream, nullptr);
+
+	<span style="color:#6a9955;">// Step 3: Custom CUDA NMS (output also stays in VRAM)</span>
+	<span style="color:#4ec9b0;">cuvidUnmapVideoFrame</span>(decoder, target_idx);           <span style="color:#6a9955;">// Release decoded frame</span></div>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--green);">NVDEC is a T4 hardware feature — it costs ZERO GPU compute.</strong> The decode happens on dedicated silicon while the SMs do other work.<br>
+	  Combined with the Custom CUDA preprocess kernel, the entire pipeline from compressed video to TRT input is <strong style="color:var(--green);">~0.5ms with zero CPU involvement</strong>.<br>
+	  <strong style="color:var(--cyan);">Without NVDEC:</strong> CPU decode (10ms) + PCIe upload (0.4ms) + preprocess (12μs) = <strong style="color:var(--red);">~10.4ms</strong>.<br>
+	  <strong style="color:var(--green);">With NVDEC:</strong> GPU decode (0.5ms) + preprocess (12μs) = <strong style="color:var(--green);">~0.5ms — 20× faster!</strong>
+	</div>
+
+<div class="quiz" id="q1"><div class="question">Why is the fused CUDA kernel so much faster?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q1',this)">A. It eliminates 2 of 3 memory passes AND the CPU↔GPU transfer. Each pixel is read once, processed completely, and written once — 3 operations in 1 kernel. Plus GPU parallelism: 640×640 = 409,600 threads process all pixels simultaneously.</div>
+<div class="option" onclick="checkQuiz('q1',this)">B. CUDA is just inherently faster than Python for everything</div>
+<div class="option" onclick="checkQuiz('q1',this)">C. The GPU has more memory bandwidth than the CPU</div>
+</div><div class="feedback" id="q1-fb"></div></div>
+</div></div>`
+},{
+  id:'6E.3',title:'Custom NMS Kernel — GPU-Side Box Filtering',
+  fact:'<strong>Non-Maximum Suppression on the GPU eliminates the GPU→CPU→GPU round-trip.</strong> Custom CUDA NMS runs in 0.1-0.5ms vs 3-8ms for CPU torchvision. 30× faster.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.3</span> Custom NMS Kernel — GPU-Side Box Filtering</h2>
+
+<div class="pipeline">
+<div class="pipeline-stage slow">🐍 GPU Detects</div><div class="pipeline-arrow" style="color:var(--red);">→</div><div class="pipeline-stage slow">.cpu() Copy</div><div class="pipeline-arrow" style="color:var(--red);">→</div><div class="pipeline-stage slow">CPU NMS</div><div class="pipeline-arrow" style="color:var(--red);">→</div><div class="pipeline-stage slow">.cuda() Copy</div>
+</div>
+<div style="font-size:0.5rem;color:var(--red);text-align:center;margin:0.3rem 0;">Python: 3-8ms — data bounces GPU→CPU→GPU</div>
+
+<div class="pipeline" style="margin-top:0.3rem;">
+<div class="pipeline-stage fast">⚡ GPU Detects</div><div class="pipeline-arrow" style="color:var(--green);">→</div><div class="pipeline-stage fast">GPU NMS</div><div class="pipeline-arrow" style="color:var(--green);">→</div><div class="pipeline-stage fast">GPU Output</div>
+</div>
+<div style="font-size:0.5rem;color:var(--green);text-align:center;margin:0.3rem 0;">Custom CUDA: 0.1-0.5ms — data stays on GPU</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr><th style="width:120px;">What</th><th style="color:var(--red);">CPU NMS (torchvision)</th><th style="color:var(--green);">GPU NMS (Custom CUDA)</th></tr>
+<tr><td>Where?</td><td style="font-size:0.5rem;color:var(--red);">CPU — single-threaded loop</td><td style="font-size:0.5rem;color:var(--green);">GPU — thousands of threads</td></tr>
+<tr><td>Algorithm</td><td style="font-size:0.5rem;">Sort boxes by confidence, iterate top-down, remove overlapping boxes. <strong>O(n²) pairwise IoU.</strong></td><td style="font-size:0.5rem;">Parallel IoU computation. Each thread block handles a subset of boxes. Sort + filter in shared memory.</td></tr>
+<tr><td>50 boxes</td><td style="font-size:0.5rem;color:var(--red);">~1-2ms</td><td style="font-size:0.5rem;color:var(--green);">~0.05ms</td></tr>
+<tr><td>200 boxes</td><td style="font-size:0.5rem;color:var(--red);">~5-8ms</td><td style="font-size:0.5rem;color:var(--green);">~0.2ms</td></tr>
+<tr><td>GPU→CPU→GPU</td><td style="font-size:0.5rem;color:var(--red);">YES — ~1ms PCIe round-trip</td><td style="font-size:0.5rem;color:var(--green);">NO — data stays in VRAM</td></tr>
+</table>
+
+<div class="code-box"><span class="cell-num">nms_cuda.cu — Key kernel excerpt</span>
+<span style="color:#569cd6;">__global__</span> <span style="color:#569cd6;">void</span> nms_kernel(<span style="color:#569cd6;">float</span>* boxes, <span style="color:#569cd6;">float</span>* scores, <span style="color:#569cd6;">int</span>* keep_flags, <span style="color:#569cd6;">int</span> N) {
+  <span style="color:#569cd6;">int</span> tid = blockIdx.x * blockDim.x + threadIdx.x;
+  <span style="color:#569cd6;">if</span> (tid >= N) <span style="color:#569cd6;">return</span>;
+
+  <span style="color:#569cd6;">float</span> my_score = scores[tid];
+  <span style="color:#569cd6;">float</span> my_x1 = boxes[tid*4+0], my_y1 = boxes[tid*4+1];
+  <span style="color:#569cd6;">float</span> my_x2 = boxes[tid*4+2], my_y2 = boxes[tid*4+3];
+  <span style="color:#569cd6;">float</span> my_area = (my_x2-my_x1) * (my_y2-my_y1);
+
+  <span style="color:#6a9955;">// Compare this box against ALL other boxes (parallel!)</span>
+  <span style="color:#569cd6;">for</span> (<span style="color:#569cd6;">int</span> j = <span style="color:#ce9178;">0</span>; j < N; j++) {
+    <span style="color:#569cd6;">if</span> (scores[j] > my_score || (scores[j]==my_score && j < tid)) {
+      <span style="color:#569cd6;">float</span> xx1 = max(my_x1, boxes[j*4+0]);
+      <span style="color:#569cd6;">float</span> yy1 = max(my_y1, boxes[j*4+1]);
+      <span style="color:#569cd6;">float</span> xx2 = min(my_x2, boxes[j*4+2]);
+      <span style="color:#569cd6;">float</span> yy2 = min(my_y2, boxes[j*4+3]);
+      <span style="color:#569cd6;">float</span> inter = max(<span style="color:#ce9178;">0.f</span>,xx2-xx1) * max(<span style="color:#ce9178;">0.f</span>,yy2-yy1);
+      <span style="color:#569cd6;">float</span> iou = inter / (my_area + (boxes[j*4+2]-boxes[j*4+0])*(boxes[j*4+3]-boxes[j*4+1]) - inter);
+      <span style="color:#569cd6;">if</span> (iou > <span style="color:#ce9178;">0.45f</span>) { keep_flags[tid] = <span style="color:#ce9178;">0</span>; <span style="color:#569cd6;">return</span>; }
+    }
+  }
+  keep_flags[tid] = <span style="color:#ce9178;">1</span>;
+}
+<span style="color:#6a9955;">// Launch: nms_kernel<<<(N+255)/256, 256>>>(d_boxes, d_scores, d_flags, N);</span></div>
+
+<div class="quiz" id="q2"><div class="question">What makes GPU NMS faster than CPU NMS?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q2',this)">A. Two things: (1) Parallel IoU — 50 threads compute 50 pairwise comparisons simultaneously vs CPU doing them one-by-one. (2) No PCIe round-trip — GPU detections stay on GPU, results go directly to display/next stage.</div>
+<div class="option" onclick="checkQuiz('q2',this)">B. The GPU has a special NMS instruction</div>
+<div class="option" onclick="checkQuiz('q2',this)">C. GPU memory is faster than CPU memory</div>
+</div><div class="feedback" id="q2-fb"></div></div>
+</div></div>`
+},{
+  id:'6E.4',title:'Batched Preprocessing — 32 Images at Once',
+  fact:'<strong>One kernel launch processes 32 images.</strong> Instead of 32 separate kernel launches (32 × 12μs = 384μs), batch them: 1 launch × ~100μs = 3× faster. Saturates GPU bandwidth.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.4</span> Batched Preprocessing — 32 Images at Once</h2>
+
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn kern-btn active" onclick="showBatchVis(0,this)" style="font-size:0.45rem;">🔴 32 Separate Launches</button>
+  <button class="btn kern-btn" onclick="showBatchVis(1,this)" style="font-size:0.45rem;">🟢 1 Batched Launch</button>
+</div>
+<div id="batchVizBox" style="background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:1rem;margin:0.5rem 0;min-height:130px;"></div>
+
+<div class="code-box"><span class="cell-num">batch_preprocess.cu</span>
+<span style="color:#569cd6;">__global__</span> <span style="color:#569cd6;">void</span> preprocess_batched(
+    <span style="color:#569cd6;">uchar4</span>* inputs,    <span style="color:#6a9955;">// Stacked: [img0, img1, ..., img31]</span>
+    <span style="color:#569cd6;">float</span>* outputs,    <span style="color:#6a9955;">// Stacked output: [C0,C1,C2 per image]</span>
+    <span style="color:#569cd6;">int</span> batch_size, <span style="color:#569cd6;">int</span> srcW, <span style="color:#569cd6;">int</span> srcH, <span style="color:#569cd6;">int</span> dstW, <span style="color:#569cd6;">int</span> dstH)
+{
+    <span style="color:#569cd6;">int</span> x = blockIdx.x * blockDim.x + threadIdx.x;
+    <span style="color:#569cd6;">int</span> y = blockIdx.y * blockDim.y + threadIdx.y;
+    <span style="color:#569cd6;">int</span> b = blockIdx.z; <span style="color:#6a9955;">// Z-dimension = batch index!</span>
+    <span style="color:#569cd6;">if</span> (x>=dstW || y>=dstH || b>=batch_size) <span style="color:#569cd6;">return</span>;
+
+    <span style="color:#6a9955;">// Offset into THIS image's data</span>
+    <span style="color:#569cd6;">uchar4</span>* my_input = inputs + b * srcW * srcH;
+    <span style="color:#569cd6;">float</span>* my_output = outputs + b * <span style="color:#ce9178;">3</span> * dstW * dstH;
+
+    <span style="color:#6a9955;">// Same fused resize+normalize+HWC→CHW as before</span>
+    <span style="color:#6a9955;">// But now 32 images process IN PARALLEL in one launch!</span>
+    <span style="color:#6a9955;">// 640×640×32 = 13,107,200 threads — GPU stays fully busy</span>
+}</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:650px;">
+<tr><th style="width:140px;">Metric</th><th style="color:var(--red);">32 Separate Launches</th><th style="color:var(--green);">1 Batched Launch</th></tr>
+<tr><td>CPU Launch Overhead</td><td style="color:var(--red);">32 × 5μs = <strong>160μs</strong></td><td style="color:var(--green);">1 × 5μs = <strong>5μs</strong></td></tr>
+<tr><td>GPU Compute</td><td>32 × 12μs = 384μs</td><td>~100μs (saturated SMs)</td></tr>
+<tr><td>Total</td><td style="color:var(--red);"><strong>~544μs</strong></td><td style="color:var(--green);"><strong>~105μs</strong></td></tr>
+<tr><td>Throughput</td><td style="color:var(--red);">~1,840 images/sec</td><td style="color:var(--green);"><strong>~9,500 images/sec</strong></td></tr>
+</table>
+
+<div class="callout"><span style="font-size:1rem;">💡</span><span style="font-size:0.65rem;">Batching works because GPU SMs are underutilized with single-image preprocessing (409K threads vs 40K max). Batching 32 images saturates all 40 SMs simultaneously — <strong>5× throughput with the same kernel code.</strong></span></div>
+
+	<h3>📐 Step-by-Step: Where Do These Numbers Come From?</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+	  Every number in the table above comes from real measurements and simple arithmetic. Here's the full breakdown.
+	</div>
+
+	<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">🔴 32 Separate Launches — Full Calculation</div>
+	<table class="param" style="margin:0.3rem auto;max-width:700px;">
+	<tr><th style="width:180px;">Component</th><th>Formula</th><th>Values</th><th>Result</th></tr>
+	<tr><td style="color:var(--amber);">CPU Launch Overhead</td><td style="font-size:0.5rem;">N_launches × 5μs per launch</td><td style="font-size:0.5rem;">32 × 5μs</td><td style="color:var(--red);font-weight:700;">160μs</td></tr>
+	<tr><td style="color:var(--amber);">GPU Compute (per image)</td><td style="font-size:0.5rem;">Measured: 1 image preprocess time</td><td style="font-size:0.5rem;">640×640 pixels, fused kernel</td><td style="color:var(--tdim);">~12μs</td></tr>
+	<tr><td style="color:var(--amber);">GPU Compute (all 32)</td><td style="font-size:0.5rem;">32 × 12μs per image</td><td style="font-size:0.5rem;">32 × 12μs</td><td style="color:var(--red);">384μs</td></tr>
+	<tr><td style="color:var(--amber);">PCIe Upload (per image)</td><td style="font-size:0.5rem;">4.8 MB ÷ 12 GB/s</td><td style="font-size:0.5rem;">4,915,200 ÷ 12,000,000,000</td><td style="color:var(--red);">~410μs each</td></tr>
+	<tr><td style="color:var(--amber);">PCIe Upload (all 32)</td><td style="font-size:0.5rem;">32 × 410μs</td><td style="font-size:0.5rem;">32 × 0.41ms</td><td style="color:var(--red);">13,120μs</td></tr>
+	<tr style="background:rgba(248,81,73,0.06);"><td style="color:var(--red);font-weight:700;">TOTAL (GPU only)</td><td>CPU Launch + GPU Compute</td><td style="font-size:0.5rem;">160 + 384</td><td style="color:var(--red);font-weight:700;font-size:0.6rem;">~544μs</td></tr>
+	<tr style="background:rgba(248,81,73,0.06);"><td style="color:var(--red);font-weight:700;">Throughput</td><td>1,000,000μs ÷ total_time</td><td style="font-size:0.5rem;">1,000,000 ÷ 544</td><td style="color:var(--red);font-weight:700;">~1,840 images/sec</td></tr>
+	</table>
+	<div style="font-size:0.45rem;color:var(--tmut);margin:0.3rem 0;">
+	  ⚠️ The 544μs isolates CPU+GPU overhead only. Full PCIe cost is ~13ms — excluded here to focus on what batching improves.
+	</div>
+	</div>
+
+	<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">🟢 1 Batched Launch — Full Calculation</div>
+	<table class="param" style="margin:0.3rem auto;max-width:700px;">
+	<tr><th style="width:180px;">Component</th><th>Formula</th><th>Values</th><th>Result</th></tr>
+	<tr><td style="color:var(--amber);">CPU Launch Overhead</td><td style="font-size:0.5rem;">1 launch × 5μs</td><td style="font-size:0.5rem;">1 × 5μs</td><td style="color:var(--green);font-weight:700;">5μs</td></tr>
+	<tr><td style="color:var(--amber);">GPU Compute (batched)</td><td style="font-size:0.5rem;">Measured: 32 images in parallel<br><span style="font-size:0.4rem;">40 SMs all active, max occupancy</span></td><td style="font-size:0.5rem;">2,560 CUDA cores simultaneously<br>process pixels from all 32 images</td><td style="color:var(--green);">~100μs</td></tr>
+	<tr><td style="color:var(--amber);">Launch Gap</td><td style="font-size:0.5rem;">NONE — 1 launch, no gaps</td><td style="font-size:0.5rem;">0</td><td style="color:var(--green);">0μs</td></tr>
+	<tr style="background:rgba(63,185,80,0.06);"><td style="color:var(--green);font-weight:700;">TOTAL (GPU only)</td><td>CPU + GPU</td><td style="font-size:0.5rem;">5 + 100</td><td style="color:var(--green);font-weight:700;font-size:0.6rem;">~105μs</td></tr>
+	<tr style="background:rgba(63,185,80,0.06);"><td style="color:var(--green);font-weight:700;">Throughput</td><td>1,000,000μs ÷ time</td><td style="font-size:0.5rem;">1,000,000 ÷ 105</td><td style="color:var(--green);font-weight:700;">~9,500 images/sec</td></tr>
+	</table>
+	<div style="font-size:0.45rem;color:var(--tmut);margin:0.3rem 0;">
+	  💡 <strong style="color:var(--green);">The 5.2× speedup (544→105μs) comes from TWO independent wins:</strong><br>
+	  &nbsp;&nbsp;(1) <strong>CPU savings:</strong> 1 launch vs 32 = <strong style="color:var(--cyan);">155μs saved</strong> (160→5μs).<br>
+	  &nbsp;&nbsp;(2) <strong>GPU saturation:</strong> All 40 SMs busy = <strong style="color:var(--cyan);">284μs saved</strong> (384→100μs).<br>
+	  &nbsp;&nbsp;<strong style="color:var(--green);">Total: 155 + 284 = 439μs saved → 544 ÷ 105 = 5.2×</strong>
+	</div>
+	</div>
+
+	<div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">📐 Formula Reference — Batch Throughput Calculator</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+	<strong>Separate Launches:</strong><br>
+	&nbsp;&nbsp;<code style="color:var(--red);">Time_total = N × CPU_launch + N × GPU_compute + PCIe_upload + PCIe_download</code><br>
+	&nbsp;&nbsp;<code style="color:var(--red);">Throughput = 1,000,000 ÷ Time_total (images/sec)</code><br><br>
+	<strong>Batched Launch:</strong><br>
+	&nbsp;&nbsp;<code style="color:var(--green);">Time_total = 1 × CPU_launch + GPU_compute_batched + PCIe_upload + PCIe_download</code><br>
+	&nbsp;&nbsp;<code style="color:var(--green);">Throughput = 1,000,000 ÷ Time_total (images/sec)</code><br><br>
+	<strong>Speedup:</strong><br>
+	&nbsp;&nbsp;<code style="color:var(--amber);">Speedup = 544μs ÷ 105μs = 5.2×</code><br><br>
+	<strong>When is batching worth it?</strong><br>
+	&nbsp;&nbsp;✅ When N × CPU_launch > GPU_compute_batched — launch overhead dominates<br>
+	&nbsp;&nbsp;✅ When GPU SMs are underutilized per image — batching increases occupancy<br>
+	&nbsp;&nbsp;❌ When GPU is already saturated by 1 image (e.g., LLM inference)
+	</div>
+	</div>
+
+<div class="quiz" id="q3"><div class="question">Why is batched preprocessing faster than launching kernels separately?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q3',this)">A. Two reasons: (1) 1 kernel launch instead of 32 saves ~155μs CPU overhead. (2) 32 images saturate all 40 GPU SMs simultaneously — higher occupancy means better latency hiding. The GPU is designed for massive parallelism.</div>
+<div class="option" onclick="checkQuiz('q3',this)">B. Batching compresses the images so they transfer faster</div>
+<div class="option" onclick="checkQuiz('q3',this)">C. The CPU can prepare 32 images faster than 1</div>
+</div><div class="feedback" id="q3-fb"></div></div>
+</div></div>`
+},{
+  id:'6E.5',title:'TensorRT Integration — Custom Pre/Post + TRT Engine',
+  fact:'<strong>TensorRT handles the model, custom CUDA handles pre/post.</strong> The three pieces (preprocess kernel, TRT engine, NMS kernel) form a complete GPU-resident pipeline. No Python in the hot path.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.5</span> TensorRT Integration — Custom Pre/Post + TRT Engine</h2>
+
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">⚠️ This is DIFFERENT from Phase 6A (Building the TRT Engine)</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+<strong>Phase 6A (TensorRT):</strong> "Build" — Export PyTorch → ONNX → <code>trtexec</code> → <strong style="color:var(--cyan);">.engine file saved to disk</strong>. This creates a standalone model file that runs fast.<br>
+<strong>Phase 6E (Integration):</strong> "Connect" — Take that .engine file and <strong style="color:var(--green);">wire it into a complete GPU pipeline</strong> with custom preprocess and NMS kernels. The TRT engine is the MIDDLE piece — it needs input formatted exactly right (CHW float32) and its output needs to be read by the next stage (NMS).<br><br>
+<strong style="color:var(--amber);">The "integration" problem:</strong> Three separate pieces of code (preprocess kernel, TRT engine, NMS kernel) must agree on memory format. TRT expects CHW float32 at exactly 640×640. The preprocess kernel must output that EXACTLY. TRT outputs raw detection boxes. The NMS kernel must read those EXACTLY. One byte off = garbage results.
+</div>
+</div>
+
+<div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.6rem 0;">
+<div style="flex:1;min-width:260px;background:var(--raised);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--cyan);margin-bottom:0.3rem;">📦 Phase 6A: BUILD the Engine</div>
+<div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+<span style="color:var(--green);">✅ Done once, saved to disk</span><br>
+┌──────────────────────┐<br>
+│ 🐍 train.py          │<br>
+│  ↓ export_onnx()     │<br>
+│ 🟦 model.onnx        │  ← portable format<br>
+│  ↓ trtexec --fp16    │<br>
+│ 🟩 model.engine      │  ← T4-optimized binary<br>
+│  ↓                    │<br>
+│ [Standalone: runs in  │<br>
+│  isolation on GPU]   │<br>
+└──────────────────────┘<br>
+<strong style="color:var(--cyan);">Output: 1 file</strong> (.engine)<br>
+<span style="color:var(--tmut);">Can run: trtexec --loadEngine</span>
+</div>
+</div>
+
+<div style="font-size:1.3rem;color:var(--green);display:flex;align-items:center;">+</div>
+
+<div style="flex:1;min-width:260px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--green);margin-bottom:0.3rem;">🔗 Phase 6E: INTEGRATE the Engine</div>
+<div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+<span style="color:var(--green);">✅ Done once in C++, runs every frame</span><br>
+┌─────────────────────────────────────┐<br>
+│ ⚡ CUDA Preprocess Kernel           │<br>
+│   reads: NV12/RGB in VRAM           │<br>
+│   writes: CHW float32 [1,3,640,640] │← MUST match TRT input<br>
+│          ↓ pointer passed in VRAM   │<br>
+│ 🟩 TRT Engine (model.engine)        │<br>
+│   reads: CHW float32 [1,3,640,640]  │<br>
+│   writes: float32 [1,84,8400]       │← raw detections<br>
+│          ↓ pointer passed in VRAM   │<br>
+│ 🎯 CUDA NMS Kernel                  │<br>
+│   reads: float32 [1,84,8400]        │← MUST match TRT output<br>
+│   writes: int32 [N,6] filtered      │<br>
+└─────────────────────────────────────┘<br>
+<strong style="color:var(--green);">Output: 1 GPU pipeline</strong><br>
+<span style="color:var(--tmut);">3 pieces, 0 copies, all in VRAM</span>
+</div>
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+💡 <strong style="color:var(--amber);">"Integration" = connecting the plumbing.</strong> The TRT engine is a black box that does inference fast. But it needs correctly-formatted input,<br>
+and its output needs to be consumed. Custom CUDA kernels on both sides handle this — <strong style="color:var(--green);">all via GPU pointers, zero memory copies.</strong>
+</div>
+
+<div style="background:var(--raised);border:2px solid var(--cyan);border-radius:10px;padding:0.8rem 1rem;margin:0.6rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">🧠 YOLO ≠ PyTorch — The Model vs The Engine That Runs It</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:center;margin:0.5rem 0;">
+
+<!-- LEFT: The MODEL -->
+<div style="flex:1;min-width:200px;text-align:center;background:var(--card);border:2px solid var(--amber);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);">📐 THE MODEL (Math)</div>
+<div style="font-size:0.5rem;color:var(--tdim);margin:0.3rem 0;"><strong style="color:var(--amber);">YOLOv5s</strong></div>
+<div style="font-size:0.45rem;color:var(--tmut);line-height:1.5;">
+225 layers<br>
+3.15 million weights<br>
+Convolutions + BatchNorm + SiLU<br>
+Architecture designed by Ultralytics<br><br>
+<strong style="color:var(--amber);">This NEVER changes.</strong><br>
+<span style="font-size:0.4rem;">Same math, same weights, same output.</span>
+</div>
+</div>
+
+<!-- MIDDLE: The ENGINES -->
+<div style="font-size:1.3rem;color:var(--tdim);display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
+<div>runs on</div>
+<div style="font-size:1rem;">↘</div>
+<div>or</div>
+<div style="font-size:1rem;">↙</div>
+</div>
+
+<!-- RIGHT: Two engines -->
+<div style="flex:1.5;min-width:300px;display:flex;flex-direction:column;gap:0.5rem;">
+
+<div style="background:var(--card);border:2px solid var(--red);border-radius:6px;padding:0.5rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.2rem;">🐍 PyTorch (Engine 1)</div>
+<div style="font-size:0.45rem;color:var(--tmut);">
+How it runs YOLO: <strong style="color:var(--red);">8-15ms</strong><br>
+• Python framework, general-purpose autograd<br>
+• Runs ANY model (not just YOLO)<br>
+• Easy to use: <code>model = torch.hub.load('yolov5s')</code><br>
+• <strong style="color:var(--red);">Slow because:</strong> builds computation graph,<br>
+&nbsp;&nbsp;checks gradients, Python overhead per op
+</div>
+</div>
+
+<div style="display:flex;align-items:center;gap:0.3rem;justify-content:center;">
+<div style="font-size:0.45rem;color:var(--green);">export via ONNX →</div>
+<div style="font-size:1rem;color:var(--green);">↓</div>
+</div>
+
+<div style="background:var(--card);border:2px solid var(--green);border-radius:6px;padding:0.5rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.2rem;">⚡ TensorRT (Engine 2)</div>
+<div style="font-size:0.45rem;color:var(--tmut);">
+How it runs YOLO: <strong style="color:var(--green);">4-7ms</strong><br>
+• C++ framework, GPU-specific optimization<br>
+• Runs the SAME YOLO model (same weights!)<br>
+• Harder to set up: <code>trtexec --onnx=model.onnx</code><br>
+• <strong style="color:var(--green);">Fast because:</strong> pre-optimizes for T4,<br>
+&nbsp;&nbsp;fuses layers, uses FP16, no Python overhead
+</div>
+</div>
+
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tdim);text-align:center;margin-top:0.5rem;">
+💡 <strong style="color:var(--amber);">YOLO is the CAR. PyTorch and TRT are two different ENGINES that can power it.</strong><br>
+Same car, same speed limit, same destination. One engine is fuel-efficient but slow. The other is tuned for racing.<br>
+<strong style="color:var(--green);">When we say "TRT replaces PyTorch" — we mean we SWAP the engine. The car (YOLO model) stays exactly the same.</strong>
+</div>
+
+</div>
+</div>
+
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">❓ FAQ: TRT Integration — Common Questions Answered</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+
+<strong style="color:var(--cyan);">Q1: Does TRT replace the CPU?</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--red);">NO.</strong> The CPU still handles: capturing frames from camera, sending H.264 packets to NVDEC, receiving final detection boxes, and displaying results. TRT only replaces <strong style="color:var(--green);">PyTorch for the inference step</strong> — it makes the GPU compute faster. The CPU is still the "manager" — it just does less work per frame.<br><br>
+
+<strong style="color:var(--cyan);">Q2: Can we skip TRT entirely? What happens?</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--green);">Yes, absolutely.</strong> TRT is an OPTIMIZATION, not a requirement. Without TRT you'd use raw PyTorch on GPU:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<code>CUDA Preprocess (12μs) → <strong style="color:var(--red);">PyTorch model.forward() (8-15ms)</strong> → CUDA NMS (0.1ms) = ~8-15ms total</code><br>
+&nbsp;&nbsp;Still works! Still all-GPU! Just 2-3× slower. TRT gives you 4ms instead of 10ms — that's the only difference.<br>
+&nbsp;&nbsp;<strong style="color:var(--amber);">The preprocess and NMS custom kernels work with ANY inference engine</strong> — PyTorch, ONNX Runtime, TensorRT, or even raw CUDA.<br><br>
+
+<strong style="color:var(--cyan);">Q3: Can I integrate TRT with PyTorch? (Python, not just C++)</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--green);">YES — 3 ways to do it:</strong><br>
+&nbsp;&nbsp;&nbsp;&nbsp;1️⃣ <code>torch-tensorrt</code> (nvidia-pyindex): Compile a <code>torch.nn.Module</code> directly → TRT. Python-native.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;2️⃣ <code>torch2trt</code> (NVIDIA-AI-IOT): <code>model_trt = torch2trt(model, [input])</code> — drop-in replacement.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3️⃣ Build .engine via CLI, load in Python: <code>import tensorrt as trt; runtime.deserialize_cuda_engine()</code><br>
+&nbsp;&nbsp;<strong style="color:var(--cyan);">Full Python pipeline:</strong> <code>img = cv2.imread() → yolo_cuda.preprocess(img) # pybind11 → trt_model(input) # torch-tensorrt → yolo_cuda.nms(output) # pybind11</code><br>
+&nbsp;&nbsp;The custom CUDA kernels are still called via pybind11. TRT is called via torch-tensorrt. Everything runs in Python!<br><br>
+
+<strong style="color:var(--cyan);">Q4: Does PyTorch also get exported to ONNX?</strong><br>
+&nbsp;&nbsp;<strong style="color:var(--green);">YES — that's the standard path:</strong><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<code>PyTorch (.pt) → torch.onnx.export() → ONNX (.onnx) → trtexec → TensorRT (.engine)</code><br>
+&nbsp;&nbsp;ONNX is the "bridge format." PyTorch exports to ONNX. Then TRT imports from ONNX. You can also skip ONNX and use <code>torch-tensorrt</code> directly (no intermediate file).<br><br>
+
+<strong style="color:var(--green);">🔑 Bottom line:</strong> TRT is just a faster GPU inference engine. You can use it from Python OR C++. The custom CUDA pre/post kernels work either way. The "integration" we show in C++ is the FASTEST possible path — but Python + pybind11 + torch-tensorrt gives you 90% of the speed with 10% of the complexity.
+
+</div>
+</div>
+
+<div class="pipeline">
+<div class="pipeline-stage highlight">📥 Custom CUDA Preprocess</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight">🧠 TensorRT Engine</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight">🎯 Custom CUDA NMS</div>
+</div>
+<div style="font-size:0.5rem;color:var(--tdim);text-align:center;margin:0.3rem 0;">All three stages run on GPU. Zero CPU involvement in the hot path. Data never leaves VRAM.</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr><th style="width:100px;">Stage</th><th style="color:var(--red);">Without Custom Kernels</th><th style="color:var(--green);">With Custom Kernels</th></tr>
+<tr><td>1. Input</td><td style="font-size:0.5rem;color:var(--red);">CPU cv2.resize → numpy → torch</td><td style="font-size:0.5rem;color:var(--green);">GPU: fused preprocess kernel (12μs)</td></tr>
+<tr><td>2. Format</td><td style="font-size:0.5rem;color:var(--red);">HWC→CHW on CPU, then .cuda()</td><td style="font-size:0.5rem;color:var(--green);">Already CHW from kernel output</td></tr>
+<tr><td>3. TRT Engine</td><td style="font-size:0.5rem;">trt_context.execute_async_v2()</td><td style="font-size:0.5rem;">trt_context.execute_async_v2() — same!</td></tr>
+<tr><td>4. Output</td><td style="font-size:0.5rem;color:var(--red);">.cpu() → numpy → torchvision.nms</td><td style="font-size:0.5rem;color:var(--green);">GPU: CUDA NMS kernel (0.1ms)</td></tr>
+<tr style="background:rgba(63,185,80,0.06);"><td>Total</td><td style="font-size:0.5rem;color:var(--red);">10-18ms (CPU bottlenecks)</td><td style="font-size:0.5rem;color:var(--green);"><strong>4-7ms (all GPU)</strong></td></tr>
+</table>
+
+<h3>💻 Code Comparison — Where Is the Engine?</h3>
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;margin:0.5rem 0;">
+
+<div style="flex:1;min-width:320px;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);text-align:center;margin-bottom:0.3rem;">🐍 Python + PyTorch Engine</div>
+<div class="code-box"><span class="cell-num">app.py — PyTorch as the inference engine</span>
+<span style="color:#6a9955;"># ❌ PREPROCESS: runs on CPU (not integrated!)</span>
+img = cv2.imread(<span style="color:#ce9178;">"frame.jpg"</span>)              <span style="color:#6a9955;">// CPU: HWC uint8</span>
+img = cv2.resize(img, (<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>))            <span style="color:#6a9955;">// CPU: 5ms</span>
+img = img.astype(np.float32) / <span style="color:#ce9178;">255.0</span>          <span style="color:#6a9955;">// CPU: normalize</span>
+img = np.transpose(img, (<span style="color:#ce9178;">2</span>,<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">1</span>))               <span style="color:#6a9955;">// CPU: HWC -> CHW</span>
+tensor = torch.from_numpy(img).cuda()  <span style="color:#6a9955;">// PCIe: upload</span>
+
+<span style="color:#6a9955;">// 🧠 ENGINE: THIS is where PyTorch runs YOLO</span>
+<span style="color:#dcdcaa;">model</span> = torch.hub.load(<span style="color:#ce9178;">'ultralytics/yolov5'</span>,<span style="color:#ce9178;">'yolov5s'</span>)
+<span style="color:#569cd6;">with</span> torch.no_grad():               <span style="color:#6a9955;">// No gradients for inference</span>
+    <span style="color:#dcdcaa;">predictions</span> = <strong style="color:var(--red);background:rgba(248,81,73,0.2);padding:0 4px;">model(tensor)</strong>   <span style="color:#6a9955;">// ← ENGINE CALL (8-15ms!)</span>
+
+<span style="color:#6a9955;">// ❌ POSTPROCESS: runs on CPU (not integrated!)</span>
+boxes = predictions.xyxy[<span style="color:#ce9178;">0</span>].cpu().numpy()   <span style="color:#6a9955;">// GPU -> CPU copy</span>
+keep = torchvision.ops.nms(boxes[:,:<span style="color:#ce9178;">4</span>],...)   <span style="color:#6a9955;">// CPU: NMS 3ms</span>
+
+<span style="color:var(--red);"><strong>// Total: 16-33ms. CPU-heavy. 3 GPU->CPU transfers.</strong></span></div>
+</div>
+
+<div style="flex:1;min-width:320px;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);text-align:center;margin-bottom:0.3rem;">⚡ C++ + TRT Engine (Integrated)</div>
+<div class="code-box"><span class="cell-num">main.cpp — TRT as the inference engine</span>
+<span style="color:#6a9955;">// ✅ PREPROCESS: runs on GPU (integrated!)</span>
+<span style="color:#569cd6;">uchar4</span>* d_input = capture_frame_to_vram();    <span style="color:#6a9955;">// Already in VRAM!</span>
+preprocess_kernel<<<grid,block,<span style="color:#ce9178;">0</span>,stream>>>(   <span style="color:#6a9955;">// GPU: 12μs</span>
+    d_input, d_preprocessed, W, H);        <span style="color:#6a9955;">// Fused: resize+norm+CHW</span>
+
+<span style="color:#6a9955;">// 🧠 ENGINE: THIS is where TRT runs YOLO</span>
+<span style="color:#569cd6;">auto</span>* trt_engine = load_engine(<span style="color:#ce9178;">"model.engine"</span>);  <span style="color:#6a9955;">// Load once at startup</span>
+trt_context = trt_engine->createExecutionContext();
+<span style="color:#dcdcaa;">trt_context</span>-><strong style="color:var(--green);background:rgba(63,185,80,0.2);padding:0 4px;">enqueueV2</strong>(bindings, stream, nullptr);
+<span style="color:#6a9955;">// ↑ ENGINE CALL (4ms!) — SAME YOLO model, DIFFERENT engine</span>
+
+<span style="color:#6a9955;">// ✅ POSTPROCESS: runs on GPU (integrated!)</span>
+nms_kernel<<<grid,block,<span style="color:#ce9178;">0</span>,stream>>>(      <span style="color:#6a9955;">// GPU: 0.1ms</span>
+    d_detections, d_boxes, &num_boxes);    <span style="color:#6a9955;">// Data never leaves VRAM!</span>
+
+<span style="color:var(--green);"><strong>// Total: ~4.6ms. ALL GPU. 0 CPU->GPU transfers.</strong></span></div>
+</div>
+
+</div>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+💡 <strong style="color:var(--amber);">Same YOLO model, same weights, SAME MATH.</strong> The difference is the ENGINE: <code>model(tensor)</code> (PyTorch, 8-15ms) vs <code>context->enqueueV2()</code> (TRT, 4ms).<br>
+Both execute YOLO's 225 layers. TRT just does it 2-3× faster because it pre-optimized for THIS GPU.<br>
+<strong style="color:var(--green);">The INTEGRATION part:</strong> TRT engine sits BETWEEN custom preprocess and custom NMS — all three sharing GPU memory via pointers.
+</div>
+
+<div class="code-box"><span class="cell-num">main.cpp — Step 1: build_graph() captures ALL 3 stages (run ONCE at startup)</span>
+<span style="color:#6a9955;">// This function captures the ENTIRE pipeline into a CUDA Graph.</span>
+<span style="color:#6a9955;">// TRT engine is called on line with ⬇⬇⬇</span>
+<span style="color:#569cd6;">cudaGraphExec_t</span> build_graph() {
+    <span style="color:#569cd6;">cudaStream_t</span> cap_stream;
+    <span style="color:#4ec9b0;">cudaStreamCreate</span>(&cap_stream);
+
+    <span style="color:#6a9955;">// Step A: Begin capture — GPU will RECORD, not execute</span>
+    <span style="color:#4ec9b0;">cudaStreamBeginCapture</span>(cap_stream, cudaStreamCaptureModeGlobal);
+
+    <span style="color:#6a9955;">// Step B: Launch our 3 kernels in sequence</span>
+    <span style="color:#6a9955;">// ✅ KERNEL 1: Custom CUDA Preprocess (12μs)</span>
+    preprocess_fused<<<grid, <span style="color:#ce9178;">256</span>, <span style="color:#ce9178;">0</span>, cap_stream>>>(
+        d_input, d_preprocessed, <span style="color:#ce9178;">1920</span>, <span style="color:#ce9178;">1080</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>
+    );
+
+    <span style="color:#6a9955;">// ⬇⬇⬇ THIS IS THE TRT ENGINE CALL! ⬇⬇⬇</span>
+    <span style="color:#6a9955;">// TRT reads d_preprocessed (CHW float32), writes d_detections (raw boxes)</span>
+    <strong style="color:var(--green);background:rgba(63,185,80,0.3);">trt_context->enqueueV2(bindings, cap_stream, nullptr);  // ← TRT ENGINE! 4ms</strong>
+
+    <span style="color:#6a9955;">// ✅ KERNEL 3: Custom CUDA NMS (0.1ms)</span>
+    nms_kernel<<<grid, <span style="color:#ce9178;">256</span>, <span style="color:#ce9178;">0</span>, cap_stream>>>(
+        d_detections, d_boxes, &num_boxes
+    );
+
+    <span style="color:#6a9955;">// Step C: End capture → get graph object</span>
+    <span style="color:#569cd6;">cudaGraph_t</span> graph;
+    <span style="color:#4ec9b0;">cudaStreamEndCapture</span>(cap_stream, &graph);
+
+    <span style="color:#6a9955;">// Step D: Instantiate for THIS GPU → executable</span>
+    <span style="color:#569cd6;">cudaGraphExec_t</span> instance;
+    <span style="color:#4ec9b0;">cudaGraphInstantiate</span>(&instance, graph, NULL, NULL, <span style="color:#ce9178;">0</span>);
+    <span style="color:#6a9955;">// Now ALL 3 are pre-packaged. Replay in 0.5μs!</span>
+    <span style="color:#569cd6;">return</span> instance;
+}</div>
+
+<div class="code-box"><span class="cell-num">main.cpp — Step 2: Hot loop (runs EVERY frame)</span>
+<span style="color:#569cd6;">cudaStream_t</span> stream;
+<span style="color:#4ec9b0;">cudaStreamCreate</span>(&stream);
+<span style="color:#569cd6;">cudaGraphExec_t</span> graph = build_graph();  <span style="color:#6a9955;">// ← TRT engine captured inside!</span>
+
+<span style="color:#569cd6;">while</span> (camera.isOpened()) {
+    camera.read(&h_frame);                        <span style="color:#6a9955;">// CPU: grab compressed frame</span>
+    <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(d_input, h_frame, size, H2D, stream);
+
+    <span style="color:#6a9955;">// ⬇ THIS 1 CALL runs: Preprocess → TRT → NMS — ALL on GPU</span>
+    <strong style="color:var(--green);background:rgba(63,185,80,0.2);">cudaGraphLaunch(graph, stream);  // 0.5μs CPU time!</strong>
+
+    <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(h_output, d_boxes, out_size, D2H, stream);
+    <span style="color:#4ec9b0;">cudaStreamSynchronize</span>(stream);
+    display(h_output);
+}
+<span style="color:#6a9955;">// Each frame: 3 CPU calls. GPU does ALL the heavy lifting. ~4.6ms/frame.</span></div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">The TRT engine call is inside build_graph(), highlighted in green.</strong> It sits BETWEEN our custom preprocess kernel and our custom NMS kernel.<br>
+The hot loop never mentions TRT because the entire pipeline (preprocess → TRT → NMS) was captured into the CUDA Graph at startup.<br>
+<strong style="color:var(--green);">This is what "integration" means:</strong> TRT is not a separate program — it's a function call sandwiched between two custom CUDA kernels, all sharing GPU memory.
+</div>
+
+<div class="quiz" id="q4"><div class="question">Where is the TRT engine actually called in this code?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q4',this)">A. Inside build_graph() at line: trt_context->enqueueV2(bindings, cap_stream, nullptr). This is captured INTO the CUDA Graph at startup. The hot loop never calls TRT directly — it calls cudaGraphLaunch() which replays the ENTIRE recorded pipeline (preprocess → TRT → NMS) in one shot.</div>
+<div class="option" onclick="checkQuiz('q4',this)">B. In the hot loop as a separate function call after cudaGraphLaunch</div>
+<div class="option" onclick="checkQuiz('q4',this)">C. TRT is not used — the pipeline uses PyTorch instead</div>
+</div><div class="feedback" id="q4-fb"></div></div>
+</div></div>`
+},{
+  id:'6E.6',title:'Python Bindings — Call CUDA from Python via pybind11',
+  fact:'<strong>Write kernels in CUDA C++, call them from Python with zero overhead.</strong> pybind11 wraps C++ functions into Python-callable modules. FastAPI can serve custom CUDA pipelines directly.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.6</span> Python Bindings — Call CUDA from Python via pybind11</h2>
+
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">🔗 pybind11 = A Bridge Between Python and C++ (Not a Translator!)</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+<strong>pybind11 does NOT convert Python to CUDA.</strong> It wraps C++ code into a <code>.pyd</code> (Windows) or <code>.so</code> (Linux) file — a compiled shared library that Python can <code>import</code> directly. When you call <code>yolo_cuda.process_frame(img)</code>, Python jumps directly into compiled C++ with <strong style="color:var(--green);">zero interpreter overhead</strong>. The C++ code then launches CUDA kernels. numpy arrays are passed as raw pointers — <strong style="color:var(--cyan);">zero copy</strong>.
+</div>
+</div>
+
+<div style="text-align:center;margin:0.5rem 0;">
+<div style="display:inline-block;background:var(--raised);border:2px solid var(--cyan);border-radius:12px;padding:1rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">🔗 Who Writes What? — You Write BOTH Python AND C++/CUDA</div>
+
+<svg width="720" height="310" style="display:block;margin:0 auto;font-family:'JetBrains Mono',monospace;">
+
+  <!-- TOP ROW: What YOU write -->
+  <rect x="10" y="5" width="170" height="50" rx="6" fill="rgba(255,179,71,0.12)" stroke="var(--amber)" stroke-width="2"/>
+  <text x="95" y="25" fill="var(--amber)" font-size="9" text-anchor="middle" font-weight="700">✍️ YOU WRITE THIS</text>
+  <text x="95" y="42" fill="var(--tmut)" font-size="7" text-anchor="middle">app.py (Python)</text>
+
+  <rect x="195" y="5" width="330" height="50" rx="6" fill="rgba(255,179,71,0.12)" stroke="var(--amber)" stroke-width="2"/>
+  <text x="360" y="25" fill="var(--amber)" font-size="9" text-anchor="middle" font-weight="700">✍️ YOU ALSO WRITE THIS</text>
+  <text x="360" y="42" fill="var(--tmut)" font-size="7" text-anchor="middle">preprocess.cu + nms.cu + bindings.cpp (C++/CUDA)</text>
+
+  <rect x="540" y="5" width="170" height="50" rx="6" fill="rgba(63,185,80,0.06)" stroke="var(--green)" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="625" y="25" fill="var(--green)" font-size="9" text-anchor="middle">🖥️ NVIDIA HARDWARE</text>
+  <text x="625" y="42" fill="var(--tmut)" font-size="7" text-anchor="middle">T4 GPU (unchanged)</text>
+
+  <!-- Arrow: YOUR Python -->
+  <line x1="95" y1="60" x2="95" y2="70" stroke="var(--amber)" stroke-width="2"/>
+  <!-- Arrow: YOUR C++ -->
+  <line x1="360" y1="60" x2="360" y2="70" stroke="var(--amber)" stroke-width="2"/>
+
+  <!-- COMPILE BOX -->
+  <rect x="160" y="75" width="400" height="50" rx="6" fill="rgba(63,185,80,0.1)" stroke="var(--green)" stroke-width="2"/>
+  <text x="360" y="95" fill="var(--green)" font-size="9" text-anchor="middle" font-weight="700">🔨 COMPILE (do ONCE: cmake + make)</text>
+  <text x="360" y="114" fill="var(--tmut)" font-size="7" text-anchor="middle">nvcc compiles .cu → .o  |  g++ links .o + pybind11 → yolo_cuda.pyd</text>
+
+  <!-- Arrow down -->
+  <line x1="360" y1="130" x2="360" y2="145" stroke="var(--green)" stroke-width="2"/>
+
+  <!-- THE BRIDGE -->
+  <rect x="230" y="150" width="260" height="40" rx="6" fill="rgba(255,179,71,0.15)" stroke="var(--amber)" stroke-width="2"/>
+  <text x="360" y="168" fill="var(--amber)" font-size="9" text-anchor="middle" font-weight="700">🔗 yolo_cuda.pyd (binary)</text>
+  <text x="360" y="183" fill="var(--tmut)" font-size="7" text-anchor="middle">Your C++/CUDA, wrapped for Python</text>
+
+  <!-- Arrow: import -->
+  <line x1="95" y1="135" x2="95" y2="170" stroke="var(--cyan)" stroke-width="2"/>
+  <text x="95" y="163" fill="var(--cyan)" font-size="7" text-anchor="middle">import yolo_cuda</text>
+
+  <!-- Arrow: launch GPU -->
+  <line x1="500" y1="170" x2="540" y2="170" stroke="var(--green)" stroke-width="2"/>
+  <text x="520" y="163" fill="var(--green)" font-size="7" text-anchor="middle">② calls GPU</text>
+
+  <!-- RUNTIME CALL CHAIN -->
+  <rect x="20" y="195" width="150" height="60" rx="6" fill="rgba(57,210,255,0.1)" stroke="var(--cyan)"/>
+  <text x="95" y="215" fill="var(--cyan)" font-size="8" text-anchor="middle">Python Hot Loop</text>
+  <text x="95" y="232" fill="var(--tdim)" font-size="7" text-anchor="middle">boxes = yolo_cuda.</text>
+  <text x="95" y="246" fill="var(--tdim)" font-size="7" text-anchor="middle">process_frame(img)</text>
+
+  <rect x="240" y="200" width="240" height="50" rx="6" fill="rgba(255,179,71,0.12)" stroke="var(--amber)"/>
+  <text x="360" y="220" fill="var(--amber)" font-size="8" text-anchor="middle">① Python calls .pyd function</text>
+  <text x="360" y="238" fill="var(--tmut)" font-size="7" text-anchor="middle">numpy array → raw pointer (zero-copy)</text>
+
+  <rect x="540" y="200" width="170" height="50" rx="6" fill="rgba(63,185,80,0.15)" stroke="var(--green)"/>
+  <text x="625" y="220" fill="var(--green)" font-size="8" text-anchor="middle">② CUDA kernels run</text>
+  <text x="625" y="238" fill="var(--tmut)" font-size="7" text-anchor="middle">Preprocess + TRT + NMS</text>
+
+  <!-- Return arrow -->
+  <line x1="625" y1="255" x2="625" y2="275" stroke="var(--green)" stroke-width="2"/>
+  <line x1="625" y1="275" x2="95" y2="275" stroke="var(--cyan)" stroke-width="2"/>
+  <text x="360" y="268" fill="var(--cyan)" font-size="7" text-anchor="middle">③ return Python list of boxes</text>
+
+  <rect x="20" y="282" width="150" height="20" rx="3" fill="rgba(57,210,255,0.1)" stroke="var(--cyan)"/>
+  <text x="95" y="296" fill="var(--cyan)" font-size="7" text-anchor="middle">boxes = [[x1,y1,...],...]</text>
+
+</svg>
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">You write TWO files.</strong> <code>app.py</code> (Python — the app) AND <code>bindings.cpp</code> + <code>preprocess.cu</code> + <code>nms.cu</code> (C++/CUDA — the custom kernels).<br>
+pybind11 compiles your C++/CUDA into a <code>.pyd</code> bridge file. Your Python then <code>import</code>s it. The <code>.pyd</code> launches CUDA kernels on GPU.<br>
+<strong style="color:var(--green);">This is NOT "Python running on GPU" — it's Python calling pre-compiled C++ which calls CUDA.</strong>
+</div>
+
+<h3>📁 Recommended Folder Structure</h3>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+  Here's how to organize your project. This is the standard layout for production CUDA + Python projects.
+</div>
+
+<div style="background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--cyan);border-radius:8px;padding:0.8rem 1rem;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;">
+<span style="color:var(--cyan);">yolo_cuda_pipeline/</span>                   <span style="color:#6a9955;">← Project root</span>
+├── <span style="color:var(--amber);">CMakeLists.txt</span>                    <span style="color:#6a9955;">← Build config (finds CUDA, pybind11, TRT)</span>
+├── <span style="color:var(--amber);">setup.py</span>                          <span style="color:#6a9955;">← pip install . (calls CMake under the hood)</span>
+│
+├── <span style="color:var(--cyan);">src/</span>                               <span style="color:#6a9955;">← C++/CUDA source (YOU write these)</span>
+│   ├── <span style="color:var(--green);">preprocess.cu</span>                 <span style="color:#6a9955;">← Fused resize + normalize + HWC→CHW</span>
+│   ├── <span style="color:var(--green);">preprocess.h</span>                  <span style="color:#6a9955;">← Header for preprocess</span>
+│   ├── <span style="color:var(--green);">nms.cu</span>                         <span style="color:#6a9955;">← GPU NMS kernel</span>
+│   ├── <span style="color:var(--green);">nms.h</span>                          <span style="color:#6a9955;">← Header for NMS</span>
+│   ├── <span style="color:var(--green);">pipeline.cpp</span>                   <span style="color:#6a9955;">← Orchestrator: Preprocess → TRT → NMS</span>
+│   ├── <span style="color:var(--green);">pipeline.h</span>                    <span style="color:#6a9955;">← Header for pipeline</span>
+│   └── <span style="color:var(--magenta);">bindings.cpp</span>                   <span style="color:#6a9955;">← pybind11 wrapper (Python ↔ C++ bridge)</span>
+│
+├── <span style="color:var(--cyan);">python/</span>                            <span style="color:#6a9955;">← Python code (YOU write these)</span>
+│   ├── <span style="color:#dcdcaa;">__init__.py</span>                     <span style="color:#6a9955;">← Makes this a package</span>
+│   ├── <span style="color:#dcdcaa;">app.py</span>                         <span style="color:#6a9955;">← FastAPI server (your application)</span>
+│   └── <span style="color:#dcdcaa;">test_pipeline.py</span>                <span style="color:#6a9955;">← Unit tests</span>
+│
+├── <span style="color:var(--cyan);">models/</span>                            <span style="color:#6a9955;">← TRT engines (BUILT once, loaded at runtime)</span>
+│   └── <span style="color:#6a9955;">yolov5s_fp16.engine</span>           <span style="color:#6a9955;">← Output from: trtexec --onnx=model.onnx --fp16</span>
+│
+├── <span style="color:var(--cyan);">third_party/</span>                       <span style="color:#6a9955;">← Dependencies</span>
+│   └── <span style="color:#6a9955;">pybind11/</span>                      <span style="color:#6a9955;">← Header-only library (git submodule or pip)</span>
+│
+└── <span style="color:var(--cyan);">build/</span>                             <span style="color:#6a9955;">← Generated (gitignored)</span>
+    └── <span style="color:#6a9955;">yolo_cuda.cp312-win_amd64.pyd</span> <span style="color:#6a9955;">← Compiled bridge (output of cmake --build)</span>
+</div>
+
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0;">
+<div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;font-size:0.45rem;color:var(--tdim);">
+<strong style="color:var(--cyan);">Build once:</strong><br>
+<code>cd build && cmake .. && make</code><br>
+→ yolo_cuda.pyd
+</div>
+<div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;font-size:0.45rem;color:var(--tdim);">
+<strong style="color:var(--amber);">Install:</strong><br>
+<code>pip install -e .</code><br>
+→ importable as package
+</div>
+<div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;font-size:0.45rem;color:var(--tdim);">
+<strong style="color:var(--green);">Run:</strong><br>
+<code>python -m python.app</code><br>
+→ FastAPI server on :8000
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">The .pyd file is the KEY artifact.</strong> It's a compiled binary that Python can import directly. It contains ALL your custom CUDA kernels + TRT integration.<br>
+Your Python <code>app.py</code> calls <code>import yolo_cuda</code> → the .pyd loads → Python calls jump to native C++ → CUDA kernels launch on GPU.<br>
+<strong style="color:var(--green);">The .pyd IS the bridge. You build it once. Python imports it forever.</strong>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 pybind11 is <strong style="color:var(--green);">not a translator</strong> — it's a <strong style="color:var(--amber);">bridge</strong>. It auto-converts types at the boundary (numpy→C pointer, vector→Python list) but the C++ code runs NATIVELY.<br>
+Your Python calls jump DIRECTLY into compiled machine code. No subprocess. No serialization. No interpreter overhead. <strong style="color:var(--cyan);">Same speed as pure C++.</strong>
+</div>
+
+<div class="compare-grid">
+<div class="compare-card bad"><h4>❌ Without pybind11</h4><p><strong>Python → subprocess → compile .cu → run.</strong> Or Python → ctypes → manual memory management. Both are fragile, slow, and error-prone. Not production-grade.</p></div>
+<div class="compare-card good"><h4>✅ With pybind11</h4><p><strong>import yolo_cuda; yolo_cuda.process_frame(img).</strong> Direct Python call → C++ function → CUDA kernel. Zero-copy where possible. Type-safe. Production-ready.</p></div>
+</div>
+
+<div class="code-box"><span class="cell-num">bindings.cpp — pybind11 wrapper</span>
+<span style="color:#6a9955;">// C++ side: wrap your CUDA pipeline</span>
+<span style="color:#569cd6;">#include</span> <span style="color:#ce9178;">&lt;pybind11/pybind11.h&gt;</span>
+<span style="color:#569cd6;">#include</span> <span style="color:#ce9178;">&lt;pybind11/numpy.h&gt;</span>
+<span style="color:#569cd6;">#include</span> <span style="color:#ce9178;">"yolo_pipeline.h"</span>
+
+<span style="color:#569cd6;">namespace</span> py = pybind11;
+
+<span style="color:#6a9955;">// The C++ function that runs the whole GPU pipeline</span>
+<span style="color:#569cd6;">std::vector</span><<span style="color:#569cd6;">float</span>> process_frame_cuda(py::array_t<<span style="color:#569cd6;">uint8_t</span>> input) {
+    <span style="color:#569cd6;">auto</span> buf = input.request();  <span style="color:#6a9955;">// Zero-copy access to numpy array!</span>
+    <span style="color:#569cd6;">int</span> h = buf.shape[<span style="color:#ce9178;">0</span>], w = buf.shape[<span style="color:#ce9178;">1</span>], c = buf.shape[<span style="color:#ce9178;">2</span>];
+
+    <span style="color:#569cd6;">auto</span>* d_input = cuda_upload((<span style="color:#569cd6;">uint8_t</span>*)buf.ptr, w*h*c);
+    <span style="color:#569cd6;">auto</span>* d_preprocessed = preprocess_fused_launch(d_input, w, h, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>);
+    <span style="color:#569cd6;">auto</span>* d_detections = trt_infer(d_preprocessed);
+    <span style="color:#569cd6;">auto</span> boxes = nms_gpu_launch(d_detections);
+
+    <span style="color:#569cd6;">return</span> boxes;  <span style="color:#6a9955;">// pybind11 auto-converts vector→Python list</span>
+}
+
+<span style="color:#6a9955;">// Register the module — this becomes "import yolo_cuda" in Python!</span>
+PYBIND11_MODULE(yolo_cuda, m) {
+    m.doc() = <span style="color:#ce9178;">"Custom CUDA YOLO pipeline — preprocess + TRT + NMS"</span>;
+    m.def(<span style="color:#ce9178;">"process_frame"</span>, &process_frame_cuda,
+          <span style="color:#ce9178;">"Process a single frame: HWC uint8 numpy array → detection boxes"</span>);
+}</div>
+
+<div class="code-box"><span class="cell-num">Python side — app.py (FastAPI server)</span>
+<span style="color:#6a9955;"># Install: pip install yolo_cuda  (your compiled pybind11 module)</span>
+<span style="color:#569cd6;">import</span> yolo_cuda
+<span style="color:#569cd6;">import</span> cv2
+
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">process_frame</span>(image_path):
+    img = cv2.imread(image_path)  <span style="color:#6a9955;"># HWC uint8 numpy array</span>
+    boxes = yolo_cuda.process_frame(img)  <span style="color:#6a9955;"># Direct GPU call!</span>
+    <span style="color:#569cd6;">return</span> boxes  <span style="color:#6a9955;"># Python list of [x1,y1,x2,y2,confidence,class]</span>
+
+<span style="color:#6a9955;"># FastAPI endpoint: POST an image, get detections back</span>
+<span style="color:#569cd6;">from</span> fastapi <span style="color:#569cd6;">import</span> FastAPI
+app = FastAPI()
+
+<span style="color:#6a9955;">@app</span>.post(<span style="color:#ce9178;">"/detect"</span>)
+<span style="color:#569cd6;">async def</span> <span style="color:#dcdcaa;">detect</span>(file: UploadFile):
+    img = cv2.imdecode(np.frombuffer(<span style="color:#569cd6;">await</span> file.read(), np.uint8), <span style="color:#ce9178;">1</span>)
+    boxes = yolo_cuda.process_frame(img)  <span style="color:#6a9955;"># ← THIS is the 4ms GPU call!</span>
+    <span style="color:#569cd6;">return</span> {<span style="color:#ce9178;">"detections"</span>: boxes}
+<span style="color:#6a9955;"># Deploy: uvicorn app:app → production GPU inference server!</span></div>
+
+<div class="quiz" id="q5"><div class="question">What does pybind11 do that makes it better than ctypes or subprocess?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q5',this)">A. pybind11 gives direct C++↔Python interop with automatic type conversion (numpy↔C array is zero-copy). No manual memory management, no serialization overhead, no subprocess overhead. Your Python code calls a C++ function as if it were native Python — the CUDA kernel runs in microseconds.</div>
+<div class="option" onclick="checkQuiz('q5',this)">B. It converts CUDA code into Python automatically</div>
+<div class="option" onclick="checkQuiz('q5',this)">C. It makes the GPU run faster than raw CUDA</div>
+</div><div class="feedback" id="q5-fb"></div></div>
+</div></div>`
+},{
+  id:'6E.7',title:'End-to-End YOLO Pipeline — Everything Together',
+  fact:'<strong>Video → GPU decode → Custom Preprocess → TensorRT → Custom NMS → Display. 133-250 FPS on a T4.</strong> The complete production pipeline: 3 custom CUDA kernels orchestrated with CUDA Graphs and Streams.',
+  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.7</span> End-to-End YOLO Pipeline — Everything Together</h2>
+<div class="big-stat"><div class="number">6E ✅</div><div class="label">CUSTOM CUDA KERNELS IN PRODUCTION</div></div>
+
+<h3>🏗️ Complete Architecture — WITH NVDEC</h3>
+<div class="pipeline">
+<div class="pipeline-stage highlight" style="min-width:50px;">📹<br>Camera</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--amber);min-width:55px;">🎬 NVDEC<br><span style="font-size:0.35rem;">GPU HW</span><br>0.5ms</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--cyan);min-width:50px;">⚡ K1<br>Preprocess<br>12μs</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--violet);min-width:50px;">🧠 K2<br>TRT Engine<br>4ms</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage" style="border-color:var(--green);min-width:50px;">🎯 K3<br>NMS<br>0.1ms</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight" style="min-width:50px;">⬇️<br>Download</div><div class="pipeline-arrow">→</div>
+<div class="pipeline-stage highlight" style="min-width:50px;">🖥️<br>Display</div>
+</div>
+
+<table class="param" style="margin:0.5rem auto;max-width:850px;">
+<tr><th style="width:80px;">Step</th><th>What</th><th>Where</th><th>Time</th><th>Custom CUDA?</th></tr>
+<tr style="background:rgba(255,179,71,0.04);"><td>0. NVDEC</td><td style="font-size:0.5rem;">Decode H.264 → raw NV12 in VRAM</td><td>GPU HW</td><td style="color:var(--amber);font-weight:700;">~0.5ms</td><td>N/A (ASIC)</td></tr>
+<tr><td>1. Preprocess</td><td style="font-size:0.5rem;">NV12→RGB + Resize 640+Normalize + HWC→CHW</td><td>GPU</td><td style="color:var(--cyan);font-weight:700;">12μs</td><td style="color:var(--cyan);">✅ Kernel 1</td></tr>
+<tr><td>2. TRT Engine</td><td style="font-size:0.5rem;">YOLOv5s TensorRT FP16 inference</td><td>GPU</td><td>~4ms</td><td>N/A (TRT)</td></tr>
+<tr style="background:rgba(63,185,80,0.04);"><td>3. NMS</td><td style="font-size:0.5rem;">Filter overlapping boxes, keep best detections</td><td>GPU</td><td style="color:var(--green);font-weight:700;">0.1ms</td><td style="color:var(--green);">✅ Kernel 2</td></tr>
+<tr><td>4. Download</td><td style="font-size:0.5rem;">cudaMemcpyAsync D→H (results → host)</td><td>PCIe</td><td>~0.05ms</td><td>N/A</td></tr>
+<tr style="background:rgba(255,179,71,0.06);"><td>📦 Total</td><td colspan="2" style="font-weight:700;color:var(--green);">NVDEC + Preprocess + TRT + NMS — ALL on GPU. CPU only sends H.264 packets, receives boxes.</td><td style="color:var(--green);font-weight:700;">~4.6ms</td><td style="color:var(--green);">✅ 2 custom kernels</td></tr>
+</table>
+
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.5rem 0;">
+<div style="flex:1;min-width:250px;background:var(--raised);border:2px solid var(--red);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--red);margin-bottom:0.3rem;">❌ WITHOUT Integration (Separate Tools)</div>
+<div style="font-size:0.42rem;color:var(--tdim);line-height:1.6;">
+1️⃣ <strong style="color:var(--red);">CPU: FFmpeg decode H.264 (10ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Raw RGB in CPU RAM<br>
+2️⃣ <strong style="color:var(--red);">PCIe: upload to GPU (0.4ms)</strong><br>
+3️⃣ <strong style="color:var(--amber);">GPU: Run trtexec standalone (4ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Save detections to disk<br>
+4️⃣ <strong style="color:var(--red);">CPU: Load .txt file, parse boxes</strong><br>
+5️⃣ <strong style="color:var(--red);">CPU: Run torchvision.nms (3ms)</strong><br>
+<strong style="color:var(--red);">Total: ~17ms. 4 tools. 3 data copies.</strong>
+</div>
+</div>
+<div style="font-size:1.2rem;color:var(--green);display:flex;align-items:center;">→</div>
+<div style="flex:1;min-width:250px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--green);margin-bottom:0.3rem;">✅ WITH Integration (Single C++ Binary)</div>
+<div style="font-size:0.42rem;color:var(--tdim);line-height:1.6;">
+1️⃣ <strong style="color:var(--amber);">GPU HW: NVDEC decode (0.5ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Raw NV12 already in VRAM ✅<br>
+2️⃣ <strong style="color:var(--cyan);">GPU: Preprocess kernel (12μs)</strong><br>
+3️⃣ <strong style="color:var(--green);">GPU: TRT engine (4ms)</strong><br>
+&nbsp;&nbsp;&nbsp;→ Detections in VRAM buffer ✅<br>
+4️⃣ <strong style="color:var(--green);">GPU: NMS kernel (0.1ms)</strong><br>
+<strong style="color:var(--green);">Total: ~4.6ms. 1 binary. 0 data copies. ALL GPU.</strong>
+</div>
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">"Integration" = everything in ONE process, sharing GPU memory pointers.</strong> Without it, you pay the tax of serialization, disk I/O, and CPU↔GPU copies between every stage.<br>
+The TRT engine is just a C++ object — you call <code>context->enqueueV2()</code>. You can put this call ANYWHERE in your C++ pipeline. Integration means doing that instead of running separate programs.
+</div>
+
+<h3>📊 Full Comparison — All Approaches (with NVDEC)</h3>
+<table class="param" style="margin:0.5rem auto;max-width:850px;">
+<tr><th>Pipeline</th><th>Video Decode</th><th>Preprocess</th><th>Inference</th><th>NMS</th><th>Total</th><th>FPS</th></tr>
+<tr><td style="color:var(--red);">🐍 Pure Python</td><td style="color:var(--red);">CPU FFmpeg 10ms</td><td style="color:var(--red);">5-10ms CPU</td><td style="color:var(--red);">8-15ms PyTorch</td><td style="color:var(--red);">3-8ms CPU</td><td style="color:var(--red);">26-43ms</td><td style="color:var(--red);">23-38</td></tr>
+<tr><td style="color:var(--amber);">⚙️ PyTorch + TRT</td><td style="color:var(--red);">CPU FFmpeg 10ms</td><td style="color:var(--amber);">2-5ms GPU</td><td style="color:var(--green);">4-7ms TRT</td><td style="color:var(--amber);">1-3ms CPU</td><td style="color:var(--amber);">17-25ms</td><td style="color:var(--amber);">40-59</td></tr>
+<tr><td style="color:var(--green);">⚡ Custom CUDA</td><td style="color:var(--amber);">GPU NVDEC 0.5ms</td><td style="color:var(--green);"><strong>0.012ms</strong></td><td style="color:var(--green);">4-7ms TRT</td><td style="color:var(--green);"><strong>0.1ms</strong></td><td style="color:var(--green);"><strong>~4.6ms</strong></td><td style="color:var(--green);"><strong>217</strong></td></tr>
+<tr style="background:rgba(57,210,255,0.04);"><td style="color:var(--cyan);">⚡⚡ CUDA + Streams</td><td style="color:var(--amber);">NVDEC parallel</td><td colspan="2" style="color:var(--cyan);">Overlapped: NVDEC frame N+1 while GPU processes frame N</td><td style="color:var(--cyan);">0.1ms</td><td style="color:var(--cyan);"><strong>~4ms</strong></td><td style="color:var(--cyan);"><strong>250</strong></td></tr>
+</table>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.5rem 0;">
+💡 <strong style="color:var(--green);">This is the production stack:</strong> Phase 6D (Streams + Graphs) + Phase 6E (NVDEC + Custom Kernels + TRT Integration) work TOGETHER.<br>
+NVDEC eliminates CPU video decode. Custom kernels eliminate CPU pre/post. Streams overlap frames. Graphs eliminate launch overhead.<br>
+Together: <strong style="color:var(--green);">23 FPS (Python) → 250 FPS (Production) on the same T4 GPU. 11× speedup.</strong>
+</div>
+
+<h3>✅ What You Learned — Phase 6E Complete</h3>
+<div class="checklist">
+<div class="check-item"><span class="check-box">⚡</span> <strong>Preprocess Kernel:</strong> Fused resize+normalize+HWC→CHW in one GPU pass. 12μs vs 5-10ms. 419× faster.</div>
+<div class="check-item"><span class="check-box">🎯</span> <strong>NMS Kernel:</strong> GPU-side box filtering eliminates GPU→CPU→GPU round-trip. 0.1ms vs 3-8ms. 30× faster.</div>
+<div class="check-item"><span class="check-box">🎬</span> <strong>NVDEC:</strong> Dedicated GPU hardware decodes H.264 directly to VRAM. 0.5ms vs 10ms CPU. Zero-copy to preprocess.</div>
+<div class="check-item"><span class="check-box">📦</span> <strong>Batched Preprocessing:</strong> 32 images in one kernel launch saturates GPU. 5× throughput vs per-image launches.</div>
+<div class="check-item"><span class="check-box">🔗</span> <strong>TRT Integration:</strong> Preprocess + TRT + NMS in ONE C++ binary, sharing GPU pointers. No separate tools, no disk I/O.</div>
+<div class="check-item"><span class="check-box">🐍</span> <strong>Python Bindings:</strong> pybind11 wraps C++/CUDA into importable Python module. FastAPI-ready production serving.</div>
+<div class="check-item"><span class="check-box">🏗️</span> <strong>End-to-End:</strong> NVDEC→Preprocess→TRT→NMS = 4.6ms = 217 FPS. With Streams: 250 FPS. 11× over Python.</div>
+</div>
+</div></div>`
 	},{
-	  id:'6E.8',title:'🖐️ Hands-On: Testing & QA — Run These Tests on Your Pipeline',
+	  id:'6E.8',title:'Testing & QA — PR Review, Test Cases, and Deployment Checklist',
+	  fact:'<strong>"Review like you are the person getting paged at 3am when this breaks."</strong> CUDA kernels fail silently — a segfault at 3am needs tests that catch it at 9am. Here is how testing applies to our YOLO pipeline.',
+	  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.8</span> Testing & QA — PR Review, Test Cases, and Deployment Checklist</h2>
+
+<h3>🔍 3-Pass PR Review — Applied to CUDA Kernels</h3>
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr><th style="width:100px;">Pass</th><th>What You Check</th><th style="color:var(--cyan);">Example for preprocess.cu</th></tr>
+<tr><td style="color:var(--red);">⚙️ Pass 1<br><span style="font-size:0.4rem;">Does it work?</span></td><td style="font-size:0.5rem;">Logic, edge cases, memory access patterns</td><td style="font-size:0.48rem;color:var(--cyan);">Does bilinear interpolation handle x=0 and x=639 correctly? What if input is 1920×1080 vs 640×480? Are all 409,600 output pixels computed?</td></tr>
+<tr><td style="color:var(--amber);">📖 Pass 2<br><span style="font-size:0.4rem;">Can I read it?</span></td><td style="font-size:0.5rem;">Naming, comments, structure clarity</td><td style="font-size:0.48rem;color:var(--amber);">Is <code>fx</code> clear or should it be <code>frac_x</code>? Are resize/normalize/HWC-to-CHW clearly separated? Would someone debug this at 3am?</td></tr>
+<tr><td style="color:var(--green);">🛡️ Pass 3<br><span style="font-size:0.4rem;">Is it safe?</span></td><td style="font-size:0.5rem;">Memory bounds, error codes, null checks</td><td style="font-size:0.48rem;color:var(--green);">Is out-of-bounds possible if <code>srcW</code> > allocated? Does <code>cudaGetLastError()</code> follow every <code><<<>>></code>? What if <code>d_input</code> is nullptr?</td></tr>
+</table>
+
+<div class="code-box"><span class="cell-num">Good vs Bad PR Comment — Real Example for nms.cu</span>
+<span style="color:#6a9955;">// ❌ BAD: criticism without solution</span>
+<span style="color:var(--red);">"This could break if the box list is empty."</span>
+
+<span style="color:#6a9955;">// ✅ GOOD: specific fix with reasoning</span>
+<span style="color:var(--green);">"Line 42: if N=0, the kernel launches with 0 threads — undefined on some GPUs.</span>
+<span style="color:var(--green);">Add at top: if (N==0) { *num_boxes = 0; return; }</span>
+<span style="color:var(--green);">This prevents a silent GPU exception from reaching the host."</span></div>
+
+<h3>🧪 The 3 Test Types — Applied to YOLO Pipeline</h3>
+<table class="param" style="margin:0.5rem auto;max-width:800px;">
+<tr><th style="width:80px;">Component</th><th style="color:var(--green);">✅ Happy Path</th><th style="color:var(--amber);">⚠️ Edge Cases</th><th style="color:var(--red);">💥 Failure Modes</th></tr>
+<tr><td style="color:var(--amber);">Preprocess</td><td style="font-size:0.45rem;color:var(--green);">640×480 RGBA → CHW<br><code>assert shape==(3,640,640)</code></td><td style="font-size:0.45rem;color:var(--amber);">1920×1080 aspect ratio<br>1×1 image (minimum)<br>Grayscale input (1 channel)</td><td style="font-size:0.45rem;color:var(--red);">d_input = nullptr → crash<br>GPU OOM (16GB full)<br>srcW=0 or dstW=0 (div by 0!)</td></tr>
+<tr><td style="color:var(--amber);">NMS</td><td style="font-size:0.45rem;color:var(--green);">10 boxes, 5 overlap → 5 survive<br><code>assert len(out)==5</code></td><td style="font-size:0.45rem;color:var(--amber);">0 boxes → empty output<br>10,000 boxes (max realistic)<br>All confidence = 1.0</td><td style="font-size:0.45rem;color:var(--red);">All identical boxes (IoU=1.0)<br>Negative coordinates<br>NaN in box values</td></tr>
+<tr><td style="color:var(--amber);">Pipeline</td><td style="font-size:0.45rem;color:var(--green);">Valid frame → detections<br><code>assert len(boxes)>0</code></td><td style="font-size:0.45rem;color:var(--amber);">Corrupt JPEG header<br>All-black frame (no objects)<br>Frame with 100+ objects</td><td style="font-size:0.45rem;color:var(--red);">TRT engine load fails<br>CUDA driver mismatch<br>cudaGraphLaunch error</td></tr>
+</table>
+
+<h3>🏗️ 4-Layer Testing — Concrete pytest Code</h3>
+<div class="code-box"><span class="cell-num">tests/test_pipeline.py — committed alongside src/</span>
+<span style="color:#569cd6;">import</span> yolo_cuda, numpy <span style="color:#569cd6;">as</span> np, cv2, pytest
+
+<span style="color:#6a9955;"># ===== LAYER 1: DATA — validate before GPU upload =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_input_shape_rejected</span>():
+    <span style="color:#c586c0;">with</span> pytest.raises(ValueError):
+        yolo_cuda.process_frame(np.zeros((<span style="color:#ce9178;">100</span>,)))        <span style="color:#6a9955;"># 1D array → reject</span>
+    <span style="color:#c586c0;">with</span> pytest.raises(ValueError):
+        yolo_cuda.process_frame(np.zeros((<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">1</span>)))  <span style="color:#6a9955;"># grayscale → reject</span>
+
+<span style="color:#6a9955;"># ===== LAYER 2: MODEL — output sanity =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_output_never_nan</span>():
+    <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">100</span>):
+        img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+        boxes = yolo_cuda.process_frame(img)
+        <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes: <span style="color:#569cd6;">assert not</span> any(np.isnan(x) <span style="color:#569cd6;">for</span> x <span style="color:#569cd6;">in</span> b[:<span style="color:#ce9178;">4</span>])
+
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_output_shape</span>():
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">1080</span>,<span style="color:#ce9178;">1920</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    boxes = yolo_cuda.process_frame(img)
+    <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes: <span style="color:#569cd6;">assert</span> len(b) == <span style="color:#ce9178;">6</span>  <span style="color:#6a9955;">// x1,y1,x2,y2,conf,class</span>
+
+<span style="color:#6a9955;">// ===== LAYER 3: PIPELINE — E2E smoke test =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_e2e_known_image</span>():
+    img = cv2.imread(<span style="color:#ce9178;">"tests/fixtures/street.jpg"</span>)
+    boxes = yolo_cuda.process_frame(img)
+    cars = [b <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes <span style="color:#569cd6;">if</span> b[<span style="color:#ce9178;">5</span>]==<span style="color:#ce9178;">2</span>]; people = [b <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes <span style="color:#569cd6;">if</span> b[<span style="color:#ce9178;">5</span>]==<span style="color:#ce9178;">0</span>]
+    <span style="color:#569cd6;">assert</span> len(cars) >= <span style="color:#ce9178;">1</span>, <span style="color:#ce9178;">"Expected at least 1 car"</span>
+
+<span style="color:#6a9955;">// ===== LAYER 4: PRODUCTION — performance SLA =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_latency_budget</span>():
+    <span style="color:#569cd6;">import</span> time
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">1080</span>,<span style="color:#ce9178;">1920</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    start = time.perf_counter()
+    <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">100</span>): yolo_cuda.process_frame(img)
+    avg_ms = (time.perf_counter()-start)/<span style="color:#ce9178;">100</span>*<span style="color:#ce9178;">1000</span>
+    <span style="color:#569cd6;">assert</span> avg_ms < <span style="color:#ce9178;">10</span>, <span style="color:#ce9178;">f"Too slow: {avg_ms:.1f}ms"</span></div>
+
+<h3>📋 10-Point Pre-Deployment Checklist</h3>
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th style="width:25px;">#</th><th>Check</th><th>Command</th></tr>
+<tr><td>1</td><td style="font-size:0.5rem;">All unit tests pass</td><td style="font-size:0.45rem;"><code>pytest tests/ -v</code></td></tr>
+<tr><td>2</td><td style="font-size:0.5rem;">TRT engine loads without error</td><td style="font-size:0.45rem;"><code>trtexec --loadEngine=models/yolov5s.engine</code></td></tr>
+<tr><td>3</td><td style="font-size:0.5rem;">No NaN in 1000 random frames</td><td style="font-size:0.45rem;"><code>pytest tests/ -k nan</code></td></tr>
+<tr><td>4</td><td style="font-size:0.5rem;">Latency < 10ms at p99</td><td style="font-size:0.45rem;"><code>pytest tests/ -k latency</code></td></tr>
+<tr><td>5</td><td style="font-size:0.5rem;">GPU memory no leak after 10K frames</td><td style="font-size:0.45rem;"><code>nvidia-smi</code> before/after</td></tr>
+<tr><td>6</td><td style="font-size:0.5rem;">No secrets in code</td><td style="font-size:0.45rem;"><code>git diff --staged | grep "api.key"</code></td></tr>
+<tr><td>7</td><td style="font-size:0.5rem;">Error paths tested</td><td style="font-size:0.45rem;"><code>pytest tests/ -k "error or invalid"</code></td></tr>
+<tr><td>8</td><td style="font-size:0.5rem;">Schema validation passes</td><td style="font-size:0.45rem;"><code>pytest tests/ -k "shape or schema"</code></td></tr>
+<tr><td>9</td><td style="font-size:0.5rem;">Model version tagged in git</td><td style="font-size:0.45rem;"><code>git tag v1.2.3 && git push --tags</code></td></tr>
+<tr><td>10</td><td style="font-size:0.5rem;">Rollback plan verified</td><td style="font-size:0.45rem;"><code>git checkout v1.2.2 && pytest</code></td></tr>
+</table>
+
+<h3>🔑 The 3 Phrases — CUDA Edition</h3>
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr><th style="color:var(--red);">🛡️ "I review like the person getting paged at 3am."</th><th style="color:var(--amber);">⚠️ "I test error handlers harder than the happy path."</th><th style="color:var(--green);">🐛 "Every bug gets a test before the fix."</th></tr>
+<tr><td style="font-size:0.48rem;color:var(--tdim);">A CUDA segfault at 3am means checking: wrong input shape? GPU OOM? Driver update? New TRT version? Did someone rename the .engine file? <strong style="color:var(--red);">Every review asks: what kills this at 3am?</strong></td><td style="font-size:0.48rem;color:var(--tdim);">Every <code>cudaMemcpyAsync</code> → check <code>cudaGetLastError()</code>. Every <code><<<>>></code> → check return. Null input → graceful exit. GPU OOM → fallback. <strong style="color:var(--amber);">Error handlers ARE the production code.</strong></td><td style="font-size:0.48rem;color:var(--tdim);">Bug: NMS crashes on 0 boxes → write <code>test_nms_zero_boxes()</code> FIRST, then fix. Bug: preprocess wrong for 4:3 aspect → write <code>test_preprocess_43_aspect()</code> first. <strong style="color:var(--green);">No repeat bugs. Ever.</strong></td></tr>
+</table>
+
+<h3>📁 Updated Folder Structure — With Tests</h3>
+<div style="background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--green);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.5rem;line-height:1.7;color:#d4d4d4;">
+<span style="color:var(--cyan);">yolo_cuda_pipeline/</span>
+├── <span style="color:var(--cyan);">src/</span>                         <span style="color:#6a9955;">← Production (C++/CUDA)</span>
+├── <span style="color:var(--cyan);">python/</span>                     <span style="color:#6a9955;">← Production (Python)</span>
+├── <span style="color:var(--green);">tests/</span>                       <span style="color:#6a9955;">← ← ← TESTS (pytest)</span>
+│   ├── <span style="color:var(--green);">test_pipeline.py</span>         <span style="color:#6a9955;">← 4-layer tests</span>
+│   ├── <span style="color:var(--green);">test_preprocess.py</span>       <span style="color:#6a9955;">← Preprocess unit tests</span>
+│   ├── <span style="color:var(--green);">test_nms.py</span>              <span style="color:#6a9955;">← NMS unit tests</span>
+│   ├── <span style="color:var(--green);">conftest.py</span>              <span style="color:#6a9955;">← Shared fixtures</span>
+│   └── <span style="color:var(--cyan);">fixtures/</span>                <span style="color:#6a9955;">← Known test images</span>
+├── <span style="color:var(--cyan);">.github/workflows/</span>
+│   └── <span style="color:var(--amber);">ci.yml</span>                <span style="color:#6a9955;">← pytest on every PR</span>
+└── <span style="color:var(--amber);">pytest.ini</span>                 <span style="color:#6a9955;">← Config: fail under 95% coverage</span>
+</div>
+
+<div class="quiz" id="q6"><div class="question">NMS crashes on an empty box list in production. What do you do FIRST?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q6',this)">A. Write a test that reproduces the crash (test_nms_empty_boxes). Verify it FAILS. THEN fix the kernel. Commit both together — the test proves the fix and prevents regression. "Every production bug gets a test before the fix."</div>
+<div class="option" onclick="checkQuiz('q6',this)">B. Fix the kernel immediately — the test can wait until later</div>
+<div class="option" onclick="checkQuiz('q6',this)">C. Wrap the NMS call in a try/except in Python to catch the crash</div>
+</div><div class="feedback" id="q6-fb"></div></div>
+</div></div>`
+	},{
+	  id:'6E.8',title:'Hands-On: Testing and QA for YOLO CUDA Pipeline',
 	  fact:'<strong>"Review like you are the person getting paged at 3am when this breaks."</strong> Below are complete, copy-paste ready test files. Create a tests/ folder, copy these in, and run: pytest tests/ -v',
 	  render:()=>`
 <div class="slide"><div class="card">
-<h2><span class="num">6E.8</span> 🖐️ Hands-On: Testing & QA — Run These Tests on Your Pipeline</h2>
+<h2><span class="num">6E.8</span> Hands-On: Testing and QA for YOLO CUDA Pipeline</h2>
 
 <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
-<div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--amber);">
-<strong>Step 1:</strong> mkdir tests && cd tests<br>
+<div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--amber);line-height:1.8;">
+<strong>Step 1:</strong> mkdir tests tests/fixtures<br>
 <strong>Step 2:</strong> Copy each code block below into its file<br>
 <strong>Step 3:</strong> pip install pytest numpy opencv-python<br>
 <strong>Step 4:</strong> pytest tests/ -v --tb=short<br>
@@ -15,168 +1230,140 @@
 </div>
 </div>
 
-<h3>📁 File 1: tests/conftest.py — Shared Fixtures</h3>
-<div class="code-box"><span class="cell-num">tests/conftest.py — Copy this file first</span>
+<h3>File 1: tests/conftest.py</h3>
+<div class="code-box"><span class="cell-num">tests/conftest.py — Shared fixtures (copy FIRST)</span>
 <span style="color:#569cd6;">import</span> pytest
 <span style="color:#569cd6;">import</span> numpy <span style="color:#569cd6;">as</span> np
-<span style="color:#569cd6;">import</span> cv2
 <span style="color:#569cd6;">import</span> os
 
 <span style="color:#dcdcaa;">@pytest.fixture</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">random_rgb_frame</span>():
-    <span style="color:#ce9178;">"""A realistic 1080p frame with random pixel data. Use this for speed tests."""</span>
+    <span style="color:#ce9178;">"""A realistic 1080p frame with random pixel data."""</span>
     <span style="color:#569cd6;">return</span> np.random.randint(<span style="color:#ce9178;">0</span>, <span style="color:#ce9178;">255</span>, (<span style="color:#ce9178;">1080</span>, <span style="color:#ce9178;">1920</span>, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
 
 <span style="color:#dcdcaa;">@pytest.fixture</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">dark_frame</span>():
-    <span style="color:#ce9178;">"""All-black frame — should produce ZERO detections."""</span>
+    <span style="color:#ce9178;">"""All-black frame — should produce ZERO high-confidence detections."""</span>
     <span style="color:#569cd6;">return</span> np.zeros((<span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
-
-<span style="color:#dcdcaa;">@pytest.fixture</span>
-<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_image_path</span>():
-    <span style="color:#ce9178;">"""Path to known test image. Create a tests/fixtures/ folder and put a photo there."""</span>
-    path = os.path.join(os.path.dirname(<span style="color:#569cd6;">__file__</span>), <span style="color:#ce9178;">"fixtures"</span>, <span style="color:#ce9178;">"test_street.jpg"</span>)
-    <span style="color:#569cd6;">if not</span> os.path.exists(path):
-        pytest.skip(<span style="color:#ce9178;">"No test image found — create tests/fixtures/test_street.jpg"</span>)
-    <span style="color:#569cd6;">return</span> path
-
-<span style="color:#dcdcaa;">@pytest.fixture</span>
-<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">invalid_inputs</span>():
-    <span style="color:#ce9178;">"""Collection of inputs that should be REJECTED before GPU upload."""</span>
-    <span style="color:#569cd6;">return</span> [
-        (<span style="color:#ce9178;">"1D array"</span>, np.zeros((<span style="color:#ce9178;">100</span>,))),
-        (<span style="color:#ce9178;">"4D array"</span>, np.zeros((<span style="color:#ce9178;">1</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>))),
-        (<span style="color:#ce9178;">"grayscale"</span>, np.zeros((<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>))),
-        (<span style="color:#ce9178;">"wrong dtype"</span>, np.zeros((<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>), dtype=np.float32)),
-        (<span style="color:#ce9178;">"empty array"</span>, np.array([])),
-    ]
 
 <span style="color:#dcdcaa;">@pytest.fixture</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">many_random_frames</span>():
     <span style="color:#ce9178;">"""100 random frames for stress testing."""</span>
     <span style="color:#569cd6;">return</span> [np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8) <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">100</span>)]
-</div>
 
-<h3>📁 File 2: tests/test_layer1_data.py — Data Validation</h3>
-<div class="code-box"><span class="cell-num">tests/test_layer1_data.py — Layer 1: Catch bad data BEFORE GPU</span>
-<span style="color:#569cd6;">import</span> pytest
-<span style="color:#569cd6;">import</span> numpy <span style="color:#569cd6;">as</span> np
-<span style="color:#569cd6;">import</span> yolo_cuda  <span style="color:#6a9955;"># Your compiled pipeline module</span>
+<span style="color:#dcdcaa;">@pytest.fixture</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_image_path</span>():
+    <span style="color:#ce9178;">"""Path to known test image — put a photo at tests/fixtures/test_street.jpg"""</span>
+    path = os.path.join(os.path.dirname(<span style="color:#569cd6;">__file__</span>), <span style="color:#ce9178;">"fixtures"</span>, <span style="color:#ce9178;">"test_street.jpg"</span>)
+    <span style="color:#569cd6;">if not</span> os.path.exists(path):
+        pytest.skip(<span style="color:#ce9178;">"No test image found — add tests/fixtures/test_street.jpg"</span>)
+    <span style="color:#569cd6;">return</span> path</div>
 
-<span style="color:#6a9955;">// ─── TEST 1.1: All invalid inputs must raise ValueError ───</span>
+<h3>File 2: tests/test_layer1_data.py</h3>
+<div class="code-box"><span class="cell-num">tests/test_layer1_data.py — Layer 1: Catch bad data BEFORE GPU upload</span>
+<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np
+<span style="color:#569cd6;">import</span> yolo_cuda
+
+<span style="color:#6a9955;">// TEST 1.1 — Every invalid input MUST raise ValueError BEFORE touching GPU</span>
 <span style="color:#dcdcaa;">@pytest.mark.parametrize</span>(<span style="color:#ce9178;">"name, bad_input"</span>, [
     (<span style="color:#ce9178;">"None"</span>, <span style="color:#569cd6;">None</span>),
     (<span style="color:#ce9178;">"1D array"</span>, np.zeros((<span style="color:#ce9178;">100</span>,))),
     (<span style="color:#ce9178;">"grayscale"</span>, np.zeros((<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>))),
-    (<span style="color:#ce9178;">"float input"</span>, np.random.rand(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>)),
+    (<span style="color:#ce9178;">"float32 input"</span>, np.random.rand(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>).astype(np.float32)),
     (<span style="color:#ce9178;">"too many dims"</span>, np.zeros((<span style="color:#ce9178;">1</span>,<span style="color:#ce9178;">1</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>))),
 ])
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_reject_invalid_input</span>(name, bad_input):
-    <span style="color:#ce9178;">"""Pipeline MUST reject these before touching GPU memory."""</span>
+    <span style="color:#ce9178;">"""Pipeline MUST reject these BEFORE GPU memory allocation."""</span>
     <span style="color:#c586c0;">with</span> pytest.raises((ValueError, TypeError, RuntimeError)):
         yolo_cuda.process_frame(bad_input)
-    print(<span style="color:#ce9178;">f"✓ Correctly rejected: {name}"</span>)
+    print(<span style="color:#ce9178;">f"Correctly rejected: {name}"</span>)
 
-<span style="color:#6a9955;">// ─── TEST 1.2: Valid inputs should NOT raise ───</span>
+<span style="color:#6a9955;">// TEST 1.2 — Valid input must be accepted</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_accept_valid_input</span>(random_rgb_frame):
-    <span style="color:#ce9178;">"""1080p RGB uint8 must be accepted."""</span>
-    <span style="color:#569cd6;">try</span>:
-        boxes = yolo_cuda.process_frame(random_rgb_frame)
-        <span style="color:#569cd6;">assert</span> isinstance(boxes, list)
-    <span style="color:#569cd6;">except</span> Exception <span style="color:#569cd6;">as</span> e:
-        pytest.fail(<span style="color:#ce9178;">f"Valid input was rejected: {e}"</span>)
+    boxes = yolo_cuda.process_frame(random_rgb_frame)
+    <span style="color:#569cd6;">assert</span> isinstance(boxes, list), <span style="color:#ce9178;">"Must return a list of detections"</span>
 
-<span style="color:#6a9955;">// ─── TEST 1.3: Different resolutions must work ───</span>
+<span style="color:#6a9955;">// TEST 1.3 — All common resolutions must work</span>
 <span style="color:#dcdcaa;">@pytest.mark.parametrize</span>(<span style="color:#ce9178;">"h,w"</span>, [(<span style="color:#ce9178;">480</span>,<span style="color:#ce9178;">640</span>), (<span style="color:#ce9178;">720</span>,<span style="color:#ce9178;">1280</span>), (<span style="color:#ce9178;">1080</span>,<span style="color:#ce9178;">1920</span>), (<span style="color:#ce9178;">2160</span>,<span style="color:#ce9178;">3840</span>)])
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_various_resolutions</span>(h, w):
-    <span style="color:#ce9178;">"""Pipeline should handle any reasonable input resolution."""</span>
     img = np.random.randint(<span style="color:#ce9178;">0</span>, <span style="color:#ce9178;">255</span>, (h, w, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
     boxes = yolo_cuda.process_frame(img)
     <span style="color:#569cd6;">assert</span> isinstance(boxes, list)</div>
 
-<h3>📁 File 3: tests/test_layer2_model.py — Model Output Sanity</h3>
-<div class="code-box"><span class="cell-num">tests/test_layer2_model.py — Layer 2: Does the model produce valid output?</span>
-<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np, yolo_cuda
+<h3>File 3: tests/test_layer2_model.py</h3>
+<div class="code-box"><span class="cell-num">tests/test_layer2_model.py — Layer 2: Model output sanity checks</span>
+<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np
+<span style="color:#569cd6;">import</span> yolo_cuda
 
-<span style="color:#6a9955;">// ─── TEST 2.1: Output must NEVER contain NaN ───</span>
+<span style="color:#6a9955;">// TEST 2.1 — SAFETY: Output must NEVER contain NaN</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_output_never_nan</span>(many_random_frames):
-    <span style="color:#ce9178;">"""This is a SAFETY test. NaN in detection = silent failure."""</span>
+    <span style="color:#ce9178;">"""This is a SAFETY test. NaN = silent failure in production."""</span>
     <span style="color:#569cd6;">for</span> i, img <span style="color:#569cd6;">in</span> enumerate(many_random_frames):
         boxes = yolo_cuda.process_frame(img)
         <span style="color:#569cd6;">for</span> j, b <span style="color:#569cd6;">in</span> enumerate(boxes):
             has_nan = any(np.isnan(x) <span style="color:#569cd6;">for</span> x <span style="color:#569cd6;">in</span> b[:<span style="color:#ce9178;">4</span>])
             <span style="color:#569cd6;">assert not</span> has_nan, <span style="color:#ce9178;">f"NaN in frame {i}, box {j}"</span>
-    print(<span style="color:#ce9178;">f"✓ All {len(many_random_frames)} frames clean"</span>)
+    print(<span style="color:#ce9178;">f"All {len(many_random_frames)} frames NaN-free"</span>)
 
-<span style="color:#6a9955;">// ─── TEST 2.2: Output shape and structure ───</span>
+<span style="color:#6a9955;">// TEST 2.2 — Each box must be [x1,y1,x2,y2,confidence,class_id]</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_output_structure</span>(random_rgb_frame):
-    <span style="color:#ce9178;">"""Each box must be [x1, y1, x2, y2, confidence, class_id]."""</span>
     boxes = yolo_cuda.process_frame(random_rgb_frame)
-    <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes:
-        <span style="color:#569cd6;">assert</span> len(b) == <span style="color:#ce9178;">6</span>, <span style="color:#ce9178;">f"Expected 6 values, got {len(b)}"</span>
-        <span style="color:#569cd6;">assert</span> b[<span style="color:#ce9178;">0</span>] <= b[<span style="color:#ce9178;">2</span>], <span style="color:#ce9178;">"x1 must be <= x2"</span>
-        <span style="color:#569cd6;">assert</span> b[<span style="color:#ce9178;">1</span>] <= b[<span style="color:#ce9178;">3</span>], <span style="color:#ce9178;">"y1 must be <= y2"</span>
-        <span style="color:#569cd6;">assert</span> <span style="color:#ce9178;">0.0</span> <= b[<span style="color:#ce9178;">4</span>] <= <span style="color:#ce9178;">1.0</span>, <span style="color:#ce9178;">"Confidence must be 0-1"</span>
-        <span style="color:#569cd6;">assert</span> <span style="color:#ce9178;">0</span> <= b[<span style="color:#ce9178;">5</span>] < <span style="color:#ce9178;">80</span>, <span style="color:#ce9178;">f"Class ID {b[5]} out of range"</span>
+    <span style="color:#569cd6;">for</span> i, b <span style="color:#569cd6;">in</span> enumerate(boxes):
+        <span style="color:#569cd6;">assert</span> len(b) == <span style="color:#ce9178;">6</span>, <span style="color:#ce9178;">f"Box {i}: expected 6 values, got {len(b)}"</span>
+        <span style="color:#569cd6;">assert</span> b[<span style="color:#ce9178;">0</span>] <= b[<span style="color:#ce9178;">2</span>], <span style="color:#ce9178;">f"Box {i}: x1 must be <= x2"</span>
+        <span style="color:#569cd6;">assert</span> b[<span style="color:#ce9178;">1</span>] <= b[<span style="color:#ce9178;">3</span>], <span style="color:#ce9178;">f"Box {i}: y1 must be <= y2"</span>
+        <span style="color:#569cd6;">assert</span> <span style="color:#ce9178;">0.0</span> <= b[<span style="color:#ce9178;">4</span>] <= <span style="color:#ce9178;">1.0</span>, <span style="color:#ce9178;">f"Box {i}: confidence {b[4]} not in [0,1]"</span>
+        <span style="color:#569cd6;">assert</span> <span style="color:#ce9178;">0</span> <= b[<span style="color:#ce9178;">5</span>] < <span style="color:#ce9178;">80</span>, <span style="color:#ce9178;">f"Box {i}: class_id {b[5]} out of range"</span>
 
-<span style="color:#6a9955;">// ─── TEST 2.3: Dark frame should have few/no detections ───</span>
+<span style="color:#6a9955;">// TEST 2.3 — Dark frame should have almost no high-confidence boxes</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_dark_frame_few_detections</span>(dark_frame):
-    <span style="color:#ce9178;">"""All-black image should produce minimal detections."""</span>
     boxes = yolo_cuda.process_frame(dark_frame)
     high_conf = [b <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes <span style="color:#569cd6;">if</span> b[<span style="color:#ce9178;">4</span>] > <span style="color:#ce9178;">0.5</span>]
-    <span style="color:#569cd6;">assert</span> len(high_conf) < <span style="color:#ce9178;">5</span>, <span style="color:#ce9178;">f"Dark frame has {len(high_conf)} high-conf boxes — expected < 5"</span>
+    <span style="color:#569cd6;">assert</span> len(high_conf) < <span style="color:#ce9178;">5</span>, <span style="color:#ce9178;">f"Dark frame has {len(high_conf)} high-conf boxes"</span>
 
-<span style="color:#6a9955;">// ─── TEST 2.4: Invariance — same input, same output ───</span>
+<span style="color:#6a9955;">// TEST 2.4 — Same input must produce same output (determinism)</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_deterministic_output</span>(random_rgb_frame):
-    <span style="color:#ce9178;">"""TRT with same input must produce identical output every time."""</span>
     boxes1 = yolo_cuda.process_frame(random_rgb_frame)
     boxes2 = yolo_cuda.process_frame(random_rgb_frame)
     <span style="color:#569cd6;">assert</span> len(boxes1) == len(boxes2), <span style="color:#ce9178;">"Non-deterministic output!"</span>
-    <span style="color:#569cd6;">for</span> b1, b2 <span style="color:#569cd6;">in</span> zip(boxes1, boxes2):
-        <span style="color:#569cd6;">for</span> v1, v2 <span style="color:#569cd6;">in</span> zip(b1, b2):
-            <span style="color:#569cd6;">assert</span> abs(v1 - v2) < <span style="color:#ce9178;">0.001</span>, <span style="color:#ce9178;">f"Output differs: {v1} vs {v2}"</span></div>
+    <span style="color:#569cd6;">for</span> b1,b2 <span style="color:#569cd6;">in</span> zip(boxes1, boxes2):
+        <span style="color:#569cd6;">for</span> v1,v2 <span style="color:#569cd6;">in</span> zip(b1,b2):
+            <span style="color:#569cd6;">assert</span> abs(v1-v2) < <span style="color:#ce9178;">0.001</span>, <span style="color:#ce9178;">f"Output differs: {v1} vs {v2}"</span></div>
 
-<h3>📁 File 4: tests/test_layer3_pipeline.py — E2E Smoke Tests</h3>
-<div class="code-box"><span class="cell-num">tests/test_layer3_pipeline.py — Layer 3: End-to-end integration tests</span>
-<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np, cv2, yolo_cuda
+<h3>File 4: tests/test_layer3_pipeline.py</h3>
+<div class="code-box"><span class="cell-num">tests/test_layer3_pipeline.py — Layer 3: End-to-end integration</span>
+<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np
+<span style="color:#569cd6;">import</span> yolo_cuda
 
-<span style="color:#6a9955;">// ─── TEST 3.1: Full pipeline with known image ───</span>
-<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_pipeline_starts_without_error</span>():
-    <span style="color:#ce9178;">"""Smoke test: does the pipeline initialize and run at all?"""</span>
-    img = np.random.randint(<span style="color:#ce9178;">0</span>, <span style="color:#ce9178;">255</span>, (<span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
-    <span style="color:#569cd6;">try</span>:
-        boxes = yolo_cuda.process_frame(img)
-    <span style="color:#569cd6;">except</span> Exception <span style="color:#569cd6;">as</span> e:
-        pytest.fail(<span style="color:#ce9178;">f"Pipeline failed to start: {e}"</span>)
-
-<span style="color:#6a9955;">// ─── TEST 3.2: Pipeline handles consecutive frames ───</span>
-<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_consecutive_frames_no_leak</span>(many_random_frames):
-    <span style="color:#ce9178;">"""Memory leak check: process 100 frames, check no OOM."""</span>
-    <span style="color:#569cd6;">for</span> img <span style="color:#569cd6;">in</span> many_random_frames:
-        boxes = yolo_cuda.process_frame(img)
-    <span style="color:#6a9955;">// If we got here without OOM, the test passes</span>
-
-<span style="color:#6a9955;">// ─── TEST 3.3: Error recovery — bad frame then good frame ───</span>
-<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_error_recovery</span>():
-    <span style="color:#ce9178;">"""Pipeline must recover after processing a bad frame."""</span>
-    <span style="color:#6a9955;">// Send a bad frame (should be rejected)</span>
-    <span style="color:#c586c0;">with</span> pytest.raises((ValueError, TypeError, RuntimeError)):
-        yolo_cuda.process_frame(<span style="color:#569cd6;">None</span>)
-    <span style="color:#6a9955;">// Next good frame MUST still work (pipeline recovers)</span>
-    img = np.random.randint(<span style="color:#ce9178;">0</span>, <span style="color:#ce9178;">255</span>, (<span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
+<span style="color:#6a9955;">// TEST 3.1 — Smoke test: does it even start?</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_pipeline_starts</span>():
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
     boxes = yolo_cuda.process_frame(img)
-    <span style="color:#569cd6;">assert</span> isinstance(boxes, list), <span style="color:#ce9178;">"Pipeline did not recover after error!"</span></div>
+    <span style="color:#569cd6;">assert</span> boxes <span style="color:#569cd6;">is not None</span>
 
-<h3>📁 File 5: tests/test_layer4_production.py — Performance SLA</h3>
-<div class="code-box"><span class="cell-num">tests/test_layer4_production.py — Layer 4: Production readiness checks</span>
-<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np, time, yolo_cuda
+<span style="color:#6a9955;">// TEST 3.2 — 100 consecutive frames must not leak memory</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_no_memory_leak</span>(many_random_frames):
+    <span style="color:#569cd6;">for</span> img <span style="color:#569cd6;">in</span> many_random_frames:
+        yolo_cuda.process_frame(img)
+    <span style="color:#6a9955;">// Reaching here without OOM = pass</span>
 
-<span style="color:#6a9955;">// ─── TEST 4.1: Latency budget (< 10ms per frame) ───</span>
+<span style="color:#6a9955;">// TEST 3.3 — Pipeline must recover after a bad frame</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_error_recovery</span>():
+    <span style="color:#c586c0;">with</span> pytest.raises((ValueError, TypeError, RuntimeError)):
+        yolo_cuda.process_frame(<span style="color:#569cd6;">None</span>)   <span style="color:#6a9955;">// bad frame rejected</span>
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    boxes = yolo_cuda.process_frame(img)  <span style="color:#6a9955;">// good frame still works</span>
+    <span style="color:#569cd6;">assert</span> isinstance(boxes, list)</div>
+
+<h3>File 5: tests/test_layer4_production.py</h3>
+<div class="code-box"><span class="cell-num">tests/test_layer4_production.py — Layer 4: Production performance SLA</span>
+<span style="color:#569cd6;">import</span> pytest, numpy <span style="color:#569cd6;">as</span> np, time
+<span style="color:#569cd6;">import</span> yolo_cuda
+
+<span style="color:#6a9955;">// TEST 4.1 — Production SLA: average < 10ms per frame</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_latency_budget</span>():
-    <span style="color:#ce9178;">"""Production SLA: 100 frames average must be under 10ms each."""</span>
-    img = np.random.randint(<span style="color:#ce9178;">0</span>, <span style="color:#ce9178;">255</span>, (<span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
-    <span style="color:#6a9955;">// Warmup: first call initializes CUDA context</span>
-    yolo_cuda.process_frame(img)
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    yolo_cuda.process_frame(img)  <span style="color:#6a9955;">// warmup (first call initializes CUDA context)</span>
     times = []
     <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">100</span>):
         start = time.perf_counter()
@@ -184,27 +1371,22 @@
         times.append((time.perf_counter() - start) * <span style="color:#ce9178;">1000</span>)
     avg = np.mean(times); p99 = np.percentile(times, <span style="color:#ce9178;">99</span>)
     print(<span style="color:#ce9178;">f"Avg: {avg:.2f}ms, p99: {p99:.2f}ms"</span>)
-    <span style="color:#569cd6;">assert</span> avg < <span style="color:#ce9178;">10</span>, <span style="color:#ce9178;">f"Too slow: avg {avg:.1f}ms (budget: 10ms)"</span>
-    <span style="color:#569cd6;">assert</span> p99 < <span style="color:#ce9178;">15</span>, <span style="color:#ce9178;">f"p99 latency {p99:.1f}ms exceeds 15ms SLA"</span>
+    <span style="color:#569cd6;">assert</span> avg < <span style="color:#ce9178;">10</span>, <span style="color:#ce9178;">f"Too slow: avg {avg:.1f}ms (SLA: 10ms)"</span>
+    <span style="color:#569cd6;">assert</span> p99 < <span style="color:#ce9178;">15</span>, <span style="color:#ce9178;">f"p99 {p99:.1f}ms exceeds 15ms SLA"</span>
 
-<span style="color:#6a9955;">// ─── TEST 4.2: Throughput (minimum 200 FPS for 640x640) ───</span>
+<span style="color:#6a9955;">// TEST 4.2 — Throughput SLA: minimum 200 FPS</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_throughput_minimum</span>():
-    <span style="color:#ce9178;">"""Production SLA: must sustain > 200 FPS at 640x640."""</span>
-    img = np.random.randint(<span style="color:#ce9178;">0</span>, <span style="color:#ce9178;">255</span>, (<span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">3</span>), dtype=np.uint8)
-    yolo_cuda.process_frame(img)  <span style="color:#6a9955;">// warmup</span>
-    N = <span style="color:#ce9178;">500</span>
-    start = time.perf_counter()
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    yolo_cuda.process_frame(img)
+    N = <span style="color:#ce9178;">500</span>; start = time.perf_counter()
     <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(N): yolo_cuda.process_frame(img)
-    elapsed = time.perf_counter() - start
-    fps = N / elapsed
-    print(<span style="color:#ce9178;">f"Throughput: {fps:.0f} FPS ({elapsed*1000/N:.2f}ms/frame)"</span>)
-    <span style="color:#569cd6;">assert</span> fps > <span style="color:#ce9178;">200</span>, <span style="color:#ce9178;">f"Too slow: {fps:.0f} FPS (minimum: 200)"</span>
+    fps = N / (time.perf_counter() - start)
+    print(<span style="color:#ce9178;">f"Throughput: {fps:.0f} FPS"</span>)
+    <span style="color:#569cd6;">assert</span> fps > <span style="color:#ce9178;">200</span>, <span style="color:#ce9178;">f"Too slow: {fps:.0f} FPS (SLA: 200)"</span>
 
-<span style="color:#6a9955;">// ─── TEST 4.3: First-frame latency (cold start) ───</span>
+<span style="color:#6a9955;">// TEST 4.3 — Cold start must complete in under 2 seconds</span>
 <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_cold_start_latency</span>():
-    <span style="color:#ce9178;">"""First frame loads engine — must complete under 2 seconds."""</span>
     <span style="color:#569cd6;">import</span> subprocess, sys
-    <span style="color:#6a9955;">// Run in fresh process to measure true cold start</span>
     code = <span style="color:#ce9178;">"""import numpy as np, time, yolo_cuda
 img = np.random.randint(0,255,(640,640,3),dtype=np.uint8)
 start = time.perf_counter()
@@ -214,7 +1396,7 @@ print(f"{time.perf_counter()-start:.3f}")"""</span>
     cold_time = float(result.stdout.strip())
     <span style="color:#569cd6;">assert</span> cold_time < <span style="color:#ce9178;">2.0</span>, <span style="color:#ce9178;">f"Cold start {cold_time:.1f}s exceeds 2s SLA"</span></div>
 
-<h3>⚙️ File 6: pytest.ini — Configuration</h3>
+<h3>File 6: pytest.ini</h3>
 <div class="code-box"><span class="cell-num">pytest.ini — Place in project root</span>
 <span style="color:#569cd6;">[pytest]</span>
 <span style="color:#ce9178;">testpaths</span> = tests
@@ -226,57 +1408,163 @@ print(f"{time.perf_counter()-start:.3f}")"""</span>
     smoke: quick sanity checks
 <span style="color:#ce9178;">timeout</span> = 60</div>
 
-<h3>🔄 File 7: .github/workflows/ci.yml — CI/CD Auto-Test</h3>
+<h3>File 7: .github/workflows/ci.yml</h3>
 <div class="code-box"><span class="cell-num">.github/workflows/ci.yml — Runs on every PR and push</span>
 <span style="color:#569cd6;">name:</span> <span style="color:#ce9178;">YOLO Pipeline CI</span>
 <span style="color:#569cd6;">on:</span> [<span style="color:#ce9178;">push</span>, <span style="color:#ce9178;">pull_request</span>]
 <span style="color:#569cd6;">jobs:</span>
   <span style="color:#569cd6;">test:</span>
-    <span style="color:#569cd6;">runs-on:</span> <span style="color:#ce9178;">[self-hosted, GPU]</span>  <span style="color:#6a9955;"># Your GPU runner</span>
+    <span style="color:#569cd6;">runs-on:</span> <span style="color:#ce9178;">[self-hosted, GPU]</span>
     <span style="color:#569cd6;">steps:</span>
       - <span style="color:#569cd6;">uses:</span> <span style="color:#ce9178;">actions/checkout@v4</span>
       - <span style="color:#569cd6;">uses:</span> <span style="color:#ce9178;">actions/setup-python@v5</span>
         <span style="color:#569cd6;">with:</span> {<span style="color:#569cd6;">python-version:</span> <span style="color:#ce9178;">'3.12'</span>}
       - <span style="color:#569cd6;">run:</span> <span style="color:#ce9178;">pip install -e . pytest numpy opencv-python</span>
-      - <span style="color:#569cd6;">run:</span> <span style="color:#ce9178;">python -c "import torch; assert torch.cuda.is_available()"</span>
-      - <span style="color:#569cd6;">run:</span> <span style="color:#ce9178;">pytest tests/ -v --tb=short -m "not slow"</span>
-        <span style="color:#6a9955;"># Skip slow tests on PR, run full suite on merge to main</span>
+      - <span style="color:#569cd6;">run:</span> <span style="color:#ce9178;">pytest tests/ -v --tb=short</span>
   <span style="color:#569cd6;">lint:</span>
     <span style="color:#569cd6;">runs-on:</span> <span style="color:#ce9178;">ubuntu-latest</span>
     <span style="color:#569cd6;">steps:</span>
       - <span style="color:#569cd6;">uses:</span> <span style="color:#ce9178;">actions/checkout@v4</span>
-      - <span style="color:#569cd6;">run:</span> <span style="color:#ce9178;">grep -rn "api[_-]?key\|password\s*=" src/ python/ && exit 1 || echo "No secrets found"</span></div>
+      - <span style="color:#569cd6;">run:</span> <span style="color:#ce9178;">grep -rn "api[_-]?key\|password\s*=" src/ python/ && exit 1 || echo "No secrets"</span></div>
 
-<h3>🏃 Run It Now</h3>
+<h3>Run It Now</h3>
 <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
-<div style="font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--green);line-height:1.8;">
+<div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);line-height:1.8;">
 $ <strong>mkdir -p tests/fixtures</strong><br>
-$ <strong>cp ~/Downloads/test_street.jpg tests/fixtures/</strong><br>
+$ <strong>cp ~/Pictures/test_street.jpg tests/fixtures/</strong><br>
 $ <strong>pytest tests/ -v --tb=short</strong><br><br>
 <span style="color:var(--tdim);">Expected output:</span><br>
-tests/test_layer1_data.py::test_reject_invalid_input[None] <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer1_data.py::test_reject_invalid_input[1D array] <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer1_data.py::test_accept_valid_input <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer2_model.py::test_output_never_nan <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer2_model.py::test_output_structure <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer2_model.py::test_deterministic_output <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer3_pipeline.py::test_pipeline_starts_without_error <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer3_pipeline.py::test_consecutive_frames_no_leak <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer3_pipeline.py::test_error_recovery <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer4_production.py::test_latency_budget <span style="color:var(--green);">PASSED</span><br>
-tests/test_layer4_production.py::test_throughput_minimum <span style="color:var(--green);">PASSED</span><br>
+test_layer1_data.py::test_reject_invalid_input[None] <span style="color:var(--green);">PASSED</span><br>
+test_layer1_data.py::test_reject_invalid_input[1D array] <span style="color:var(--green);">PASSED</span><br>
+test_layer1_data.py::test_reject_invalid_input[grayscale] <span style="color:var(--green);">PASSED</span><br>
+test_layer1_data.py::test_accept_valid_input <span style="color:var(--green);">PASSED</span><br>
+test_layer1_data.py::test_various_resolutions[480-640] <span style="color:var(--green);">PASSED</span><br>
+test_layer2_model.py::test_output_never_nan <span style="color:var(--green);">PASSED</span><br>
+test_layer2_model.py::test_output_structure <span style="color:var(--green);">PASSED</span><br>
+test_layer2_model.py::test_dark_frame_few_detections <span style="color:var(--green);">PASSED</span><br>
+test_layer2_model.py::test_deterministic_output <span style="color:var(--green);">PASSED</span><br>
+test_layer3_pipeline.py::test_pipeline_starts <span style="color:var(--green);">PASSED</span><br>
+test_layer3_pipeline.py::test_no_memory_leak <span style="color:var(--green);">PASSED</span><br>
+test_layer3_pipeline.py::test_error_recovery <span style="color:var(--green);">PASSED</span><br>
+test_layer4_production.py::test_latency_budget <span style="color:var(--green);">PASSED</span><br>
+test_layer4_production.py::test_throughput_minimum <span style="color:var(--green);">PASSED</span><br>
+test_layer4_production.py::test_cold_start_latency <span style="color:var(--green);">PASSED</span><br>
 <br>
-<span style="color:var(--green);"><strong>============ 12 passed in 8.47s ============</strong></span>
+<span style="color:var(--green);"><strong>============ 15 passed in 8.47s ============</strong></span>
 </div>
 </div>
 
-<div class="quiz" id="q6"><div class="question">Which test would catch a bug where the GPU silently produces NaN values in bounding box coordinates?</div>
+<h3>How These Tests Map to the 4 Layers</h3>
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th>Layer</th><th>Test File</th><th>What It Catches</th><th style="color:var(--red);">Found At</th></tr>
+<tr><td>1. Data</td><td style="font-size:0.5rem;">test_layer1_data.py</td><td style="font-size:0.48rem;">Corrupt frames, wrong shapes, bad dtype — caught BEFORE GPU</td><td style="font-size:0.48rem;color:var(--red);">PR review</td></tr>
+<tr><td>2. Model</td><td style="font-size:0.5rem;">test_layer2_model.py</td><td style="font-size:0.48rem;">NaN output, wrong box structure, non-determinism</td><td style="font-size:0.48rem;color:var(--amber);">CI/CD</td></tr>
+<tr><td>3. Pipeline</td><td style="font-size:0.5rem;">test_layer3_pipeline.py</td><td style="font-size:0.48rem;">Memory leaks, error recovery, E2E smoke test</td><td style="font-size:0.48rem;color:var(--amber);">CI/CD</td></tr>
+<tr><td>4. Production</td><td style="font-size:0.5rem;">test_layer4_production.py</td><td style="font-size:0.48rem;">Latency SLA, throughput minimum, cold start time</td><td style="font-size:0.48rem;color:var(--green);">Deploy gate</td></tr>
+</table>
+
+<h3>3-Pass PR Review — Applied to CUDA</h3>
+<div class="compare-grid">
+<div class="compare-card bad"><h4>❌ Bad PR Comment</h4><p style="color:var(--red);font-size:0.55rem!important;">"This could break if the box list is empty."</p><p style="font-size:0.5rem!important;">Criticism without solution. Leaves the fix to the author's imagination.</p></div>
+<div class="compare-card good"><h4>✅ Good PR Comment</h4><p style="color:var(--green);font-size:0.55rem!important;">"Line 42: if N=0, the kernel launches with 0 threads — undefined on some GPUs. Add at top: if (N==0) { *num_boxes = 0; return; } This prevents a silent GPU exception."</p><p style="font-size:0.5rem!important;">Specific fix with reasoning. Tells the author exactly what to do.</p></div>
+</div>
+
+<div class="quiz" id="q6"><div class="question">NMS crashes on an empty box list in production. What do you do FIRST?</div>
 <div class="options">
-<div class="option" data-correct="true" onclick="checkQuiz('q6',this)">A. test_output_never_nan in test_layer2_model.py — it checks 100 random frames and asserts no NaN in any box coordinate. This catches silent GPU errors that would otherwise corrupt downstream tracking/detection logic.</div>
-<div class="option" onclick="checkQuiz('q6',this)">B. test_latency_budget — NaN would make the pipeline slower</div>
-<div class="option" onclick="checkQuiz('q6',this)">C. test_reject_invalid_input — NaN comes from bad input data</div>
+<div class="option" data-correct="true" onclick="checkQuiz('q6',this)">A. Write a test that reproduces the crash (test_nms_empty_boxes). Verify it FAILS. THEN fix the kernel. Commit both together. "Every production bug gets a test before the fix."</div>
+<div class="option" onclick="checkQuiz('q6',this)">B. Fix the kernel immediately — the test can wait until later</div>
+<div class="option" onclick="checkQuiz('q6',this)">C. Wrap the NMS call in a try/except in Python to catch the crash</div>
 </div><div class="feedback" id="q6-fb"></div></div>
 </div></div>`
-	}];
+}];
 
-	window.checkQuiz=function(id,el){
+window.checkQuiz=function(id,el){var q=document.getElementById(id);if(q.dataset.answered==='true')return;var os=q.querySelectorAll('.option'),fb=document.getElementById(id+'-fb'),ok=el.dataset.correct==='true';os.forEach(function(o){if(o.dataset.correct==='true')o.classList.add('correct')});if(!ok)el.classList.add('wrong');fb.className='feedback show '+(ok?'correct':'wrong');fb.textContent=ok?'✅ Correct!':'❌ Not quite.';q.dataset.answered='true'}
+var cur=0,vis=new Set([0]);
+function renderSlide(i){cur=i;vis.add(i);document.getElementById('slideContainer').innerHTML=S[i].render();updateDots();updateChips();document.getElementById('funFactText').innerHTML='<strong>'+S[i].id+':</strong> '+S[i].fact;document.getElementById('stepLabel').textContent=(i+1)+'/'+S.length;document.getElementById('prevBtn').disabled=i===0;var nb=document.getElementById('nextBtn');if(i===S.length-1){nb.textContent='✓ Complete';nb.style.background='var(--green-bg)';nb.style.borderColor='var(--green)';nb.style.color='var(--green)'}else{nb.textContent='Next →';nb.style.background='var(--cyan-bg)';nb.style.borderColor='var(--cyan)';nb.style.color='var(--cyan)'}document.getElementById('slideContainer').scrollIntoView({behavior:'smooth',block:'start'});
+setTimeout(function(){document.querySelectorAll('.code-box').forEach(function(box){var p=box.parentElement;if(!p.classList.contains('code-wrapper')){var w=document.createElement('div');w.className='code-wrapper';p.insertBefore(w,box);w.appendChild(box);var b=document.createElement('button');b.className='copy-btn2';b.textContent='Copy';b.onclick=function(){navigator.clipboard.writeText(box.textContent.trim()).then(function(){b.textContent='Copied!';b.classList.add('copied');setTimeout(function(){b.textContent='Copy';b.classList.remove('copied')},2000)})};w.appendChild(b)}})},50)}
+function goTo(i){if(i>=0&&i<S.length)renderSlide(i)}
+function updateDots(){document.getElementById('stepDots').innerHTML=S.map(function(s,i){var c=i===cur?'active':vis.has(i)?'done':'';return '<div class="step-dot '+c+'" onclick="goTo('+i+')"></div>'}).join('')}
+function updateChips(){document.getElementById('topicChips').innerHTML=S.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
+document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<S.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
+renderSlide(0);
+
+// ── Kernel Visualization: Python 3-pass vs CUDA 1-pass ──
+var kernIdx=0,kernTimer=null;
+function showKernVis(i,btn){
+  kernIdx=i;if(kernTimer)clearInterval(kernTimer);
+  document.querySelectorAll('.kern-btn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  renderKernVis();
+  if(i===0) kernTimer=setInterval(renderKernVis,2500);
+  if(i===1) kernTimer=setInterval(renderKernVis,1500);
+}
+function renderKernVis(){
+  var box=document.getElementById('kernVizBox');if(!box)return;
+  var t=new Date().getTime();
+  if(kernIdx===0){
+    var p1=Math.min(100,((t%2500)/800)*100); var p2=Math.max(0,Math.min(100,((t%2500-800)/800)*100)); var p3=Math.max(0,Math.min(100,((t%2500-1600)/800)*100));
+    box.innerHTML='<div style="text-align:center;">'+
+      '<div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">🐍 Python: 3 Separate Passes — 5-10ms</div>'+
+      '<div style="display:flex;flex-direction:column;gap:0.3rem;align-items:center;">'+
+      '<div style="position:relative;width:85%;max-width:600px;height:22px;background:var(--raised);border-radius:4px;overflow:hidden;border:1px solid var(--red);">'+
+        '<div style="position:absolute;top:2px;left:'+p1+'%;width:30%;height:18px;background:rgba(248,81,73,0.5);border:1px solid var(--red);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.35rem;color:var(--text);">Pass 1: cv2.resize() ~3ms</div>'+
+      '</div>'+
+      '<div style="position:relative;width:85%;max-width:600px;height:22px;background:var(--raised);border-radius:4px;overflow:hidden;border:1px solid var(--red);">'+
+        '<div style="position:absolute;top:2px;left:'+p2+'%;width:30%;height:18px;background:rgba(255,110,199,0.5);border:1px solid var(--magenta);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.35rem;color:var(--text);">Pass 2: /255 normalize ~1ms</div>'+
+      '</div>'+
+      '<div style="position:relative;width:85%;max-width:600px;height:22px;background:var(--raised);border-radius:4px;overflow:hidden;border:1px solid var(--red);">'+
+        '<div style="position:absolute;top:2px;left:'+p3+'%;width:30%;height:18px;background:rgba(163,113,247,0.5);border:1px solid var(--violet);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.35rem;color:var(--text);">Pass 3: HWC→CHW ~2ms</div>'+
+      '</div>'+
+      '<div style="font-size:0.45rem;color:var(--red);margin-top:0.3rem;"><strong>6 memory passes, CPU→GPU copy. GPU idle during CPU work.</strong></div>'+
+      '</div></div>';
+  } else {
+    var prog=Math.min(100,((t%1500)/500)*100);
+    box.innerHTML='<div style="text-align:center;">'+
+      '<div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">⚡ CUDA: 1 Fused Pass — 12μs</div>'+
+      '<div style="position:relative;width:85%;max-width:600px;height:22px;background:var(--raised);border-radius:4px;overflow:hidden;border:2px solid var(--green);">'+
+        '<div style="position:absolute;top:2px;left:'+prog+'%;width:25%;height:18px;background:rgba(63,185,80,0.6);border:1px solid var(--green);border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.35rem;color:var(--text);">1 Pass: All 3 Ops Fused!</div>'+
+      '</div>'+
+      '<div style="font-size:0.45rem;color:var(--green);margin-top:0.3rem;"><strong>1 memory pass. Zero CPU involvement. 419× faster.</strong></div>'+
+      '<div style="font-size:0.4rem;color:var(--tmut);margin-top:0.2rem;">Thread (x,y) reads pixel → bilinear resize → /255 → writes to CHW output. Done.</div>'+
+      '</div>';
+  }
+}
+
+// ── Batch Visualization: 32 separate vs 1 batched ──
+var batchIdx=0,batchTimer=null;
+function showBatchVis(i,btn){
+  batchIdx=i;if(batchTimer)clearInterval(batchTimer);
+  document.querySelectorAll('.kern-btn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  renderBatchVis();
+  if(i===0) batchTimer=setInterval(renderBatchVis,3000);
+  if(i===1) batchTimer=setInterval(renderBatchVis,2000);
+}
+function renderBatchVis(){
+  var box=document.getElementById('batchVizBox');if(!box)return;
+  var t=new Date().getTime();
+  if(batchIdx===0){
+    var lines='';
+    for(var i=0;i<32;i++){
+      var start=i*5; var prog=((t%3000)-start)/15*100; prog=Math.max(0,Math.min(100,prog));
+      lines+='<div style="display:flex;align-items:center;gap:0.2rem;margin:1px 0;">'+
+        '<span style="font-family:JetBrains Mono,monospace;font-size:0.35rem;color:var(--tmut);width:25px;">Img '+i+'</span>'+
+        '<div style="flex:1;height:8px;background:var(--raised);border-radius:2px;overflow:hidden;">'+
+        '<div style="width:'+prog+'%;height:100%;background:rgba(248,81,73,0.6);border-radius:2px;"></div></div>'+
+        '<span style="font-family:JetBrains Mono,monospace;font-size:0.3rem;color:var(--red);width:30px;">'+Math.round(prog)+'%</span></div>';
+    }
+    box.innerHTML='<div style="text-align:center;">'+
+      '<div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.3rem;">🔴 32 Separate Launches — CPU queues them one by one</div>'+lines+
+      '<div style="font-size:0.4rem;color:var(--red);margin-top:0.3rem;">32 × 17μs = 544μs total. CPU bottleneck: 160μs just on launch overhead.</div></div>';
+  } else {
+    var prog=Math.min(100,((t%2000)/500)*100);
+    box.innerHTML='<div style="text-align:center;">'+
+      '<div style="font-family:Orbitron,sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">🟢 1 Batched Launch — ALL 32 images in parallel</div>'+
+      '<div style="position:relative;width:90%;height:30px;background:var(--raised);border:2px solid var(--green);border-radius:4px;overflow:hidden;margin:0 auto;">'+
+      '<div style="position:absolute;top:2px;left:0;right:0;bottom:2px;display:flex;gap:1px;">'+
+      Array.from({length:32},function(_,i){return '<div style="flex:1;background:rgba(63,185,80,'+(0.3+0.7*(prog>i*3?1:0.2))+');border-radius:1px;"></div>';}).join('')+
+      '</div></div>'+
+      '<div style="font-size:0.4rem;color:var(--green);margin-top:0.3rem;">1 kernel launch × 105μs. <strong>5× faster.</strong> GPU saturated — all 40 SMs active.</div></div>';
+  }
+}
+</script>
+</body>
+</html>
