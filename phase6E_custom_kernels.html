@@ -1509,11 +1509,71 @@ test_layer4_production.py::test_cold_start_latency <span style="color:var(--gree
 <tr><td>4. Production</td><td style="font-size:0.5rem;">test_layer4_production.py</td><td style="font-size:0.48rem;">Latency SLA, throughput minimum, cold start time</td><td style="font-size:0.48rem;color:var(--green);">Deploy gate</td></tr>
 </table>
 
-<h3>3-Pass PR Review — Applied to CUDA</h3>
-<div class="compare-grid">
-<div class="compare-card bad"><h4>❌ Bad PR Comment</h4><p style="color:var(--red);font-size:0.55rem!important;">"This could break if the box list is empty."</p><p style="font-size:0.5rem!important;">Criticism without solution. Leaves the fix to the author's imagination.</p></div>
-<div class="compare-card good"><h4>✅ Good PR Comment</h4><p style="color:var(--green);font-size:0.55rem!important;">"Line 42: if N=0, the kernel launches with 0 threads — undefined on some GPUs. Add at top: if (N==0) { *num_boxes = 0; return; } This prevents a silent GPU exception."</p><p style="font-size:0.5rem!important;">Specific fix with reasoning. Tells the author exactly what to do.</p></div>
+<h3>Code Review — Real PR Walkthrough for nms.cu</h3>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+  Someone just opened a PR adding a new NMS kernel. Here is a complete annotated review — every comment follows the 3-pass method.
 </div>
+
+<div class="code-box"><span class="cell-num">PR #42: feat: add GPU NMS kernel — nms.cu (lines 1-45)</span>
+<span style="color:#6a9955;">// === THE CODE UNDER REVIEW ===</span>
+<span style="color:#569cd6;">__global__</span> <span style="color:#569cd6;">void</span> nms_kernel(<span style="color:#569cd6;">float</span>* boxes, <span style="color:#569cd6;">float</span>* scores, <span style="color:#569cd6;">int</span>* keep_flags, <span style="color:#569cd6;">int</span> N) {
+  <span style="color:#569cd6;">int</span> tid = blockIdx.x * blockDim.x + threadIdx.x;
+  <span style="color:#569cd6;">if</span> (tid >= N) <span style="color:#569cd6;">return</span>;           <span style="color:var(--red);">← ⚙️ PASS 1: What if N=0? Thread 0 passes check but no boxes. Add: if(N==0) return;</span>
+
+  <span style="color:#569cd6;">float</span> my_area = (boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">2</span>]-boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">0</span>]) * (boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">3</span>]-boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">1</span>]);
+                                    <span style="color:var(--amber);">← 📖 PASS 2: Magic numbers. Define constants: #define X1 0, Y1 1, X2 2, Y2 3</span>
+
+  <span style="color:#6a9955;">// Compare against ALL higher-confidence boxes</span>
+  <span style="color:#569cd6;">for</span> (<span style="color:#569cd6;">int</span> j=<span style="color:#ce9178;">0</span>; j<N; j++) {
+    <span style="color:#569cd6;">if</span> (scores[j] > my_score || (scores[j]==my_score && j < tid)) {
+      <span style="color:#569cd6;">float</span> inter_w = boxes[j*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">2</span>] > boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">2</span>] ? <span style="color:#ce9178;">0</span> :
+                   min(boxes[j*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">2</span>],boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">2</span>]) - max(boxes[j*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">0</span>],boxes[tid*<span style="color:#ce9178;">4</span>+<span style="color:#ce9178;">0</span>]);
+                                     <span style="color:var(--green);">← 🛡️ PASS 3: Negative coords crash this. min(x2) - max(x1) can overflow if coords invalid. Validate coords in preprocess.</span>
+      <span style="color:#569cd6;">float</span> inter = max(<span style="color:#ce9178;">0.f</span>, inter_w) * max(<span style="color:#ce9178;">0.f</span>, inter_h);
+      <span style="color:#569cd6;">float</span> iou = inter / (my_area + other_area - inter);
+      <span style="color:#569cd6;">if</span> (iou > <span style="color:#ce9178;">0.45f</span>) { keep_flags[tid] = <span style="color:#ce9178;">0</span>; <span style="color:#569cd6;">return</span>; }  <span style="color:var(--amber);">← 📖 Magic threshold. Make configurable or document.</span>
+    }
+  }
+  keep_flags[tid] = <span style="color:#ce9178;">1</span>;
+}  <span style="color:var(--green);">← 🛡️ Missing: cudaGetLastError() check after launch. Add return value check in host code.</span></div>
+
+<h3>PR Review Checklist — Run These Commands Before Approving</h3>
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th style="width:30px;">#</th><th>Check</th><th>Command</th><th>Pass</th></tr>
+<tr><td>1</td><td style="font-size:0.5rem;">All existing tests still pass</td><td style="font-size:0.45rem;"><code>pytest tests/ -v</code></td><td>⚙️</td></tr>
+<tr><td>2</td><td style="font-size:0.5rem;">New code has tests</td><td style="font-size:0.45rem;"><code>grep -c "def test_" tests/test_nms.py</code></td><td>⚙️</td></tr>
+<tr><td>3</td><td style="font-size:0.5rem;">No hardcoded secrets</td><td style="font-size:0.45rem;"><code>grep -rn "api.key|password|secret" src/</code></td><td>🛡️</td></tr>
+<tr><td>4</td><td style="font-size:0.5rem;">Error handling present</td><td style="font-size:0.45rem;"><code>grep -c "cudaGetLastError\|cudaError_t" src/</code></td><td>🛡️</td></tr>
+<tr><td>5</td><td style="font-size:0.5rem;">Builds without warnings</td><td style="font-size:0.45rem;"><code>cmake --build build/ 2>&1 | grep -c warning</code></td><td>⚙️</td></tr>
+<tr><td>6</td><td style="font-size:0.5rem;">Latency unchanged</td><td style="font-size:0.45rem;"><code>pytest tests/ -k latency -v</code></td><td>⚙️</td></tr>
+<tr><td>7</td><td style="font-size:0.5rem;">GPU memory okay</td><td style="font-size:0.45rem;"><code>pytest tests/ -k memory -v</code></td><td>🛡️</td></tr>
+</table>
+
+<h3>PR Template — .github/PULL_REQUEST_TEMPLATE.md</h3>
+<div class="code-box"><span class="cell-num">.github/PULL_REQUEST_TEMPLATE.md — Every PR auto-fills this</span>
+<span style="color:#569cd6;">## What</span>
+<span style="color:#ce9178;">Brief summary of the change.</span>
+
+<span style="color:#569cd6;">## Why</span>
+<span style="color:#ce9178;">What problem does this solve? Link issue if exists.</span>
+
+<span style="color:#569cd6;">## How Tested</span>
+<span style="color:#ce9178;">- [ ] Unit tests pass: `pytest tests/`</span>
+<span style="color:#ce9178;">- [ ] Latency unchanged: `pytest tests/ -k latency`</span>
+<span style="color:#ce9178;">- [ ] No NaN in 1000 frames: `pytest tests/ -k nan`</span>
+<span style="color:#ce9178;">- [ ] GPU memory stable: `nvidia-smi` before/after 10K frames</span>
+<span style="color:#ce9178;">- [ ] Built without warnings: `cmake --build build/`</span>
+
+<span style="color:#569cd6;">## Reviewer Checklist</span>
+<span style="color:#ce9178;">- [ ] Pass 1 (Does it work?): Logic, edge cases, memory correctness</span>
+<span style="color:#ce9178;">- [ ] Pass 2 (Can I read it?): Naming, structure, comments for 3am debug</span>
+<span style="color:#ce9178;">- [ ] Pass 3 (Is it safe?): Error handling, null checks, no secrets</span>
+
+<span style="color:#569cd6;">## Before/After</span>
+<span style="color:#ce9178;">| Metric | Before | After |</span>
+<span style="color:#ce9178;">|--------|--------|-------|</span>
+<span style="color:#ce9178;">| FPS   | ___    | ___   |</span>
+<span style="color:#ce9178;">| p99   | ___ms  | ___ms |</span></div>
 
 <div class="quiz" id="q6"><div class="question">NMS crashes on an empty box list in production. What do you do FIRST?</div>
 <div class="options">
