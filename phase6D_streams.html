@@ -1263,6 +1263,84 @@ nms<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(d_feats, d_b
 	  <strong style="color:var(--green);">The result is NOT just a list of kernels — it's a pre-compiled binary that the GPU hardware can consume directly.</strong><br>
 	  This is why <code>cudaGraphLaunch()</code> is 200× faster than individual launches — the CPU just fires one DMA write to kick off the entire pipeline.
 	</div>
+
+
+	<h3>🔄 CUDA Graphs vs TensorRT Auto-Tuning — Same Idea, Different Level</h3>
+	<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.6rem 0;">
+
+	  <div style="flex:1;min-width:260px;background:var(--raised);border:2px solid var(--violet);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--violet);margin-bottom:0.3rem;">⚙️ TensorRT Auto-Tuning</div>
+	    <div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+	      <strong>Level:</strong> <span style="color:var(--violet);">LAYER-level (WHAT runs)</span><br>
+	      <strong>What it does:</strong><br>
+	      • Takes a trained model (ONNX/PyTorch)<br>
+	      • For EACH layer, tries MULTIPLE implementations:<br>
+	      &nbsp;&nbsp;<span style="color:var(--violet);">Conv2D:</span> try im2col, Winograd, FFT, direct...<br>
+	      &nbsp;&nbsp;<span style="color:var(--violet);">MatMul:</span> try cuBLAS, cutlass, custom kernel...<br>
+	      • Picks the FASTEST for THIS GPU (T4 vs A100)<br>
+	      • Fuses layers: Conv+BN+ReLU → 1 fused op<br>
+	      • Rewrites the computation graph<br>
+	      • <strong style="color:var(--violet);">Result: different math than original model!</strong><br><br>
+	      <strong>Cost:</strong> Minutes to hours (one-time)<br>
+	      <strong>Speedup:</strong> 2-10× vs raw PyTorch<br>
+	      <strong>Knows about:</strong> DL ops, tensor shapes, precision
+	    </div>
+	  </div>
+
+	  <div style="display:flex;align-items:center;font-size:1.2rem;color:var(--amber);">+</div>
+
+	  <div style="flex:1;min-width:260px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.3rem;">📸 CUDA Graphs</div>
+	    <div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+	      <strong>Level:</strong> <span style="color:var(--green);">KERNEL-level (HOW it runs)</span><br>
+	      <strong>What it does:</strong><br>
+	      • Takes a sequence of <<<>>> launches<br>
+	      • Records them into a DAG<br>
+	      • Validates parameters for THIS GPU<br>
+	      • Fuses LAUNCH overhead (not the kernels!)<br>
+	      • Pre-computes driver bookkeeping<br>
+	      • <strong style="color:var(--green);">Result: SAME math, zero launch overhead!</strong><br><br>
+	      <strong>Cost:</strong> ~100μs (one-time)<br>
+	      <strong>Speedup:</strong> 200× launch overhead reduction<br>
+	      <strong>Knows about:</strong> Kernel params, dependencies, streams
+	    </div>
+	  </div>
+
+	  <div style="display:flex;align-items:center;font-size:1.2rem;color:var(--green);">=</div>
+
+	  <div style="flex:1;min-width:240px;background:var(--green-bg);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.3rem;">🏆 Production Stack</div>
+	    <div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+	      <strong style="color:var(--green);">1. TensorRT FIRST:</strong><br>
+	      &nbsp;&nbsp;Optimize the MODEL (2-10× faster)<br>
+	      &nbsp;&nbsp;Export as TRT engine (.engine file)<br><br>
+	      <strong style="color:var(--green);">2. CUDA Graph SECOND:</strong><br>
+	      &nbsp;&nbsp;Optimize the LAUNCH (200× less CPU)<br>
+	      &nbsp;&nbsp;Capture TRT kernel launches into graph<br><br>
+	      <strong style="color:var(--green);">3. Streams THIRD:</strong><br>
+	      &nbsp;&nbsp;Overlap pre/post with frames<br><br>
+	      <strong>Together:</strong> 137 FPS YOLO pipeline!<br>
+	      <span style="font-size:0.4rem;">(Phase 4 benchmark: 7ms → TRT engine → 5ms → + Graph → 4.5ms → + Streams → GPU never idle)</span>
+	    </div>
+	  </div>
+
+	</div>
+
+	<table class="param" style="margin:0.5rem auto;max-width:750px;">
+	<tr><th style="width:130px;">What</th><th style="color:var(--violet);">TensorRT</th><th style="color:var(--green);">CUDA Graph</th><th>Both Together</th></tr>
+	<tr><td style="color:var(--amber);">Optimizes</td><td style="font-size:0.5rem;color:var(--violet);">WHAT runs (model architecture)</td><td style="font-size:0.5rem;color:var(--green);">HOW it runs (launch sequence)</td><td style="font-size:0.5rem;color:var(--green);">Complete pipeline</td></tr>
+	<tr><td style="color:var(--amber);">Speedup</td><td style="font-size:0.5rem;color:var(--violet);">2-10× (better algorithms)</td><td style="font-size:0.5rem;color:var(--green);">~200× launch overhead</td><td style="font-size:0.5rem;">Multiplicative</td></tr>
+	<tr><td style="color:var(--amber);">Time Cost</td><td style="font-size:0.5rem;color:var(--violet);">Minutes to hours</td><td style="font-size:0.5rem;color:var(--green);">~100 microseconds</td><td style="font-size:0.5rem;">TRT time + 100μs</td></tr>
+	<tr><td style="color:var(--amber);">Fuses</td><td style="font-size:0.5rem;color:var(--violet);">Operations (Conv+BN+ReLU)</td><td style="font-size:0.5rem;color:var(--green);">Launches (kernel dispatch)</td><td style="font-size:0.5rem;">Everything</td></tr>
+	<tr><td style="color:var(--amber);">Knows DL?</td><td style="font-size:0.5rem;color:var(--violet);">✅ Yes — layer semantics</td><td style="font-size:0.5rem;color:var(--red);">❌ No — just kernels</td><td style="font-size:0.5rem;color:var(--green);">✅ TRT feeds Graph</td></tr>
+	<tr><td style="color:var(--amber);">Changes Math?</td><td style="font-size:0.5rem;color:var(--violet);">✅ Yes (Winograd, INT8, etc)</td><td style="font-size:0.5rem;color:var(--red);">❌ No (exact same kernels)</td><td style="font-size:0.5rem;">TRT changes what, Graph replays it</td></tr>
+	</table>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--amber);">You're right — they sound similar because both "optimize for THIS GPU" and "fuse things."</strong> But they operate at different levels:<br>
+	  <strong style="color:var(--violet);">TensorRT = smarter math</strong> (finds faster algorithms for the same answer). <strong style="color:var(--green);">CUDA Graph = smarter dispatch</strong> (fires 20 kernels with 1 CPU command instead of 20).<br>
+	  <strong style="color:var(--amber);">The production pipeline:</strong> PyTorch model → ONNX → TensorRT engine → CUDA Graph captures TRT launches → Streams overlap frames → <strong style="color:var(--green);">137 FPS on a T4!</strong>
+	</div>
 <h3>🎯 Real YOLO Pipeline — Frames Per Second Impact</h3>
 <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
   A typical YOLO inference pipeline has <strong style="color:var(--amber);">~20 kernel launches</strong> (preprocess, backbone conv layers, neck, detection head, NMS).<br>
