@@ -801,11 +801,86 @@ The hot loop never mentions TRT because the entire pipeline (preprocess → TRT 
 <div class="slide"><div class="card">
 <h2><span class="num">6E.6</span> Python Bindings — Call CUDA from Python via pybind11</h2>
 
-<div class="pipeline">
-<div class="pipeline-stage highlight">🐍 Python (FastAPI)</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage highlight">🔗 pybind11</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage highlight">⚡ C++/CUDA</div><div class="pipeline-arrow">→</div>
-<div class="pipeline-stage highlight">🖥️ GPU</div>
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">🔗 pybind11 = A Bridge Between Python and C++ (Not a Translator!)</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+<strong>pybind11 does NOT convert Python to CUDA.</strong> It wraps C++ code into a <code>.pyd</code> (Windows) or <code>.so</code> (Linux) file — a compiled shared library that Python can <code>import</code> directly. When you call <code>yolo_cuda.process_frame(img)</code>, Python jumps directly into compiled C++ with <strong style="color:var(--green);">zero interpreter overhead</strong>. The C++ code then launches CUDA kernels. numpy arrays are passed as raw pointers — <strong style="color:var(--cyan);">zero copy</strong>.
+</div>
+</div>
+
+<div style="text-align:center;margin:0.5rem 0;">
+<div style="display:inline-block;background:var(--raised);border:2px solid var(--cyan);border-radius:12px;padding:1rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.6rem;">🔗 How Python Calls CUDA — The Complete Call Chain</div>
+
+<svg width="700" height="280" style="display:block;margin:0 auto;font-family:'JetBrains Mono',monospace;">
+  <!-- Background layers -->
+  <rect x="10" y="10" width="180" height="260" rx="8" fill="rgba(57,210,255,0.05)" stroke="var(--cyan)"/>
+  <text x="100" y="30" fill="var(--cyan)" font-size="9" text-anchor="middle">🐍 PYTHON (.py)</text>
+  <text x="100" y="260" fill="var(--tmut)" font-size="7" text-anchor="middle">You write this</text>
+
+  <rect x="260" y="10" width="180" height="260" rx="8" fill="rgba(255,179,71,0.05)" stroke="var(--amber)"/>
+  <text x="350" y="30" fill="var(--amber)" font-size="9" text-anchor="middle">🔗 pybind11 (.pyd)</text>
+  <text x="350" y="260" fill="var(--tmut)" font-size="7" text-anchor="middle">Compiled once</text>
+
+  <rect x="510" y="10" width="180" height="260" rx="8" fill="rgba(63,185,80,0.05)" stroke="var(--green)"/>
+  <text x="600" y="30" fill="var(--green)" font-size="9" text-anchor="middle">⚡ GPU (CUDA)</text>
+  <text x="600" y="260" fill="var(--tmut)" font-size="7" text-anchor="middle">Runs every frame</text>
+
+  <!-- Step 1 -->
+  <rect x="30" y="50" width="140" height="35" rx="4" fill="rgba(57,210,255,0.15)" stroke="var(--cyan)"/>
+  <text x="100" y="65" fill="var(--cyan)" font-size="8" text-anchor="middle">img = camera.read()</text>
+  <text x="100" y="78" fill="var(--tmut)" font-size="7" text-anchor="middle">numpy HWC uint8</text>
+
+  <!-- Arrow 1->2 -->
+  <line x1="170" y1="67" x2="280" y2="67" stroke="var(--amber)" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="225" y="60" fill="var(--amber)" font-size="7" text-anchor="middle">① call</text>
+
+  <!-- Step 2: pybind11 -->
+  <rect x="280" y="50" width="140" height="35" rx="4" fill="rgba(255,179,71,0.2)" stroke="var(--amber)"/>
+  <text x="350" y="65" fill="var(--amber)" font-size="8" text-anchor="middle">TYPE CONVERSION</text>
+  <text x="350" y="78" fill="var(--tmut)" font-size="7" text-anchor="middle">numpy → C++ pointer</text>
+
+  <!-- Arrow 2->3 -->
+  <line x1="420" y1="67" x2="530" y2="67" stroke="var(--green)" stroke-width="2"/>
+  <text x="475" y="60" fill="var(--green)" font-size="7" text-anchor="middle">② launch</text>
+
+  <!-- Step 3: GPU -->
+  <rect x="530" y="50" width="140" height="50" rx="4" fill="rgba(63,185,80,0.2)" stroke="var(--green)"/>
+  <text x="600" y="68" fill="var(--green)" font-size="8" text-anchor="middle">PR + TRT + NMS</text>
+  <text x="600" y="84" fill="var(--tmut)" font-size="7" text-anchor="middle">ALL 3 on GPU!</text>
+  <text x="600" y="96" fill="var(--tmut)" font-size="6" text-anchor="middle">4.6ms</text>
+
+  <!-- Return arrow -->
+  <line x1="600" y1="110" x2="600" y2="140" stroke="var(--green)" stroke-width="2"/>
+  <line x1="600" y1="140" x2="350" y2="140" stroke="var(--amber)" stroke-width="2"/>
+  <line x1="350" y1="140" x2="100" y2="140" stroke="var(--cyan)" stroke-width="2"/>
+  <text x="225" y="133" fill="var(--amber)" font-size="7" text-anchor="middle">③ return (auto-convert to Python list)</text>
+
+  <!-- Result in Python -->
+  <rect x="30" y="150" width="140" height="35" rx="4" fill="rgba(57,210,255,0.15)" stroke="var(--cyan)"/>
+  <text x="100" y="165" fill="var(--cyan)" font-size="8" text-anchor="middle">boxes = [[x1,y1,x2,y2,c],...]</text>
+  <text x="100" y="178" fill="var(--tmut)" font-size="7" text-anchor="middle">Python list, ready to use!</text>
+
+  <!-- Compile step -->
+  <rect x="30" y="200" width="140" height="30" rx="4" fill="rgba(255,179,71,0.1)" stroke="var(--amber)" stroke-dasharray="3,2"/>
+  <text x="100" y="212" fill="var(--amber)" font-size="7" text-anchor="middle">pip install yolo_cuda</text>
+  <text x="100" y="224" fill="var(--tmut)" font-size="6" text-anchor="middle">compiled once, imported forever</text>
+
+  <rect x="280" y="200" width="140" height="30" rx="4" fill="rgba(255,179,71,0.1)" stroke="var(--amber)" stroke-dasharray="3,2"/>
+  <text x="350" y="212" fill="var(--amber)" font-size="7" text-anchor="middle">.pyd / .so file</text>
+  <text x="350" y="224" fill="var(--tmut)" font-size="6" text-anchor="middle">binary, zero Python inside</text>
+
+  <rect x="530" y="200" width="140" height="30" rx="4" fill="rgba(63,185,80,0.1)" stroke="var(--green)" stroke-dasharray="3,2"/>
+  <text x="600" y="212" fill="var(--green)" font-size="7" text-anchor="middle">cudaStreamLaunch()</text>
+  <text x="600" y="224" fill="var(--tmut)" font-size="6" text-anchor="middle">CUDA driver API</text>
+
+</svg>
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 pybind11 is <strong style="color:var(--green);">not a translator</strong> — it's a <strong style="color:var(--amber);">bridge</strong>. It auto-converts types at the boundary (numpy→C pointer, vector→Python list) but the C++ code runs NATIVELY.<br>
+Your Python calls jump DIRECTLY into compiled machine code. No subprocess. No serialization. No interpreter overhead. <strong style="color:var(--cyan);">Same speed as pure C++.</strong>
 </div>
 
 <div class="compare-grid">
