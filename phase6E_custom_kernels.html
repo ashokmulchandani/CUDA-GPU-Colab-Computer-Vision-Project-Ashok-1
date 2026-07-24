@@ -188,10 +188,85 @@ const S=[{
 </table>
 
 	<h3>🎬 NVDEC — GPU Hardware Video Decode (Step 0 Before Preprocess)</h3>
-	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
-	  Before the preprocess kernel runs, raw camera frames arrive as <strong style="color:var(--amber);">compressed video</strong> (H.264/H.265).<br>
-	  CPU decoding (FFmpeg/libav) is SLOW. NVDEC is a <strong style="color:var(--green);">dedicated hardware block on the GPU</strong> that decodes video directly into VRAM.
+
+	<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">📖 NVDEC = <strong>N</strong>.<strong>V</strong>idia <strong>Dec</strong>oder — A Separate Chip ON the GPU</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+	<strong>NVDEC is NOT CUDA.</strong> It's a completely separate piece of silicon — an <strong style="color:var(--amber);">ASIC (Application-Specific Integrated Circuit)</strong> hard-wired to do ONE thing: decode compressed video.<br>
+	Think of it like a <strong style="color:var(--cyan);">dedicated appliance</strong> inside the GPU. Just like your kitchen has an oven (for baking) AND a microwave (for reheating) — the GPU has CUDA Cores (for math) AND NVDEC (for video). They work independently and simultaneously.
 	</div>
+	</div>
+
+	<div style="text-align:center;margin:0.5rem 0;">
+	<div style="display:inline-block;background:var(--raised);border:2px solid var(--border);border-radius:12px;padding:1rem;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--tdim);margin-bottom:0.5rem;">🏗️ Tesla T4 GPU Die — What's Inside</div>
+	<svg width="500" height="160" style="display:block;margin:0 auto;font-family:'JetBrains Mono',monospace;">
+	  <!-- GPU outline -->
+	  <rect x="5" y="5" width="490" height="150" rx="10" fill="none" stroke="var(--border)" stroke-width="2"/>
+	  <!-- VRAM banks -->
+	  <rect x="15" y="15" width="110" height="130" rx="4" fill="rgba(57,210,255,0.08)" stroke="var(--cyan)" stroke-width="1"/>
+	  <text x="70" y="85" fill="var(--cyan)" font-size="7" text-anchor="middle">GDDR6 VRAM</text>
+	  <text x="70" y="100" fill="var(--tmut)" font-size="6" text-anchor="middle">16 GB</text>
+	  <rect x="375" y="15" width="110" height="130" rx="4" fill="rgba(57,210,255,0.08)" stroke="var(--cyan)" stroke-width="1"/>
+	  <text x="430" y="85" fill="var(--cyan)" font-size="7" text-anchor="middle">GDDR6 VRAM</text>
+	  <text x="430" y="100" fill="var(--tmut)" font-size="6" text-anchor="middle">16 GB</text>
+	  <!-- SMs (CUDA Cores) -->
+	  <rect x="140" y="20" width="120" height="40" rx="4" fill="rgba(63,185,80,0.15)" stroke="var(--green)" stroke-width="1"/>
+	  <text x="200" y="38" fill="var(--green)" font-size="7" text-anchor="middle">🟩 40 SMs</text>
+	  <text x="200" y="52" fill="var(--tmut)" font-size="6" text-anchor="middle">2,560 CUDA Cores</text>
+	  <!-- NVDEC -->
+	  <rect x="275" y="20" width="100" height="40" rx="4" fill="rgba(255,179,71,0.2)" stroke="var(--amber)" stroke-width="2"/>
+	  <text x="325" y="36" fill="var(--amber)" font-size="7" text-anchor="middle">🟨 NVDEC × 2</text>
+	  <text x="325" y="50" fill="var(--tmut)" font-size="6" text-anchor="middle">Hardware Decoder</text>
+	  <!-- NVENC -->
+	  <rect x="275" y="70" width="100" height="35" rx="4" fill="rgba(163,113,247,0.15)" stroke="var(--violet)" stroke-width="1"/>
+	  <text x="325" y="86" fill="var(--violet)" font-size="7" text-anchor="middle">🟪 NVENC</text>
+	  <text x="325" y="100" fill="var(--tmut)" font-size="6" text-anchor="middle">HW Encoder</text>
+	  <!-- Cache -->
+	  <rect x="140" y="70" width="120" height="35" rx="4" fill="rgba(57,210,255,0.06)" stroke="var(--border)" stroke-width="1"/>
+	  <text x="200" y="86" fill="var(--tmut)" font-size="7" text-anchor="middle">L2 Cache (6 MB)</text>
+	  <!-- PCIe -->
+	  <rect x="140" y="115" width="235" height="25" rx="3" fill="rgba(248,81,73,0.08)" stroke="var(--red)" stroke-width="1" stroke-dasharray="3,2"/>
+	  <text x="257" y="133" fill="var(--red)" font-size="7" text-anchor="middle">PCIe 3.0 ×16 — 12 GB/s to CPU</text>
+	  <!-- Data flow arrow: NVDec -> VRAM -->
+	  <line x1="325" y1="62" x2="70" y2="80" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6"/>
+	  <text x="180" y="78" fill="var(--amber)" font-size="6">decoded frames → VRAM</text>
+	  <!-- Labels -->
+	  <text x="255" y="155" fill="var(--tdim)" font-size="6" text-anchor="middle">NVDEC = separate silicon. Works in PARALLEL with CUDA Cores. Zero SM usage!</text>
+	</svg>
+	</div>
+	</div>
+
+	<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.5rem 0;">
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--red);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--red);margin-bottom:0.3rem;">❌ WITHOUT NVDEC (CPU Decode)</div>
+	    <div style="font-size:0.4rem;color:var(--tdim);line-height:1.6;">
+	      📹 Camera → CPU (H.264 compressed)<br>
+	      ↓ <strong style="color:var(--red);">CPU: FFmpeg/libav decode 10ms</strong><br>
+	      ↓ Raw RGB in <strong style="color:var(--red);">CPU RAM</strong><br>
+	      ↓ <strong style="color:var(--red);">PCIe: upload 4.8MB ~0.4ms</strong><br>
+	      ↓ Raw RGB in VRAM<br>
+	      ↓ Preprocess kernel (12μs)<br>
+	      <strong style="color:var(--red);">Total: ~10.4ms</strong>
+	    </div>
+	  </div>
+	  <div style="font-size:1.2rem;color:var(--green);display:flex;align-items:center;">→</div>
+	  <div style="flex:1;min-width:200px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.45rem;color:var(--green);margin-bottom:0.3rem;">✅ WITH NVDEC (GPU Hardware Decode)</div>
+	    <div style="font-size:0.4rem;color:var(--tdim);line-height:1.6;">
+	      📹 Camera → CPU (H.264 compressed)<br>
+	      ↓ <strong style="color:var(--cyan);">CPU: just passes packet to GPU</strong><br>
+	      ↓ <strong style="color:var(--green);">NVDEC: decode 0.5ms → VRAM!</strong><br>
+	      ↓ Raw RGB already in VRAM<br>
+	      ↓ Preprocess kernel (12μs)<br>
+	      <strong style="color:var(--green);">Total: ~0.5ms — 20× faster!</strong>
+	    </div>
+	  </div>
+	</div>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+	  💡 <strong style="color:var(--amber);">The key insight:</strong> NVDEC writes decoded frames <strong style="color:var(--green);">DIRECTLY into GPU VRAM</strong>. The CPU never touches the raw pixels.<br>
+	  The CPU just says "here's a compressed packet" and NVDEC does the rest — <strong style="color:var(--cyan);">simultaneously with CUDA cores doing math</strong> on the previous frame.
 
 	<div class="pipeline">
 	<div class="pipeline-stage highlight" style="min-width:60px;">📹 Camera<br><span style="font-size:0.4rem;">H.264</span></div><div class="pipeline-arrow">→</div>
