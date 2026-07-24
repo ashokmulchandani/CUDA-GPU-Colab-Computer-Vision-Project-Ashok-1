@@ -362,46 +362,84 @@ function showReq(i,btn){
 
     // 2: Stream Assignment
     `<div style="text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">The 4th Kernel Launch Parameter — How Streams Are Assigned</div>
-      <div class="code-box" style="font-size:0.55rem;max-width:500px;margin:0.5rem auto;">
-<span style="color:#6a9955;">// Regular kernel launch (uses default stream 0)</span>
-<span style="color:#c586c0;">kernel</span><<<blocks, threads>>>(args);       <span style="color:#6a9955;">// 2 params → runs on stream 0</span>
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">🔗 The 4th Launch Parameter — Like Giving Each Task a "Lane Number"</div>
 
-<span style="color:#6a9955;">// Stream-aware kernel launch</span>
-<span style="color:#c586c0;">kernel</span><<<blocks, threads, <span style="color:#ce9178;">0</span>, <span style="color:var(--cyan);">stream</span>>>(args);  <span style="color:#6a9955;">// 4th param = WHICH stream</span>
-                           <span style="color:var(--cyan);">↑ THIS is the stream</span></div>
-      <div style="display:flex;gap:0.3rem;justify-content:center;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">
-        <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;"><<<b,t,<strong style="color:var(--cyan);">0</strong>,s>>></div>
-        <div style="display:flex;align-items:center;">=</div>
-        <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;"><<<Grid, Block, <strong style="color:var(--green);">SharedMemBytes</strong>, <strong style="color:var(--cyan);">Stream</strong>>></div>
+      <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin:0.8rem 0;">
+
+        <!-- WITHOUT stream param -->
+        <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.8rem;text-align:center;min-width:200px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">❌ Without Stream (default)</div>
+          <div style="background:#1e1e1e;border-radius:4px;padding:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:#d4d4d4;">
+            kernel<<<2,256>>>(data);
+          </div>
+          <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;">All tasks go to <strong style="color:var(--red);">lane 0</strong><br>One after another<br>🚗🚙🚛...🚌 (waiting)</div>
+          <div style="margin-top:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+            <<< <span style="color:var(--cyan);">blocks</span>, <span style="color:var(--amber);">threads</span> >>><br>
+            <span style="color:var(--tmut);">↑ only 2 params</span>
+          </div>
+        </div>
+
+        <div style="font-size:1.5rem;color:var(--green);display:flex;align-items:center;">→</div>
+
+        <!-- WITH stream param -->
+        <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.8rem;text-align:center;min-width:200px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">✅ With Stream (multi-lane)</div>
+          <div style="background:#1e1e1e;border-radius:4px;padding:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:#d4d4d4;">
+            kernel<<<2,256,0,<span style="color:var(--cyan);">s0</span>>>(data1);<br>
+            kernel<<<2,256,0,<span style="color:var(--amber);">s1</span>>>(data2);<br>
+            kernel<<<2,256,0,<span style="color:var(--magenta);">s2</span>>>(data3);
+          </div>
+          <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.4rem;">Tasks assigned to <strong style="color:var(--green);">different lanes</strong><br>Can run simultaneously!<br>🚗 ██ 🚙 ██ 🚛 ██ 🚌 (parallel!)</div>
+          <div style="margin-top:0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+            <<< <span style="color:var(--cyan);">blocks</span>, <span style="color:var(--amber);">threads</span>, <span style="color:var(--green);">0</span>, <strong style="color:var(--cyan);">stream</strong> >>><br>
+            <span style="color:var(--tmut);">↑ param 3 (shared mem) ↑ param 4 = LANE!</span>
+          </div>
+        </div>
       </div>
-      <div style="font-size:0.5rem;color:var(--tmut);">Param 1=Grid, Param 2=Block, Param 3=SharedMem (0=default), <strong style="color:var(--cyan);">Param 4=Stream</strong></div>
+
+      <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem;margin-top:0.5rem;font-size:0.5rem;color:var(--tdim);text-align:center;">
+        💡 <strong style="color:var(--amber);">Analogy:</strong> Like putting each car in a DIFFERENT toll booth lane. Without the stream param (lane number), all cars queue in lane 0. With it, cars spread across lanes and all process simultaneously.
+      </div>
     </div>`,
 
-    // 3: Independent Batches
+    // 3: Independent Batches — animated timeline visual
     `<div style="text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">Why Batches Must Be Independent</div>
-      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
-        <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.6rem;text-align:center;min-width:180px;">
-          <div style="font-size:0.5rem;color:var(--green);">✅ WORKS: Video Frames</div>
-          <div style="font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;line-height:1.6;">
-            Frame 1 → Stream 0<br>
-            Frame 2 → Stream 1<br>
-            Frame 3 → Stream 2<br><br>
-            <span style="color:var(--green);">Each frame is INDEPENDENT.<br>Frame 2 does not need Frame 1's result.</span>
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">📦 Independent vs Dependent — When Multi-Stream Works</div>
+
+      <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;">
+
+        <!-- Independent — WORKS -->
+        <div style="flex:1;min-width:220px;background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.8rem;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.5rem;">✅ INDEPENDENT — Multi-Stream WORKS</div>
+          <div style="font-size:0.5rem;color:var(--tdim);margin-bottom:0.4rem;">Example: 4 video frames</div>
+          <div style="position:relative;height:100px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+            <div style="position:absolute;top:0;left:0;right:0;height:20px;background:rgba(57,210,255,0.15);border:1px solid var(--cyan);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S0: 📷 Frame1 → ⚙️ Process → ✅ Done</div>
+            <div style="position:absolute;top:25px;left:10px;right:0;height:20px;background:rgba(255,179,71,0.15);border:1px solid var(--amber);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S1: 📷 Frame2 → ⚙️ Process → ✅ Done</div>
+            <div style="position:absolute;top:50px;left:20px;right:0;height:20px;background:rgba(255,110,199,0.15);border:1px solid var(--magenta);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S2: 📷 Frame3 → ⚙️ Process → ✅ Done</div>
+            <div style="position:absolute;top:75px;left:30px;right:0;height:20px;background:rgba(163,113,247,0.15);border:1px solid var(--violet);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S3: 📷 Frame4 → ⚙️ Process → ✅ Done</div>
           </div>
+          <div style="font-size:0.45rem;color:var(--green);margin-top:0.4rem;">Frame 2 does NOT need Frame 1's result.<br>All 4 can process in parallel. 🔥</div>
         </div>
-        <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.6rem;text-align:center;min-width:180px;">
-          <div style="font-size:0.5rem;color:var(--red);">❌ FAILS: Iterative Algorithm</div>
-          <div style="font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;line-height:1.6;">
-            Step 1 → Stream 0<br>
-            Step 2 needs Step 1 result<br>
-            Cannot put in Stream 1!<br><br>
-            <span style="color:var(--red);">Step 2 DEPENDS on Step 1.<br>Must wait — no parallelism possible.</span>
+
+        <!-- Dependent — FAILS -->
+        <div style="flex:1;min-width:220px;background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.8rem;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.5rem;">❌ DEPENDENT — Multi-Stream FAILS</div>
+          <div style="font-size:0.5rem;color:var(--tdim);margin-bottom:0.4rem;">Example: 4 algorithm steps</div>
+          <div style="position:relative;height:100px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+            <div style="position:absolute;top:0;left:0;right:0;height:20px;background:rgba(248,81,73,0.1);border:1px solid var(--red);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S0: 🔢 Step1 → ⏳ wait for result...</div>
+            <div style="position:absolute;top:25px;left:0;right:0;height:20px;background:rgba(248,81,73,0.05);border:1px dashed var(--red);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S1: ❌ Cannot start! Needs Step1 output!</div>
+            <div style="position:absolute;top:50px;left:0;right:0;height:20px;background:rgba(248,81,73,0.05);border:1px dashed var(--red);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S2: ❌ Cannot start! Needs Step2 output!</div>
+            <div style="position:absolute;top:75px;left:0;right:0;height:20px;background:rgba(248,81,73,0.05);border:1px dashed var(--red);border-radius:3px;display:flex;align-items:center;padding-left:4px;">S3: ❌ Cannot start! Needs Step3 output!</div>
           </div>
+          <div style="font-size:0.45rem;color:var(--red);margin-top:0.4rem;">Step 2 NEEDS Step 1's output.<br>All 4 must run SEQUENTIALLY. 🐌</div>
         </div>
       </div>
-      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">💡 Multi-stream works when work items are INDEPENDENT. Video frames, batch images, concurrent users — all perfect. Sequential algorithms — not suitable.</div>
+
+      <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:6px;padding:0.5rem;margin-top:0.5rem;font-size:0.5rem;color:var(--tdim);text-align:center;">
+        💡 <strong style="color:var(--amber);">The rule:</strong> If task B needs task A's result, they MUST be in the SAME stream (or wait).<br>
+        If task B doesn't care about task A, put them in DIFFERENT streams → parallelism!<br>
+        <strong style="color:var(--green);">Perfect for:</strong> video frames, batch inference, multiple cameras, concurrent web requests.
+      </div>
     </div>`
   ];
   document.getElementById('reqViz').innerHTML=visuals[i];
