@@ -885,6 +885,64 @@ pybind11 compiles your C++/CUDA into a <code>.pyd</code> bridge file. Your Pytho
 <strong style="color:var(--green);">This is NOT "Python running on GPU" — it's Python calling pre-compiled C++ which calls CUDA.</strong>
 </div>
 
+<h3>📁 Recommended Folder Structure</h3>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+  Here's how to organize your project. This is the standard layout for production CUDA + Python projects.
+</div>
+
+<div style="background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--cyan);border-radius:8px;padding:0.8rem 1rem;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.55rem;line-height:1.7;color:#d4d4d4;">
+<span style="color:var(--cyan);">yolo_cuda_pipeline/</span>                   <span style="color:#6a9955;">← Project root</span>
+├── <span style="color:var(--amber);">CMakeLists.txt</span>                    <span style="color:#6a9955;">← Build config (finds CUDA, pybind11, TRT)</span>
+├── <span style="color:var(--amber);">setup.py</span>                          <span style="color:#6a9955;">← pip install . (calls CMake under the hood)</span>
+│
+├── <span style="color:var(--cyan);">src/</span>                               <span style="color:#6a9955;">← C++/CUDA source (YOU write these)</span>
+│   ├── <span style="color:var(--green);">preprocess.cu</span>                 <span style="color:#6a9955;">← Fused resize + normalize + HWC→CHW</span>
+│   ├── <span style="color:var(--green);">preprocess.h</span>                  <span style="color:#6a9955;">← Header for preprocess</span>
+│   ├── <span style="color:var(--green);">nms.cu</span>                         <span style="color:#6a9955;">← GPU NMS kernel</span>
+│   ├── <span style="color:var(--green);">nms.h</span>                          <span style="color:#6a9955;">← Header for NMS</span>
+│   ├── <span style="color:var(--green);">pipeline.cpp</span>                   <span style="color:#6a9955;">← Orchestrator: Preprocess → TRT → NMS</span>
+│   ├── <span style="color:var(--green);">pipeline.h</span>                    <span style="color:#6a9955;">← Header for pipeline</span>
+│   └── <span style="color:var(--magenta);">bindings.cpp</span>                   <span style="color:#6a9955;">← pybind11 wrapper (Python ↔ C++ bridge)</span>
+│
+├── <span style="color:var(--cyan);">python/</span>                            <span style="color:#6a9955;">← Python code (YOU write these)</span>
+│   ├── <span style="color:#dcdcaa;">__init__.py</span>                     <span style="color:#6a9955;">← Makes this a package</span>
+│   ├── <span style="color:#dcdcaa;">app.py</span>                         <span style="color:#6a9955;">← FastAPI server (your application)</span>
+│   └── <span style="color:#dcdcaa;">test_pipeline.py</span>                <span style="color:#6a9955;">← Unit tests</span>
+│
+├── <span style="color:var(--cyan);">models/</span>                            <span style="color:#6a9955;">← TRT engines (BUILT once, loaded at runtime)</span>
+│   └── <span style="color:#6a9955;">yolov5s_fp16.engine</span>           <span style="color:#6a9955;">← Output from: trtexec --onnx=model.onnx --fp16</span>
+│
+├── <span style="color:var(--cyan);">third_party/</span>                       <span style="color:#6a9955;">← Dependencies</span>
+│   └── <span style="color:#6a9955;">pybind11/</span>                      <span style="color:#6a9955;">← Header-only library (git submodule or pip)</span>
+│
+└── <span style="color:var(--cyan);">build/</span>                             <span style="color:#6a9955;">← Generated (gitignored)</span>
+    └── <span style="color:#6a9955;">yolo_cuda.cp312-win_amd64.pyd</span> <span style="color:#6a9955;">← Compiled bridge (output of cmake --build)</span>
+</div>
+
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.4rem 0;">
+<div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;font-size:0.45rem;color:var(--tdim);">
+<strong style="color:var(--cyan);">Build once:</strong><br>
+<code>cd build && cmake .. && make</code><br>
+→ yolo_cuda.pyd
+</div>
+<div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;font-size:0.45rem;color:var(--tdim);">
+<strong style="color:var(--amber);">Install:</strong><br>
+<code>pip install -e .</code><br>
+→ importable as package
+</div>
+<div style="background:var(--raised);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.7rem;font-size:0.45rem;color:var(--tdim);">
+<strong style="color:var(--green);">Run:</strong><br>
+<code>python -m python.app</code><br>
+→ FastAPI server on :8000
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">The .pyd file is the KEY artifact.</strong> It's a compiled binary that Python can import directly. It contains ALL your custom CUDA kernels + TRT integration.<br>
+Your Python <code>app.py</code> calls <code>import yolo_cuda</code> → the .pyd loads → Python calls jump to native C++ → CUDA kernels launch on GPU.<br>
+<strong style="color:var(--green);">The .pyd IS the bridge. You build it once. Python imports it forever.</strong>
+</div>
+
 <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
 💡 pybind11 is <strong style="color:var(--green);">not a translator</strong> — it's a <strong style="color:var(--amber);">bridge</strong>. It auto-converts types at the boundary (numpy→C pointer, vector→Python list) but the C++ code runs NATIVELY.<br>
 Your Python calls jump DIRECTLY into compiled machine code. No subprocess. No serialization. No interpreter overhead. <strong style="color:var(--cyan);">Same speed as pure C++.</strong>
