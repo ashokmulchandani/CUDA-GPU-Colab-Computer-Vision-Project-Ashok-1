@@ -251,6 +251,24 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
   <strong style="color:var(--green);">With streams: copy batch 1 WHILE computing batch 0.</strong> GPU never waits.
 </div>
 
+<h3>⚖️ Complete Comparison — Code, Memory, GPU Resources</h3>
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th style="width:120px;">What</th><th style="color:var(--red);">❌ Without Streams</th><th style="color:var(--green);">✅ With Streams</th></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Memory</td><td style="font-size:0.5rem;"><code>malloc()</code> — pageable<br>OS can swap this RAM to disk<br>GPU DMA engine: <strong style="color:var(--red);">BLOCKED!</strong><br>Async calls silently become sync</td><td style="font-size:0.5rem;"><code>cudaMallocHost()</code> — PINNED<br>LOCKED in physical RAM<br>GPU DMA engine: <strong style="color:var(--green);">DIRECT ACCESS</strong><br>TRUE async — CPU continues working</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Copy Function</td><td style="font-size:0.5rem;"><code>cudaMemcpy()</code> — SYNC<br>CPU BLOCKED until copy finishes<br>No overlap possible</td><td style="font-size:0.5rem;"><code>cudaMemcpyAsync()</code> — ASYNC<br>Returns immediately<br>Copy happens in background</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Kernel Launch</td><td style="font-size:0.5rem;"><code>kernel<<<2,256>>>(data)</code><br>Only 2 params — default stream 0<br>All work in ONE queue</td><td style="font-size:0.5rem;"><code>kernel<<<2,256,0,stream>>>(data)</code><br>4th param = stream ID<br>Work spread across lanes</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Streams Created</td><td style="font-size:0.5rem;">0 (uses default stream 0)<br>Everything serialized</td><td style="font-size:0.5rem;">4 streams via <code>cudaStreamCreate()</code><br>Round-robin: <code>i % 4</code></td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">GPU Utilization</td><td style="font-size:0.5rem;color:var(--red);">~40%<br>GPU waits during every copy</td><td style="font-size:0.5rem;color:var(--green);">~95%<br>Copy + compute overlap = GPU busy</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">T4 Threads Used</td><td style="font-size:0.5rem;">2 blocks × 256 threads = 512<br>Per SM: ~13 threads (low!)</td><td style="font-size:0.5rem;">4 streams × 2×256 = 2,048<br>Per SM: ~51 threads (better!)</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">T4 Occupancy</td><td style="font-size:0.5rem;color:var(--red);">~0.6% (512 / 81,920 threads)<br>GPU massively underutilized</td><td style="font-size:0.5rem;color:var(--green);">~2.5% (2,048 / 81,920)<br>Still low — kernel is simple, 4× better</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Speedup</td><td style="font-size:0.6rem;color:var(--red);font-weight:700;">131.62 ms (1×)</td><td style="font-size:0.6rem;color:var(--green);font-weight:700;">18.60 ms (7.07×)</td></tr>
+</table>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  💡 Streams don't change threads/block or occupancy. They change <strong style="color:var(--cyan);">WHEN work happens</strong> — overlapping transfers with compute.<br>
+  The GPU has the SAME compute power in both cases. Streams just keep it BUSIER by never letting it wait for data.
+</div>
+
 <h3>📊 Results Table</h3>
 <table class="param">
 <tr><th>Method</th><th>Time</th><th>GPU Utilization</th><th>Speedup</th></tr>
