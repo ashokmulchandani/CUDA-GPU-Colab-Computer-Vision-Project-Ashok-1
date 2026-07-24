@@ -303,6 +303,36 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 	</div>
 	</div>
 
+
+
+	<div style="background:var(--raised);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--amber);margin-bottom:0.3rem;">🤖 LLM Fine-Tuning (Llama 7B QLoRA) — "Transfer ÷ Compute = ~0%"</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+	<strong>Step 1: How much data moves?</strong><br>
+	&nbsp;&nbsp;Model weights: 7B params × 2 bytes (FP16) = <strong>14 GB</strong> — loaded ONCE at startup, stays in VRAM<br>
+	&nbsp;&nbsp;Training batch: 4 sequences × 2048 tokens × 4 bytes = <strong style="color:var(--amber);">~32 KB per batch</strong><br>
+	&nbsp;&nbsp;With QLoRA (4-bit): model shrinks to <strong>~4 GB</strong> — fits on a single T4!<br><br>
+	<strong>Step 2: How long does the transfer take?</strong><br>
+	&nbsp;&nbsp;32 KB ÷ 12 GB/s = <strong style="color:var(--amber);">0.0000027 sec = 2.7 μs</strong><br>
+	&nbsp;&nbsp;This is 100× SMALLER than even MNIST's transfer! Text tokens are tiny.<br><br>
+	<strong>Step 3: How long does GPU compute take?</strong><br>
+	&nbsp;&nbsp;Forward pass through 32 transformer layers with attention (O(n²) in sequence length):<br>
+	&nbsp;&nbsp;Each batch: <strong style="color:var(--amber);">~500-2000 ms</strong> (0.5-2 seconds!) depending on sequence length &amp; LoRA rank<br>
+	&nbsp;&nbsp;The GPU is 100% busy doing matrix multiplies in attention and FFN layers.<br><br>
+	<strong>Step 4: The ratio</strong><br>
+	&nbsp;&nbsp;T_ratio = 0.0027 ms ÷ 1000 ms = <strong style="color:var(--red);">0.0000027 = 0.00027%</strong><br>
+	&nbsp;&nbsp;→ Transfer is <strong style="color:var(--red);">370,000× SMALLER than compute!</strong> The GPU is completely compute-bound.<br>
+	&nbsp;&nbsp;CUDA streams would save 2.7μs on a 1-second job. That's like saving 0.3 cents on a $1000 purchase.<br>
+	&nbsp;&nbsp;<strong style="color:var(--red);">Streams are 100% useless for LLM fine-tuning.</strong> The bottleneck is GPU FLOPS, not PCIe bandwidth.<br><br>
+	<strong>🔑 What ACTUALLY helps LLM fine-tuning:</strong><br>
+	&nbsp;&nbsp;✅ Quantization (QLoRA 4-bit): shrinks model from 14GB → 4GB to fit on smaller GPUs<br>
+	&nbsp;&nbsp;✅ LoRA (Low-Rank Adaptation): only trains 0.1-1% of parameters — 7B → ~8M trainable<br>
+	&nbsp;&nbsp;✅ Gradient Accumulation: simulates larger batches without more VRAM<br>
+	&nbsp;&nbsp;✅ Flash Attention: fuses attention ops, reduces VRAM, speeds up training 2-3×<br>
+	&nbsp;&nbsp;✅ Mixed Precision (FP16/BF16): 2× speedup, half the VRAM — but needs compatible GPU<br>
+	&nbsp;&nbsp;❌ CUDA Streams: negligible benefit. The GPU is already 100% utilized on compute.
+	</div>
+	</div>
 	<strong>📐 The Formula (Generalized):</strong><br>
 	<code style="color:var(--cyan);">T_ratio = (data_bytes / 12,000,000,000) / (compute_ms / 1000)</code><br>
 	&nbsp;&nbsp;Where: data_bytes = your batch size in bytes, compute_ms = your kernel time in milliseconds, 12 GB/s = PCIe Gen3 ×16 actual bandwidth.<br>
