@@ -1394,7 +1394,53 @@ yolo_cuda.process_frame(img)
 print(f"{time.perf_counter()-start:.3f}")"""</span>
     result = subprocess.run([sys.executable, <span style="color:#ce9178;">'-c'</span>, code], capture_output=<span style="color:#569cd6;">True</span>, text=<span style="color:#569cd6;">True</span>)
     cold_time = float(result.stdout.strip())
-    <span style="color:#569cd6;">assert</span> cold_time < <span style="color:#ce9178;">2.0</span>, <span style="color:#ce9178;">f"Cold start {cold_time:.1f}s exceeds 2s SLA"</span></div>
+    <span style="color:#569cd6;">assert</span> cold_time < <span style="color:#ce9178;">2.0</span>, <span style="color:#ce9178;">f"Cold start {cold_time:.1f}s exceeds 2s SLA"</span>
+
+<span style="color:#6a9955;">// TEST 4.4 — LOAD TESTING: find max throughput before latency spikes</span>
+<span style="color:#dcdcaa;">@pytest.mark.slow</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_load_max_throughput</span>():
+    <span style="color:#ce9178;">"""FIND THE KNEE: gradually increase load until latency spikes.
+    This tells you how many cameras/streams a single GPU can handle."""</span>
+    <span style="color:#569cd6;">import</span> threading, queue, time
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    results = {}  <span style="color:#6a9955;">// concurrent_frames -> avg_latency_ms</span>
+
+    <span style="color:#6a9955;">// Test at increasing concurrency: 1, 2, 4, 8, 16, 32 simultaneous frames</span>
+    <span style="color:#569cd6;">for</span> concurrency <span style="color:#569cd6;">in</span> [<span style="color:#ce9178;">1</span>, <span style="color:#ce9178;">2</span>, <span style="color:#ce9178;">4</span>, <span style="color:#ce9178;">8</span>, <span style="color:#ce9178;">16</span>, <span style="color:#ce9178;">32</span>]:
+        latencies = []
+        q = queue.Queue()
+
+        <span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">worker</span>():
+            start = time.perf_counter()
+            <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">20</span>):  <span style="color:#6a9955;">// 20 frames per worker</span>
+                yolo_cuda.process_frame(img)
+            latencies.append((time.perf_counter()-start)/<span style="color:#ce9178;">20</span>*<span style="color:#ce9178;">1000</span>)
+
+        threads = [threading.Thread(target=worker) <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(concurrency)]
+        <span style="color:#569cd6;">for</span> t <span style="color:#569cd6;">in</span> threads: t.start()
+        <span style="color:#569cd6;">for</span> t <span style="color:#569cd6;">in</span> threads: t.join()
+
+        avg_ms = np.mean(latencies)
+        total_fps = concurrency * <span style="color:#ce9178;">1000</span> / avg_ms
+        results[concurrency] = (avg_ms, total_fps)
+        print(<span style="color:#ce9178;">f"  {concurrency} concurrent → {avg_ms:.1f}ms/frame → {total_fps:.0f} FPS total"</span>)
+
+    <span style="color:#6a9955;">// FIND THE KNEE: where latency increases > 2x from baseline</span>
+    baseline_ms = results[<span style="color:#ce9178;">1</span>][<span style="color:#ce9178;">0</span>]
+    <span style="color:#569cd6;">for</span> c <span style="color:#569cd6;">in</span> sorted(results):
+        ms, fps = results[c]
+        ratio = ms / baseline_ms
+        status = <span style="color:#ce9178;">"✅"</span> <span style="color:#569cd6;">if</span> ratio < <span style="color:#ce9178;">1.5</span> <span style="color:#569cd6;">else</span> <span style="color:#ce9178;">"⚠️"</span> <span style="color:#569cd6;">if</span> ratio < <span style="color:#ce9178;">2.0</span> <span style="color:#569cd6;">else</span> <span style="color:#ce9178;">"❌ UNSTABLE"</span>
+        print(<span style="color:#ce9178;">f"  {status} {c}× load: {ms:.1f}ms ({ratio:.1f}× baseline) = {fps:.0f} FPS"</span>)
+
+    <span style="color:#6a9955;">// SLA: at 4x concurrency, latency must stay under 1.5x baseline</span>
+    <span style="color:#569cd6;">assert</span> results[<span style="color:#ce9178;">4</span>][<span style="color:#ce9178;">0</span>] < baseline_ms * <span style="color:#ce9178;">1.5</span>, \
+        <span style="color:#ce9178;">f"Latency spikes at 4× load: {results[4][0]:.1f}ms vs baseline {baseline_ms:.1f}ms"</span>
+
+    <span style="color:#6a9955;">// Log max sustainable throughput</span>
+    max_sustainable = max(c <span style="color:#569cd6;">for</span> c <span style="color:#569cd6;">in</span> results <span style="color:#569cd6;">if</span> results[c][<span style="color:#ce9178;">0</span>]/baseline_ms < <span style="color:#ce9178;">1.5</span>)
+    print(<span style="color:#ce9178;">f"\n✅ Max sustainable: {max_sustainable} cameras @ 30 FPS each"</span>)
+    print(<span style="color:#ce9178;">f"✅ Peak throughput: {results[max_sustainable][1]:.0f} FPS before degradation"</span>)</div>
 
 <h3>File 6: pytest.ini</h3>
 <div class="code-box"><span class="cell-num">pytest.ini — Place in project root</span>
