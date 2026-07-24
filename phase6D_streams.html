@@ -133,6 +133,37 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 
 <div class="big-stat"><div class="number">7.07×</div><div class="label">SPEEDUP — SAME GPU, SAME KERNEL, SAME DATA</div></div>
 
+<h3>📦 What Are These "Batches"? — Splitting Work for Overlap</h3>
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;margin:0.8rem 0;">
+  <div style="flex:1;min-width:200px;background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.6rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">❌ ONE Big Chunk (No Overlap)</div>
+    <div style="background:var(--raised);border-radius:4px;padding:0.4rem;font-size:0.45rem;color:var(--tdim);">
+      <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:3px;padding:0.3rem;margin:2px;">40 million floats (160 MB)</div>
+      <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">Must Upload ALL → Process ALL → Download ALL</div>
+      <div style="font-size:0.4rem;color:var(--tmut);">GPU waits during huge upload</div>
+      <div style="font-size:0.4rem;color:var(--tmut);">CPU waits during huge download</div>
+      <div style="font-size:0.4rem;color:var(--red);margin-top:0.3rem;">No parallelism possible!</div>
+    </div>
+  </div>
+  <div style="font-size:1.2rem;color:var(--green);display:flex;align-items:center;">→</div>
+  <div style="flex:1;min-width:200px;background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.6rem;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">✅ 4 Smaller Batches (Overlap!)</div>
+    <div style="background:var(--raised);border-radius:4px;padding:0.4rem;font-size:0.45rem;color:var(--tdim);">
+      <div style="background:rgba(57,210,255,0.15);border:1px solid var(--cyan);border-radius:3px;padding:0.2rem;margin:1px;">Batch 0: 10M floats (40 MB)</div>
+      <div style="background:rgba(255,179,71,0.15);border:1px solid var(--amber);border-radius:3px;padding:0.2rem;margin:1px;">Batch 1: 10M floats (40 MB)</div>
+      <div style="background:rgba(255,110,199,0.15);border:1px solid var(--magenta);border-radius:3px;padding:0.2rem;margin:1px;">Batch 2: 10M floats (40 MB)</div>
+      <div style="background:rgba(163,113,247,0.15);border:1px solid var(--violet);border-radius:3px;padding:0.2rem;margin:1px;">Batch 3: 10M floats (40 MB)</div>
+      <div style="font-size:0.4rem;color:var(--tmut);margin-top:0.3rem;">While B1 uploads → B0 processes!</div>
+      <div style="font-size:0.4rem;color:var(--tmut);">While B2 uploads → B1 processes!</div>
+      <div style="font-size:0.4rem;color:var(--green);margin-top:0.3rem;">GPU NEVER idle!</div>
+    </div>
+  </div>
+</div>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  💡 These are NOT training batches. They are just CHUNKS of work split so they can be PIPELINED.<br>
+  Same idea in YOLO: split video into individual frames. Frame N+1 preprocesses while Frame N does inference.
+</div>
+
 <h3>💻 The Multi-Stream Code</h3>
 <div class="code-box"><span class="cell-num">multistream.cu — 4 streams, round-robin</span>
 <span style="color:#6a9955;">// Create 4 streams</span>
