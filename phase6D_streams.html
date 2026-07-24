@@ -172,6 +172,89 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 	  The benchmark's 40 MB is deliberately large to <strong style="color:var(--amber);">make the problem visible</strong>. Real workloads benefit even more from streaming.
 	</div>
 
+
+	<h3>🧪 Could We Use Streams for MNIST CNN (Phase 3.5)? — When Streams Help vs When They Don't</h3>
+	<table class="param" style="margin:0.5rem auto;max-width:700px;">
+	<tr><th style="width:100px;">What</th><th style="color:var(--violet);">🧪 MNIST CNN<br><span style="font-size:0.4rem;">(Phase 3.5)</span></th><th style="color:var(--green);">🎯 YOLO<br><span style="font-size:0.4rem;">(Phase 4)</span></th><th style="color:var(--cyan);">🏋️ Benchmark<br><span style="font-size:0.4rem;">(multistream.cu)</span></th></tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Image Size</td>
+	  <td style="font-size:0.5rem;color:var(--violet);"><strong>28×28×1 = 784 floats</strong><br>(grayscale, 1 channel)</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>640×640×3 = 1,228,800 floats</strong><br>(RGB, 3 channels)</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>10,000,000 floats</strong><br>(arbitrary teaching size)</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Size per Image</td>
+	  <td style="font-size:0.55rem;color:var(--violet);font-weight:700;">~3 KB</td>
+	  <td style="font-size:0.55rem;color:var(--green);font-weight:700;">~4.8 MB</td>
+	  <td style="font-size:0.55rem;color:var(--cyan);font-weight:700;">40 MB</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Batch Size</td>
+	  <td style="font-size:0.5rem;color:var(--violet);"><strong>128 images</strong><br>(typical training batch)</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>1 image</strong><br>(real-time inference)</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>1 batch</strong><br>(10M floats = 40 MB)</td>
+	</tr>
+	<tr style="background:rgba(163,113,247,0.04);">
+	  <td style="color:var(--amber);font-weight:700;">Total PCIe Transfer<br><span style="font-size:0.45rem;">(upload + download)</span></td>
+	  <td style="font-size:0.5rem;color:var(--violet);"><strong>128 × 3 KB = 384 KB</strong><br>Upload: 384 KB, Download: 128 KB (labels)<br>Total: <strong>~512 KB = 0.5 MB</strong></td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>1 × 4.8 MB = 4.8 MB</strong><br>Upload: 4.8 MB, Download: ~0.1 MB (boxes)<br>Total: <strong>~5 MB</strong></td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>4 × 40 MB = 160 MB</strong><br>Upload: 160 MB, Download: 160 MB<br>Total: <strong>320 MB</strong></td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Transfer Time<br><span style="font-size:0.45rem;">(~12 GB/s PCIe)</span></td>
+	  <td style="font-size:0.5rem;color:var(--violet);"><strong>~0.04 ms (40 μs)</strong><br>512 KB ÷ 12 GB/s<br>Negligible — practically instant</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~0.4 ms</strong><br>5 MB ÷ 12 GB/s<br>Small but measurable</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>~27 ms</strong><br>320 MB ÷ 12 GB/s<br>DOMINATES everything</td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">Compute Time<br><span style="font-size:0.45rem;">(GPU forward pass)</span></td>
+	  <td style="font-size:0.5rem;color:var(--violet);"><strong>~5-50 ms</strong><br>CNN: 2 conv layers + 2 FC<br>Full forward + backward</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~5-8 ms</strong><br>YOLO inference only<br>(forward pass only)</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>~3 ms</strong><br>Simple math kernel<br>(designed to match transfer)</td>
+	</tr>
+	<tr style="background:rgba(255,179,71,0.08);">
+	  <td style="color:var(--amber);font-weight:700;">⚡ Transfer/Compute<br><span style="font-size:0.45rem;">Ratio</span></td>
+	  <td style="font-size:0.55rem;color:var(--violet);font-weight:700;">0.04 ÷ 50 = <strong>0.08%</strong></td>
+	  <td style="font-size:0.55rem;color:var(--green);font-weight:700;">0.4 ÷ 7 = <strong>~6%</strong></td>
+	  <td style="font-size:0.55rem;color:var(--cyan);font-weight:700;">27 ÷ 3 = <strong>~900%</strong></td>
+	</tr>
+	<tr style="background:rgba(255,179,71,0.08);">
+	  <td style="color:var(--amber);font-weight:700;">⚡ Bottleneck</td>
+	  <td style="font-size:0.5rem;color:var(--violet);font-weight:700;">COMPUTE-BOUND<br><span style="font-size:0.45rem;">GPU math dominates<br>PCIe is irrelevant</span></td>
+	  <td style="font-size:0.5rem;color:var(--green);font-weight:700;">COMPUTE-BOUND<br><span style="font-size:0.45rem;">GPU math dominates<br>PCIe is ~6% of time</span></td>
+	  <td style="font-size:0.5rem;color:var(--cyan);font-weight:700;">MEMORY-BOUND<br><span style="font-size:0.45rem;">PCIe transfer dominates<br>GPU starved for data</span></td>
+	</tr>
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🎬 Streams Help?</td>
+	  <td style="font-size:0.55rem;color:var(--red);font-weight:700;">❌ NO<br><span style="font-size:0.45rem;">Transfer is 0.08% of time.<br>Streams would save ~0.03ms —<br>less than 0.1% improvement.<br>Not worth the complexity.</span></td>
+	  <td style="font-size:0.55rem;color:var(--amber);font-weight:700;">⚠️ MODERATE<br><span style="font-size:0.45rem;">Transfer is ~6% of time.<br>Streams save ~0.3ms per frame —<br>helpful for high-FPS, but<br>not transformative alone.</span></td>
+	  <td style="font-size:0.55rem;color:var(--green);font-weight:700;">✅ YES! 7× Speedup<br><span style="font-size:0.45rem;">Transfer is 900% of compute!<br>Without streams: GPU idle 60%.<br>With streams: GPU busy 95%.<br><strong>TRANSFORMATIVE.</strong></span></td>
+	</tr>
+	</table>
+
+	<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">🎓 When Should You Use CUDA Streams? — The Decision Rule</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+	<strong>Rule of thumb:</strong> Streams help when <code style="color:var(--cyan);">Transfer Time ÷ Compute Time > 10%</code><br><br>
+	<strong>✅ USE streams when:</strong><br>
+	&nbsp;&nbsp;• Training with large images (high-res photos, medical scans → big transfers)<br>
+	&nbsp;&nbsp;• Video pipelines (continuous frame stream → can pipeline frames)<br>
+	&nbsp;&nbsp;• Multi-camera systems (4+ streams → aggregate throughput matters)<br>
+	&nbsp;&nbsp;• Inference servers (batching many requests → overlap request queuing)<br>
+	&nbsp;&nbsp;• <strong style="color:var(--cyan);">Any time PCIe transfer is > 10% of total frame time</strong><br><br>
+	<strong>❌ DON'T use streams when:</strong><br>
+	&nbsp;&nbsp;• Small datasets like MNIST (3 KB images → transfer is noise)<br>
+	&nbsp;&nbsp;• Training with small batches on small models<br>
+	&nbsp;&nbsp;• Single large computation that saturates GPU (e.g., LLM inference)<br>
+	&nbsp;&nbsp;• <strong style="color:var(--red);">When transfer time is < 1% of compute — added complexity isn't worth it</strong><br><br>
+	<strong>📐 The Formula:</strong><br>
+	<code style="color:var(--cyan);">T_ratio = (data_size_bytes / PCIe_BW_bytes_per_sec) / (compute_time_ms / 1000)</code><br>
+	&nbsp;&nbsp;MNIST: (3072 / 12e9) / (50e-3) = 0.256μs / 50ms = <strong style="color:var(--red);">0.0005% → streams useless</strong><br>
+	&nbsp;&nbsp;YOLO: (4.8e6 / 12e9) / (7e-3) = 0.4ms / 7ms = <strong style="color:var(--amber);">5.7% → streams helpful at high FPS</strong><br>
+	&nbsp;&nbsp;Benchmark: (40e6 / 12e9) / (3e-3) = 3.3ms / 3ms = <strong style="color:var(--green);">110% → streams CRITICAL</strong>
+	</div>
+	</div>
+
 <h3>🔑 4 Requirements for Multi-Stream — Click Each to Visualize</h3>
 <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
   <button class="btn req-btn active" onclick="showReq(0,this)" style="font-size:0.45rem;">📌 Pinned Mem</button>
