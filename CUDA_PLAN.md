@@ -749,23 +749,30 @@ All linked in CUDA_PLAN.md (Phase sections + Interactive Learning Modules table)
 - Slide 6E.5: TensorRT Integration — Build (.engine) vs Integrate (pipeline) visual comparison. FAQ: CPU vs TRT, can we skip TRT, TRT+PyTorch, ONNX. YOLO vs PyTorch vs TRT model-vs-engine visual. Side-by-side Python/PyTorch vs C++/TRT code comparison. Split build_graph() and hot loop code showing exact TRT call location.
 - Slide 6E.6: Python Bindings (pybind11) — SVG call chain diagram showing YOU write BOTH Python and C++/CUDA. Compile step explained. Complete folder structure with src/, python/, models/, build/. 3-step workflow: Build→Install→Run.
 - Slide 6E.7: End-to-End Pipeline — NVDEC→Preprocess→TRT→NMS = 4.6ms = 217 FPS. With Streams: 250 FPS. Full comparison table with Video Decode column. Without vs With Integration side-by-side.
-- Slide 6E.8: Testing & QA — 3-Pass PR Review for CUDA kernels. 3 Test Types table (Happy Path/Edge Cases/Failure Modes). 4-Layer Testing with concrete pytest code. 10-Point Pre-Deployment Checklist. The 3 Phrases — CUDA Edition. Updated folder structure with tests/ directory.
+- Slide 6E.8: Testing & QA — COMPLETE HANDS-ON TESTING SUITE. 5 runnable pytest files (conftest.py + 4 layer test files: data/model/pipeline/production). Layer 1: reject invalid input (None, 1D, grayscale, float, too many dims). Layer 2: NaN safety, box structure validation, dark frame, determinism. Layer 3: smoke test, memory leak, error recovery. Layer 4: latency <10ms, throughput >200FPS, cold start <2s, LOAD TESTING (find max concurrent cameras before 1.5× latency degradation). 7-point reviewer checklist with exact commands. Annotated PR review walkthrough of nms.cu showing all 3 passes inline. PR template (.github/PULL_REQUEST_TEMPLATE.md). pytest.ini config with markers. GitHub Actions CI workflow (ci.yml).
 
 **New `yolo_pipeline_production.html` created:**
 - 4 interactive modes: Baseline (252ms/4FPS) → Streams (7ms/143FPS) → Graph (4.5ms/222FPS) → Production (4.1ms/244FPS)
 - Gantt-chart style SVG animations showing frame flow through pipeline
 - GPU idle %, PCIe utilization per mode. Optimization checklist per mode.
+- Fixed animation: replaced CSS variable references with hardcoded SVG colors
 
-**index.html updated:** Cards for Phase 6E, yolo_pipeline_production.html added. Phase 6D card updated with new content description.
+**Bug fixes in this session:**
+- Fixed duplicate 6D.3 slide closing tag causing JS syntax error
+- Fixed duplicate 6E.8 slide (old slide not removed on insert)
+- Fixed unescaped backticks in PR template breaking template literal
+- Fixed yolo_pipeline_production.html SVG animation (CSS vars → hardcoded colors, NaN fallback for clientWidth)
+
+**index.html updated:** Cards for Phase 6E, yolo_pipeline_production.html added. Phase 6D card updated with new content description. CUDA_PLAN.md updated with all revision notes.
 
 ### Current HTML Inventory (29 files)
-Phase 3: phase3_mlp_mnist.html, phase3_5_cnn_mnist.html, phase3_5_animations.html, phase3_lr_convergence_calc.html, phase3_mlp_mnist.html
+Phase 3: phase3_mlp_mnist.html, phase3_5_cnn_mnist.html, phase3_5_animations.html, phase3_lr_convergence_calc.html
 Phase 4: phase4_yolo_cuda.html, yolo_pipeline_visualizer.html, yolo_pipeline_production.html
 Phase 6A: phase6A_tensorrt.html
 Phase 6B: phase6B_triton.html
 Phase 6C: phase6C_nsight.html
-Phase 6D: phase6D_streams.html (heavily enhanced)
-Phase 6E: phase6E_custom_kernels.html (8 slides, newly built)
+Phase 6D: phase6D_streams.html (heavily enhanced — deep-dive tables, roofline, CUDA Graph animations)
+Phase 6E: phase6E_custom_kernels.html (8 slides with hands-on testing suite + PR review workflow)
 Phase 6 Overview: phase6_production_cuda.html
 Animations: bounding_box_visualizer.html, cnn_backbone_visualizer.html, filter_sliding_animation.html, inner_loops_animation.html, cnn_28x28_sliding.html, maxpool_animation.html, flatten_fc_softmax.html, multichannel_conv_animation.html, tensorrt_explainer.html
 Tools: nsight_interactive.html, occupancy_visualizer.html, class_imbalance_visualizer.html, neuron_weight_visualizer.html, one_neuron_explained.html, llama_neuron_comparison.html, smart_camera_explained.html
