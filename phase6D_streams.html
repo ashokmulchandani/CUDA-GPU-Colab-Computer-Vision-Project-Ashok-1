@@ -108,6 +108,21 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <span style="color:var(--green);">18.60 ms — GPU NEVER idle!</span></div><p>While one stream computes, another uploads — compute and copy engines work simultaneously.</p></div>
 </div>
 
+<h3>📋 Terminology — Stream, Frame, Image</h3>
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th style="width:80px;">Term</th><th>What It Is</th><th>Example</th><th>How Many</th></tr>
+<tr><td style="color:var(--cyan);font-weight:700;">Stream</td><td style="font-size:0.55rem;">An independent GPU work queue. Like a <strong style="color:var(--cyan);">lane on a highway</strong>. Operations in DIFFERENT streams can overlap.</td><td>Stream 0, Stream 1, Stream 2</td><td>You create 2-4 typically</td></tr>
+<tr><td style="color:var(--amber);font-weight:700;">Frame</td><td style="font-size:0.55rem;">One picture from a video. <strong style="color:var(--amber);">Same thing as an image.</strong> "Frame" is video terminology, "image" is general.</td><td>Frame #42 of a video</td><td>30 per second (30 FPS)</td></tr>
+<tr><td style="color:var(--green);font-weight:700;">Image</td><td style="font-size:0.55rem;">A single picture. <strong style="color:var(--green);">Same thing as a frame.</strong> The YOLO pipeline processes one image/frame at a time.</td><td>640×640 RGB picture</td><td>Same as frames</td></tr>
+<tr><td style="color:var(--violet);font-weight:700;">Batch</td><td style="font-size:0.55rem;">A chunk of work split into pieces. In the benchmark: 1 batch = 10M floats. In YOLO: 1 batch = 1 image.</td><td>Batch 0 of 4 in multistream.cu</td><td>You split work into N batches</td></tr>
+</table>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  💡 <strong style="color:var(--amber);">1 Frame = 1 Image.</strong> A 30 FPS video produces 30 frames (images) per second.<br>
+  <strong style="color:var(--cyan);">1 Stream = 1 GPU lane.</strong> Each stream can process ONE frame at a time.<br>
+  <strong style="color:var(--green);">3 streams = 3 frames in flight simultaneously.</strong> Frame 3 preprocesses while Frame 2 infers while Frame 1 does NMS.
+</div>
+
 <h3>🎬 Frame Pipeline — WITHOUT vs WITH Streams</h3>
 <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
   <button class="btn comp-btn active" onclick="showComp(0,this)" style="font-size:0.45rem;">🔴 Without Streams</button>
