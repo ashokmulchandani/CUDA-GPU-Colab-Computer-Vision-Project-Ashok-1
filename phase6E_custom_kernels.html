@@ -496,6 +496,65 @@ const S=[{
 <div class="slide"><div class="card">
 <h2><span class="num">6E.5</span> TensorRT Integration — Custom Pre/Post + TRT Engine</h2>
 
+<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.5rem 0;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--amber);margin-bottom:0.3rem;">⚠️ This is DIFFERENT from Phase 6A (Building the TRT Engine)</div>
+<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
+<strong>Phase 6A (TensorRT):</strong> "Build" — Export PyTorch → ONNX → <code>trtexec</code> → <strong style="color:var(--cyan);">.engine file saved to disk</strong>. This creates a standalone model file that runs fast.<br>
+<strong>Phase 6E (Integration):</strong> "Connect" — Take that .engine file and <strong style="color:var(--green);">wire it into a complete GPU pipeline</strong> with custom preprocess and NMS kernels. The TRT engine is the MIDDLE piece — it needs input formatted exactly right (CHW float32) and its output needs to be read by the next stage (NMS).<br><br>
+<strong style="color:var(--amber);">The "integration" problem:</strong> Three separate pieces of code (preprocess kernel, TRT engine, NMS kernel) must agree on memory format. TRT expects CHW float32 at exactly 640×640. The preprocess kernel must output that EXACTLY. TRT outputs raw detection boxes. The NMS kernel must read those EXACTLY. One byte off = garbage results.
+</div>
+</div>
+
+<div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.6rem 0;">
+<div style="flex:1;min-width:260px;background:var(--raised);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--cyan);margin-bottom:0.3rem;">📦 Phase 6A: BUILD the Engine</div>
+<div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+<span style="color:var(--green);">✅ Done once, saved to disk</span><br>
+┌──────────────────────┐<br>
+│ 🐍 train.py          │<br>
+│  ↓ export_onnx()     │<br>
+│ 🟦 model.onnx        │  ← portable format<br>
+│  ↓ trtexec --fp16    │<br>
+│ 🟩 model.engine      │  ← T4-optimized binary<br>
+│  ↓                    │<br>
+│ [Standalone: runs in  │<br>
+│  isolation on GPU]   │<br>
+└──────────────────────┘<br>
+<strong style="color:var(--cyan);">Output: 1 file</strong> (.engine)<br>
+<span style="color:var(--tmut);">Can run: trtexec --loadEngine</span>
+</div>
+</div>
+
+<div style="font-size:1.3rem;color:var(--green);display:flex;align-items:center;">+</div>
+
+<div style="flex:1;min-width:260px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--green);margin-bottom:0.3rem;">🔗 Phase 6E: INTEGRATE the Engine</div>
+<div style="font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+<span style="color:var(--green);">✅ Done once in C++, runs every frame</span><br>
+┌─────────────────────────────────────┐<br>
+│ ⚡ CUDA Preprocess Kernel           │<br>
+│   reads: NV12/RGB in VRAM           │<br>
+│   writes: CHW float32 [1,3,640,640] │← MUST match TRT input<br>
+│          ↓ pointer passed in VRAM   │<br>
+│ 🟩 TRT Engine (model.engine)        │<br>
+│   reads: CHW float32 [1,3,640,640]  │<br>
+│   writes: float32 [1,84,8400]       │← raw detections<br>
+│          ↓ pointer passed in VRAM   │<br>
+│ 🎯 CUDA NMS Kernel                  │<br>
+│   reads: float32 [1,84,8400]        │← MUST match TRT output<br>
+│   writes: int32 [N,6] filtered      │<br>
+└─────────────────────────────────────┘<br>
+<strong style="color:var(--green);">Output: 1 GPU pipeline</strong><br>
+<span style="color:var(--tmut);">3 pieces, 0 copies, all in VRAM</span>
+</div>
+</div>
+</div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+💡 <strong style="color:var(--amber);">"Integration" = connecting the plumbing.</strong> The TRT engine is a black box that does inference fast. But it needs correctly-formatted input,<br>
+and its output needs to be consumed. Custom CUDA kernels on both sides handle this — <strong style="color:var(--green);">all via GPU pointers, zero memory copies.</strong>
+</div>
+
 <div class="pipeline">
 <div class="pipeline-stage highlight">📥 Custom CUDA Preprocess</div><div class="pipeline-arrow">→</div>
 <div class="pipeline-stage highlight">🧠 TensorRT Engine</div><div class="pipeline-arrow">→</div>
