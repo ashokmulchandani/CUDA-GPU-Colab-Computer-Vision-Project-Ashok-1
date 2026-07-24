@@ -601,63 +601,69 @@ The 7.07× speedup number is real, but the REAL lesson is: <strong style="color:
 	  Python/PyTorch preprocessing with <strong style="color:var(--green);">hand-written CUDA kernels</strong> that fuse multiple operations into a single GPU pass.
 	</div>
 
-	<table class="param" style="margin:0.5rem auto;max-width:800px;">
-	<tr>
-	  <th style="width:100px;">Pipeline Stage</th>
-	  <th style="color:var(--magenta);">🐍 Python/NumPy<br><span style="font-size:0.4rem;">(CPU)</span></th>
-	  <th style="color:var(--red);">🔴 PyTorch<br><span style="font-size:0.4rem;">(GPU, autograd overhead)</span></th>
-	  <th style="color:var(--green);">⚡ Custom CUDA<br><span style="font-size:0.4rem;">(Hand-fused kernel)</span></th>
-	  <th style="color:var(--amber);">🚀 Speedup<br><span style="font-size:0.4rem;">Custom vs Python</span></th>
-	</tr>
+		<table class="param" style="margin:0.5rem auto;max-width:850px;">
+		<tr>
+		  <th style="width:100px;">Pipeline Stage</th>
+		  <th style="color:var(--magenta);">🐍 Python/NumPy<br><span style="font-size:0.4rem;">(CPU)</span></th>
+		  <th style="color:var(--red);">🔴 PyTorch<br><span style="font-size:0.4rem;">(GPU, autograd)</span></th>
+		  <th style="color:var(--orange);">⚡ CUDA<br><span style="font-size:0.4rem;">(No Streams)</span></th>
+		  <th style="color:var(--green);">⚡⚡ CUDA + Streams<br><span style="font-size:0.4rem;">(Overlapped)</span></th>
+		  <th style="color:var(--amber);">🚀 Speedup<br><span style="font-size:0.4rem;">Streams vs Python</span></th>
+		</tr>
 
-	<tr style="background:rgba(63,185,80,0.04);">
-	  <td style="color:var(--amber);font-weight:700;">📥 Preprocess<br><span style="font-size:0.45rem;">(per frame)</span></td>
-	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~5-10 ms</strong><br>CPU: resize (OpenCV)<br>+ normalize + HWC→CHW<br>3 separate passes over data</td>
-	  <td style="font-size:0.5rem;color:var(--red);"><strong>~2-5 ms</strong><br>GPU: but 3 kernel launches<br>+ autograd tracking overhead<br>+ CPU-GPU sync points</td>
-	  <td style="font-size:0.5rem;color:var(--green);"><strong>~0.012 ms (12μs)</strong><br>ONE fused kernel:<br>resize + normalize + HWC→CHW<br>All on GPU, zero CPU involvement</td>
-	  <td style="font-size:0.6rem;color:var(--amber);font-weight:700;">~419×<br><span style="font-size:0.4rem;">vs Python CPU</span></td>
-	</tr>
+		<tr style="background:rgba(63,185,80,0.04);">
+		  <td style="color:var(--amber);font-weight:700;">📥 Preprocess<br><span style="font-size:0.45rem;">(per frame)</span></td>
+		  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~5-10 ms</strong><br>CPU: resize (OpenCV)<br>+ normalize + HWC→CHW<br>3 separate passes over data</td>
+		  <td style="font-size:0.5rem;color:var(--red);"><strong>~2-5 ms</strong><br>GPU: but 3 kernel launches<br>+ autograd tracking overhead<br>+ CPU-GPU sync points</td>
+		  <td style="font-size:0.5rem;color:var(--orange);"><strong>~0.015 ms (15μs)</strong><br>ONE fused kernel<br>But SEQUENTIAL — waits<br>for previous frame to finish</td>
+		  <td style="font-size:0.5rem;color:var(--green);"><strong>~0.012 ms (12μs)</strong><br>OVERLAPPED: Frame N+1<br>preprocesses while Frame N<br>runs inference → ~20% faster</td>
+		  <td style="font-size:0.55rem;color:var(--amber);font-weight:700;">~419×<br><span style="font-size:0.4rem;">vs Python CPU</span></td>
+		</tr>
 
-	<tr>
-	  <td style="color:var(--amber);font-weight:700;">🧠 Inference<br><span style="font-size:0.45rem;">(YOLO forward)</span></td>
-	  <td style="font-size:0.5rem;color:var(--magenta);">N/A<br>(CPU too slow for real-time)</td>
-	  <td style="font-size:0.5rem;color:var(--red);"><strong>~5-8 ms</strong><br>GPU: TensorRT engine<br>~20 kernel launches<br>Launch overhead ~100μs</td>
-	  <td style="font-size:0.5rem;color:var(--green);"><strong>~4-7 ms</strong><br>GPU: TensorRT + CUDA Graph<br>1 graph launch (~0.5μs)<br>No per-kernel CPU overhead</td>
-	  <td style="font-size:0.5rem;color:var(--tmut);">~1.2×<br><span style="font-size:0.4rem;">(launch savings)</span></td>
-	</tr>
+		<tr>
+		  <td style="color:var(--amber);font-weight:700;">🧠 Inference<br><span style="font-size:0.45rem;">(YOLO forward)</span></td>
+		  <td style="font-size:0.5rem;color:var(--magenta);">N/A<br>(CPU too slow for real-time)</td>
+		  <td style="font-size:0.5rem;color:var(--red);"><strong>~5-8 ms</strong><br>GPU: TensorRT engine<br>~20 kernel launches<br>Launch overhead ~100μs</td>
+		  <td style="font-size:0.5rem;color:var(--orange);"><strong>~5-8 ms</strong><br>GPU: TensorRT engine<br>~20 individual launches<br>~100μs CPU overhead/frame</td>
+		  <td style="font-size:0.5rem;color:var(--green);"><strong>~4-7 ms</strong><br>GPU: TensorRT + CUDA Graph<br>1 graph launch (~0.5μs)<br>+ overlapped pre/post</td>
+		  <td style="font-size:0.5rem;color:var(--tmut);">~1.2×<br><span style="font-size:0.4rem;">(launch savings)</span></td>
+		</tr>
 
-	<tr style="background:rgba(63,185,80,0.04);">
-	  <td style="color:var(--amber);font-weight:700;">🎯 Postprocess<br><span style="font-size:0.45rem;">(NMS + decode)</span></td>
-	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~3-8 ms</strong><br>CPU: torchvision NMS<br>Iterates CPU-side over boxes<br>O(n²) pairwise IoU on CPU</td>
-	  <td style="font-size:0.5rem;color:var(--red);"><strong>~1-3 ms</strong><br>GPU: but data bounces<br>GPU→CPU→GPU for NMS<br>Breaks the GPU pipeline</td>
-	  <td style="font-size:0.5rem;color:var(--green);"><strong>~0.1-0.5 ms</strong><br>GPU: CUDA NMS kernel<br>Parallel pairwise IoU on GPU<br>NO GPU→CPU round-trip!</td>
-	  <td style="font-size:0.6rem;color:var(--amber);font-weight:700;">~30×<br><span style="font-size:0.4rem;">vs Python CPU</span></td>
-	</tr>
+		<tr style="background:rgba(63,185,80,0.04);">
+		  <td style="color:var(--amber);font-weight:700;">🎯 Postprocess<br><span style="font-size:0.45rem;">(NMS + decode)</span></td>
+		  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~3-8 ms</strong><br>CPU: torchvision NMS<br>Iterates CPU-side over boxes<br>O(n²) pairwise IoU on CPU</td>
+		  <td style="font-size:0.5rem;color:var(--red);"><strong>~1-3 ms</strong><br>GPU: but data bounces<br>GPU→CPU→GPU for NMS<br>Breaks the GPU pipeline</td>
+		  <td style="font-size:0.5rem;color:var(--orange);"><strong>~0.2-0.8 ms</strong><br>GPU: CUDA NMS kernel<br>But SEQUENTIAL — waits<br>for inference to finish</td>
+		  <td style="font-size:0.5rem;color:var(--green);"><strong>~0.1-0.5 ms</strong><br>GPU: CUDA NMS OVERLAPPED<br>Frame N NMS runs while<br>Frame N+1 preprocesses</td>
+		  <td style="font-size:0.55rem;color:var(--amber);font-weight:700;">~30×<br><span style="font-size:0.4rem;">vs Python CPU</span></td>
+		</tr>
 
-	<tr>
-	  <td style="color:var(--amber);font-weight:700;">📦 Full Pipeline<br><span style="font-size:0.45rem;">(pre+inf+post)</span></td>
-	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~15-25 ms</strong><br>~40-66 FPS theoretical max<br>CPU bottlenecks everywhere</td>
-	  <td style="font-size:0.5rem;color:var(--red);"><strong>~10-18 ms</strong><br>~55-100 FPS<br>GPU used but CPU still in loop<br>autograd + sync points add up</td>
-	  <td style="font-size:0.5rem;color:var(--green);"><strong>~5-8 ms</strong><br><strong style="color:var(--green);">~125-200 FPS</strong><br>Everything on GPU. Zero CPU in hot path.<br>Streams keep GPU fed. Graphs kill launch overhead.</td>
-	  <td style="font-size:0.6rem;color:var(--amber);font-weight:700;">~3×<br><span style="font-size:0.4rem;">end-to-end</span></td>
-	</tr>
-	</table>
+		<tr>
+		  <td style="color:var(--amber);font-weight:700;">📦 Full Pipeline<br><span style="font-size:0.45rem;">(pre+inf+post)</span></td>
+		  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~15-25 ms</strong><br><strong style="color:var(--magenta);">~40-66 FPS</strong><br>CPU bottlenecks everywhere</td>
+		  <td style="font-size:0.5rem;color:var(--red);"><strong>~10-18 ms</strong><br><strong style="color:var(--red);">~55-100 FPS</strong><br>GPU used but CPU still in loop<br>autograd + sync points add up</td>
+		  <td style="font-size:0.5rem;color:var(--orange);"><strong>~7-12 ms</strong><br><strong style="color:var(--orange);">~83-143 FPS</strong><br>GPU pipeline but SEQUENTIAL<br>GPU idle ~30% between stages</td>
+		  <td style="font-size:0.5rem;color:var(--green);"><strong>~5-8 ms</strong><br><strong style="color:var(--green);">~125-200 FPS</strong><br>Everything OVERLAPPED.<br>GPU idle ~5%. Full saturation.</td>
+		  <td style="font-size:0.55rem;color:var(--amber);font-weight:700;">~3×<br><span style="font-size:0.4rem;">end-to-end</span></td>
+		</tr>
+		</table>
 
-	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
-	  💡 <strong style="color:var(--amber);">The deep-dive table above shows WHY the benchmark is memory-bound:</strong> the simple kernel has low arithmetic intensity (~0.6 FLOP/byte).<br>
-	  But <strong style="color:var(--green);">custom CUDA kernels for preprocess/postprocess win for a DIFFERENT reason:</strong> they <strong style="color:var(--cyan);">ELIMINATE round-trips</strong>.<br>
-	  Python/PyTorch forces data to bounce: GPU→CPU→GPU between stages. Custom CUDA keeps everything on the GPU — <strong style="color:var(--green);">zero copy, zero sync, zero autograd overhead.</strong>
-	</div>
+		<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+		  💡 <strong style="color:var(--amber);">Without streams, each stage waits for the previous one — GPU is idle ~30% of the time between stages.</strong><br>
+		  <strong style="color:var(--green);">With 3 streams, all 3 stages run simultaneously on different frames</strong> — preprocess Frame 3 while inferring Frame 2 while postprocessing Frame 1.<br>
+		  This is the SAME 7× pattern from the benchmark, applied to the full YOLO pipeline. GPU idle drops from ~30% to ~5%.
+		</div>
 
-	<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
-	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">🔑 The Three Reasons Custom CUDA Beats Python/PyTorch</div>
-	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
-	<strong>1. Kernel Fusion:</strong> Python does resize → normalize → HWC→CHW as 3 separate passes. CUDA fuses them into <strong style="color:var(--green);">ONE kernel</strong> — each pixel visits memory ONCE instead of 3×.<br>
-	<strong>2. No Autograd Overhead:</strong> PyTorch tracks every operation for backprop. Inference doesn't need gradients! Custom CUDA skips the autograd graph entirely.<br>
-	<strong>3. No CPU↔GPU Round-Trips:</strong> Python postprocess pulls data back to CPU for NMS. Custom CUDA NMS runs ON the GPU — data stays in VRAM the entire pipeline.<br>
-	<strong>Formula:</strong> <code style="color:var(--cyan);">Total Time = GPU_compute + PCIe_transfers + CPU_overhead + Sync_points</code>. Custom CUDA eliminates the last two terms entirely.
-	</div>
-	</div>
+		<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+		<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">🔑 The FOUR Reasons Custom CUDA + Streams Beats Python/PyTorch</div>
+		<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+		<strong>1. Kernel Fusion:</strong> Python does resize → normalize → HWC→CHW as 3 separate passes. CUDA fuses them into <strong style="color:var(--green);">ONE kernel</strong> — each pixel visits memory ONCE instead of 3×.<br>
+		<strong>2. No Autograd Overhead:</strong> PyTorch tracks every operation for backprop. Inference doesn't need gradients! Custom CUDA skips the autograd graph entirely.<br>
+		<strong>3. No CPU↔GPU Round-Trips:</strong> Python postprocess pulls data back to CPU for NMS. Custom CUDA NMS runs ON the GPU — data stays in VRAM the entire pipeline.<br>
+		<strong>4. Stream Overlap (Assembly-Line Parallelism):</strong> Without streams: preprocess → wait → inference → wait → postprocess. <strong style="color:var(--green);">With 3 streams: all 3 stages run SIMULTANEOUSLY on 3 different frames.</strong> GPU idle drops from ~30% to ~5%.<br>
+		<strong>Combined Formula:</strong> <code style="color:var(--cyan);">Throughput = min(GPU_compute, PCIe_bandwidth, CPU_launch_rate)</code>. Custom CUDA removes the CPU bottleneck. Streams remove the idle gaps. Together they push the bottleneck to the GPU's physical limits.
+		</div>
+		</div>
 
 
 	<h3>📐 How Are These ms &amp; FPS Numbers Calculated?</h3>
