@@ -1098,6 +1098,121 @@ Together: <strong style="color:var(--green);">23 FPS (Python) → 250 FPS (Produ
 <div class="check-item"><span class="check-box">🏗️</span> <strong>End-to-End:</strong> NVDEC→Preprocess→TRT→NMS = 4.6ms = 217 FPS. With Streams: 250 FPS. 11× over Python.</div>
 </div>
 </div></div>`
+	},{
+	  id:'6E.8',title:'Testing & QA — PR Review, Test Cases, and Deployment Checklist',
+	  fact:'<strong>"Review like you are the person getting paged at 3am when this breaks."</strong> CUDA kernels fail silently — a segfault at 3am needs tests that catch it at 9am. Here is how testing applies to our YOLO pipeline.',
+	  render:()=>`
+<div class="slide"><div class="card">
+<h2><span class="num">6E.8</span> Testing & QA — PR Review, Test Cases, and Deployment Checklist</h2>
+
+<h3>🔍 3-Pass PR Review — Applied to CUDA Kernels</h3>
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr><th style="width:100px;">Pass</th><th>What You Check</th><th style="color:var(--cyan);">Example for preprocess.cu</th></tr>
+<tr><td style="color:var(--red);">⚙️ Pass 1<br><span style="font-size:0.4rem;">Does it work?</span></td><td style="font-size:0.5rem;">Logic, edge cases, memory access patterns</td><td style="font-size:0.48rem;color:var(--cyan);">Does bilinear interpolation handle x=0 and x=639 correctly? What if input is 1920×1080 vs 640×480? Are all 409,600 output pixels computed?</td></tr>
+<tr><td style="color:var(--amber);">📖 Pass 2<br><span style="font-size:0.4rem;">Can I read it?</span></td><td style="font-size:0.5rem;">Naming, comments, structure clarity</td><td style="font-size:0.48rem;color:var(--amber);">Is <code>fx</code> clear or should it be <code>frac_x</code>? Are resize/normalize/HWC-to-CHW clearly separated? Would someone debug this at 3am?</td></tr>
+<tr><td style="color:var(--green);">🛡️ Pass 3<br><span style="font-size:0.4rem;">Is it safe?</span></td><td style="font-size:0.5rem;">Memory bounds, error codes, null checks</td><td style="font-size:0.48rem;color:var(--green);">Is out-of-bounds possible if <code>srcW</code> > allocated? Does <code>cudaGetLastError()</code> follow every <code><<<>>></code>? What if <code>d_input</code> is nullptr?</td></tr>
+</table>
+
+<div class="code-box"><span class="cell-num">Good vs Bad PR Comment — Real Example for nms.cu</span>
+<span style="color:#6a9955;">// ❌ BAD: criticism without solution</span>
+<span style="color:var(--red);">"This could break if the box list is empty."</span>
+
+<span style="color:#6a9955;">// ✅ GOOD: specific fix with reasoning</span>
+<span style="color:var(--green);">"Line 42: if N=0, the kernel launches with 0 threads — undefined on some GPUs.</span>
+<span style="color:var(--green);">Add at top: if (N==0) { *num_boxes = 0; return; }</span>
+<span style="color:var(--green);">This prevents a silent GPU exception from reaching the host."</span></div>
+
+<h3>🧪 The 3 Test Types — Applied to YOLO Pipeline</h3>
+<table class="param" style="margin:0.5rem auto;max-width:800px;">
+<tr><th style="width:80px;">Component</th><th style="color:var(--green);">✅ Happy Path</th><th style="color:var(--amber);">⚠️ Edge Cases</th><th style="color:var(--red);">💥 Failure Modes</th></tr>
+<tr><td style="color:var(--amber);">Preprocess</td><td style="font-size:0.45rem;color:var(--green);">640×480 RGBA → CHW<br><code>assert shape==(3,640,640)</code></td><td style="font-size:0.45rem;color:var(--amber);">1920×1080 aspect ratio<br>1×1 image (minimum)<br>Grayscale input (1 channel)</td><td style="font-size:0.45rem;color:var(--red);">d_input = nullptr → crash<br>GPU OOM (16GB full)<br>srcW=0 or dstW=0 (div by 0!)</td></tr>
+<tr><td style="color:var(--amber);">NMS</td><td style="font-size:0.45rem;color:var(--green);">10 boxes, 5 overlap → 5 survive<br><code>assert len(out)==5</code></td><td style="font-size:0.45rem;color:var(--amber);">0 boxes → empty output<br>10,000 boxes (max realistic)<br>All confidence = 1.0</td><td style="font-size:0.45rem;color:var(--red);">All identical boxes (IoU=1.0)<br>Negative coordinates<br>NaN in box values</td></tr>
+<tr><td style="color:var(--amber);">Pipeline</td><td style="font-size:0.45rem;color:var(--green);">Valid frame → detections<br><code>assert len(boxes)>0</code></td><td style="font-size:0.45rem;color:var(--amber);">Corrupt JPEG header<br>All-black frame (no objects)<br>Frame with 100+ objects</td><td style="font-size:0.45rem;color:var(--red);">TRT engine load fails<br>CUDA driver mismatch<br>cudaGraphLaunch error</td></tr>
+</table>
+
+<h3>🏗️ 4-Layer Testing — Concrete pytest Code</h3>
+<div class="code-box"><span class="cell-num">tests/test_pipeline.py — committed alongside src/</span>
+<span style="color:#569cd6;">import</span> yolo_cuda, numpy <span style="color:#569cd6;">as</span> np, cv2, pytest
+
+<span style="color:#6a9955;"># ===== LAYER 1: DATA — validate before GPU upload =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_input_shape_rejected</span>():
+    <span style="color:#c586c0;">with</span> pytest.raises(ValueError):
+        yolo_cuda.process_frame(np.zeros((<span style="color:#ce9178;">100</span>,)))        <span style="color:#6a9955;"># 1D array → reject</span>
+    <span style="color:#c586c0;">with</span> pytest.raises(ValueError):
+        yolo_cuda.process_frame(np.zeros((<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">1</span>)))  <span style="color:#6a9955;"># grayscale → reject</span>
+
+<span style="color:#6a9955;"># ===== LAYER 2: MODEL — output sanity =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_output_never_nan</span>():
+    <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">100</span>):
+        img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+        boxes = yolo_cuda.process_frame(img)
+        <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes: <span style="color:#569cd6;">assert not</span> any(np.isnan(x) <span style="color:#569cd6;">for</span> x <span style="color:#569cd6;">in</span> b[:<span style="color:#ce9178;">4</span>])
+
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_output_shape</span>():
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">1080</span>,<span style="color:#ce9178;">1920</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    boxes = yolo_cuda.process_frame(img)
+    <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes: <span style="color:#569cd6;">assert</span> len(b) == <span style="color:#ce9178;">6</span>  <span style="color:#6a9955;">// x1,y1,x2,y2,conf,class</span>
+
+<span style="color:#6a9955;">// ===== LAYER 3: PIPELINE — E2E smoke test =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_e2e_known_image</span>():
+    img = cv2.imread(<span style="color:#ce9178;">"tests/fixtures/street.jpg"</span>)
+    boxes = yolo_cuda.process_frame(img)
+    cars = [b <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes <span style="color:#569cd6;">if</span> b[<span style="color:#ce9178;">5</span>]==<span style="color:#ce9178;">2</span>]; people = [b <span style="color:#569cd6;">for</span> b <span style="color:#569cd6;">in</span> boxes <span style="color:#569cd6;">if</span> b[<span style="color:#ce9178;">5</span>]==<span style="color:#ce9178;">0</span>]
+    <span style="color:#569cd6;">assert</span> len(cars) >= <span style="color:#ce9178;">1</span>, <span style="color:#ce9178;">"Expected at least 1 car"</span>
+
+<span style="color:#6a9955;">// ===== LAYER 4: PRODUCTION — performance SLA =====</span>
+<span style="color:#569cd6;">def</span> <span style="color:#dcdcaa;">test_latency_budget</span>():
+    <span style="color:#569cd6;">import</span> time
+    img = np.random.randint(<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">255</span>,(<span style="color:#ce9178;">1080</span>,<span style="color:#ce9178;">1920</span>,<span style="color:#ce9178;">3</span>),dtype=np.uint8)
+    start = time.perf_counter()
+    <span style="color:#569cd6;">for</span> _ <span style="color:#569cd6;">in</span> range(<span style="color:#ce9178;">100</span>): yolo_cuda.process_frame(img)
+    avg_ms = (time.perf_counter()-start)/<span style="color:#ce9178;">100</span>*<span style="color:#ce9178;">1000</span>
+    <span style="color:#569cd6;">assert</span> avg_ms < <span style="color:#ce9178;">10</span>, <span style="color:#ce9178;">f"Too slow: {avg_ms:.1f}ms"</span></div>
+
+<h3>📋 10-Point Pre-Deployment Checklist</h3>
+<table class="param" style="margin:0.5rem auto;max-width:700px;">
+<tr><th style="width:25px;">#</th><th>Check</th><th>Command</th></tr>
+<tr><td>1</td><td style="font-size:0.5rem;">All unit tests pass</td><td style="font-size:0.45rem;"><code>pytest tests/ -v</code></td></tr>
+<tr><td>2</td><td style="font-size:0.5rem;">TRT engine loads without error</td><td style="font-size:0.45rem;"><code>trtexec --loadEngine=models/yolov5s.engine</code></td></tr>
+<tr><td>3</td><td style="font-size:0.5rem;">No NaN in 1000 random frames</td><td style="font-size:0.45rem;"><code>pytest tests/ -k nan</code></td></tr>
+<tr><td>4</td><td style="font-size:0.5rem;">Latency < 10ms at p99</td><td style="font-size:0.45rem;"><code>pytest tests/ -k latency</code></td></tr>
+<tr><td>5</td><td style="font-size:0.5rem;">GPU memory no leak after 10K frames</td><td style="font-size:0.45rem;"><code>nvidia-smi</code> before/after</td></tr>
+<tr><td>6</td><td style="font-size:0.5rem;">No secrets in code</td><td style="font-size:0.45rem;"><code>git diff --staged | grep "api.key"</code></td></tr>
+<tr><td>7</td><td style="font-size:0.5rem;">Error paths tested</td><td style="font-size:0.45rem;"><code>pytest tests/ -k "error or invalid"</code></td></tr>
+<tr><td>8</td><td style="font-size:0.5rem;">Schema validation passes</td><td style="font-size:0.45rem;"><code>pytest tests/ -k "shape or schema"</code></td></tr>
+<tr><td>9</td><td style="font-size:0.5rem;">Model version tagged in git</td><td style="font-size:0.45rem;"><code>git tag v1.2.3 && git push --tags</code></td></tr>
+<tr><td>10</td><td style="font-size:0.5rem;">Rollback plan verified</td><td style="font-size:0.45rem;"><code>git checkout v1.2.2 && pytest</code></td></tr>
+</table>
+
+<h3>🔑 The 3 Phrases — CUDA Edition</h3>
+<table class="param" style="margin:0.5rem auto;max-width:750px;">
+<tr><th style="color:var(--red);">🛡️ "I review like the person getting paged at 3am."</th><th style="color:var(--amber);">⚠️ "I test error handlers harder than the happy path."</th><th style="color:var(--green);">🐛 "Every bug gets a test before the fix."</th></tr>
+<tr><td style="font-size:0.48rem;color:var(--tdim);">A CUDA segfault at 3am means checking: wrong input shape? GPU OOM? Driver update? New TRT version? Did someone rename the .engine file? <strong style="color:var(--red);">Every review asks: what kills this at 3am?</strong></td><td style="font-size:0.48rem;color:var(--tdim);">Every <code>cudaMemcpyAsync</code> → check <code>cudaGetLastError()</code>. Every <code><<<>>></code> → check return. Null input → graceful exit. GPU OOM → fallback. <strong style="color:var(--amber);">Error handlers ARE the production code.</strong></td><td style="font-size:0.48rem;color:var(--tdim);">Bug: NMS crashes on 0 boxes → write <code>test_nms_zero_boxes()</code> FIRST, then fix. Bug: preprocess wrong for 4:3 aspect → write <code>test_preprocess_43_aspect()</code> first. <strong style="color:var(--green);">No repeat bugs. Ever.</strong></td></tr>
+</table>
+
+<h3>📁 Updated Folder Structure — With Tests</h3>
+<div style="background:#1e1e1e;border:1px solid #333;border-left:3px solid var(--green);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.5rem;line-height:1.7;color:#d4d4d4;">
+<span style="color:var(--cyan);">yolo_cuda_pipeline/</span>
+├── <span style="color:var(--cyan);">src/</span>                         <span style="color:#6a9955;">← Production (C++/CUDA)</span>
+├── <span style="color:var(--cyan);">python/</span>                     <span style="color:#6a9955;">← Production (Python)</span>
+├── <span style="color:var(--green);">tests/</span>                       <span style="color:#6a9955;">← ← ← TESTS (pytest)</span>
+│   ├── <span style="color:var(--green);">test_pipeline.py</span>         <span style="color:#6a9955;">← 4-layer tests</span>
+│   ├── <span style="color:var(--green);">test_preprocess.py</span>       <span style="color:#6a9955;">← Preprocess unit tests</span>
+│   ├── <span style="color:var(--green);">test_nms.py</span>              <span style="color:#6a9955;">← NMS unit tests</span>
+│   ├── <span style="color:var(--green);">conftest.py</span>              <span style="color:#6a9955;">← Shared fixtures</span>
+│   └── <span style="color:var(--cyan);">fixtures/</span>                <span style="color:#6a9955;">← Known test images</span>
+├── <span style="color:var(--cyan);">.github/workflows/</span>
+│   └── <span style="color:var(--amber);">ci.yml</span>                <span style="color:#6a9955;">← pytest on every PR</span>
+└── <span style="color:var(--amber);">pytest.ini</span>                 <span style="color:#6a9955;">← Config: fail under 95% coverage</span>
+</div>
+
+<div class="quiz" id="q6"><div class="question">NMS crashes on an empty box list in production. What do you do FIRST?</div>
+<div class="options">
+<div class="option" data-correct="true" onclick="checkQuiz('q6',this)">A. Write a test that reproduces the crash (test_nms_empty_boxes). Verify it FAILS. THEN fix the kernel. Commit both together — the test proves the fix and prevents regression. "Every production bug gets a test before the fix."</div>
+<div class="option" onclick="checkQuiz('q6',this)">B. Fix the kernel immediately — the test can wait until later</div>
+<div class="option" onclick="checkQuiz('q6',this)">C. Wrap the NMS call in a try/except in Python to catch the crash</div>
+</div><div class="feedback" id="q6-fb"></div></div>
+</div></div>`
 }];
 
 window.checkQuiz=function(id,el){var q=document.getElementById(id);if(q.dataset.answered==='true')return;var os=q.querySelectorAll('.option'),fb=document.getElementById(id+'-fb'),ok=el.dataset.correct==='true';os.forEach(function(o){if(o.dataset.correct==='true')o.classList.add('correct')});if(!ok)el.classList.add('wrong');fb.className='feedback show '+(ok?'correct':'wrong');fb.textContent=ok?'✅ Correct!':'❌ Not quite.';q.dataset.answered='true'}
