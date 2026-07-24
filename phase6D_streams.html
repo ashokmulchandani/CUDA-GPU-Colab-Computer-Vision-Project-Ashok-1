@@ -62,7 +62,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
 .nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
 .nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
-.req-btn.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
+.req-btn.active,.comp-btn.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
 .callout{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.72rem;color:var(--tdim)}
 table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
 table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
@@ -107,6 +107,13 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <span style="color:var(--green);">S3: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[Up4][Comp4][Dn4]</span>
 <span style="color:var(--green);">18.60 ms — GPU NEVER idle!</span></div><p>While one stream computes, another uploads — compute and copy engines work simultaneously.</p></div>
 </div>
+
+<h3>🎬 Frame Pipeline — WITHOUT vs WITH Streams</h3>
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn comp-btn active" onclick="showComp(0,this)" style="font-size:0.45rem;">🔴 Without Streams</button>
+  <button class="btn comp-btn" onclick="showComp(1,this)" style="font-size:0.45rem;">🟢 With 3 Streams</button>
+</div>
+<div id="compViz" style="background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:1rem;margin:0.5rem 0;min-height:140px;"></div>
 
 <h3>🔑 4 Requirements for Multi-Stream — Click Each to Visualize</h3>
 <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
@@ -501,6 +508,45 @@ function showReq(i,btn){
   document.getElementById('reqViz').innerHTML=visuals[i];
 }
 showReq(0,document.querySelector('.req-btn'));
+
+// ── Frame Pipeline Comparison ──
+var compIdx=0;
+function showComp(i,btn){
+  compIdx=i;document.querySelectorAll('.comp-btn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  var compBox=document.getElementById('compViz');
+  if(i===0){
+    compBox.innerHTML=`<div style="text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--red);margin-bottom:0.5rem;">🔴 WITHOUT Streams — One Frame at a Time</div>
+      <div style="font-size:0.5rem;color:var(--tdim);margin-bottom:0.4rem;">Frame 1 must FINISH completely before Frame 2 starts. GPU waits during transfers.</div>
+      <div style="position:relative;height:140px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+        <div style="position:absolute;top:0;left:0;right:0;height:28px;background:rgba(248,81,73,0.15);border:1px solid var(--red);border-radius:4px;display:flex;align-items:center;justify-content:center;">Frame 1: ██ Upload ██ ███ Preprocess ███ ███ TRT Infer ███ █ NMS █ ██ Download ██</div>
+        <div style="position:absolute;top:35px;left:10px;right:0;height:6px;background:rgba(248,81,73,0.1);border-radius:2px;"></div>
+        <div style="position:absolute;top:50px;left:0;right:0;height:28px;background:rgba(57,210,255,0.1);border:1px solid var(--cyan);border-radius:4px;display:flex;align-items:center;justify-content:center;">Frame 2: (waiting for Frame 1 to finish...) ██ Upload ██ ███ Preprocess ███ ███ TRT ███ █ NMS █</div>
+        <div style="position:absolute;top:85px;left:20px;right:0;height:6px;background:rgba(57,210,255,0.05);border-radius:2px;"></div>
+        <div style="position:absolute;top:100px;left:0;right:0;height:28px;background:rgba(255,179,71,0.08);border:1px solid var(--amber);border-radius:4px;display:flex;align-items:center;justify-content:center;">Frame 3: (waiting...) ██ Upload ██ ███ Preprocess ███ ███ TRT Infer ███ █ NMS █</div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--red);margin-top:0.5rem;">3 frames × 12ms each = <strong>36ms total</strong>. GPU idle ~50% of the time.</div>
+    </div>`;
+  } else {
+    compBox.innerHTML=`<div style="text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--green);margin-bottom:0.5rem;">🟢 WITH 3 Streams — 3 Frames in Flight!</div>
+      <div style="font-size:0.5rem;color:var(--tdim);margin-bottom:0.4rem;">Frame 2 preprocesses while Frame 1 runs inference. Frame 3 uploads while both work.</div>
+      <div style="position:relative;height:100px;font-family:'JetBrains Mono',monospace;font-size:0.45rem;color:var(--tdim);">
+        <div style="position:absolute;top:0;left:0;right:0;height:24px;display:flex;align-items:center;justify-content:center;">
+          S0: █ Upload F3 █ ███ Preprocess F3 ███ <span style="color:var(--green);">███ TRT Infer F2 ███</span> <span style="color:var(--amber);">█ NMS F1 █</span> █ Download F1 █
+        </div>
+        <div style="position:absolute;top:30px;left:10px;right:0;height:24px;display:flex;align-items:center;justify-content:center;">
+          S1: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;█ Upload F4 █ ███ Preprocess F4 ███ <span style="color:var(--green);">███ TRT Infer F3 ███</span> <span style="color:var(--amber);">█ NMS F2 █</span> █ Download F2 █
+        </div>
+        <div style="position:absolute;top:60px;left:20px;right:0;height:24px;display:flex;align-items:center;justify-content:center;">
+          S2: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;█ Upload F5 █ ███ Preprocess F5 ███ <span style="color:var(--green);">███ TRT Infer F4 ███</span> <span style="color:var(--amber);">█ NMS F3 █</span>
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--green);margin-top:0.6rem;">3 frames × 12ms but OVERLAPPED = <strong>~15ms total</strong>. GPU ~95% utilized. 🔥</div>
+    </div>`;
+  }
+}
+</script>
 </script>
 </body>
 </html>
