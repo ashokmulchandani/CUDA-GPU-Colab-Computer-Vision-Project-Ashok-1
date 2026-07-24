@@ -727,28 +727,71 @@ Both execute YOLO's 225 layers. TRT just does it 2-3× faster because it pre-opt
 <strong style="color:var(--green);">The INTEGRATION part:</strong> TRT engine sits BETWEEN custom preprocess and custom NMS — all three sharing GPU memory via pointers.
 </div>
 
-<div class="code-box"><span class="cell-num">End-to-end C++ inference loop (main.cpp)</span>
-<span style="color:#6a9955;">// Setup: one-time initialization</span>
+<div class="code-box"><span class="cell-num">main.cpp — Step 1: build_graph() captures ALL 3 stages (run ONCE at startup)</span>
+<span style="color:#6a9955;">// This function captures the ENTIRE pipeline into a CUDA Graph.</span>
+<span style="color:#6a9955;">// TRT engine is called on line with ⬇⬇⬇</span>
+<span style="color:#569cd6;">cudaGraphExec_t</span> build_graph() {
+    <span style="color:#569cd6;">cudaStream_t</span> cap_stream;
+    <span style="color:#4ec9b0;">cudaStreamCreate</span>(&cap_stream);
+
+    <span style="color:#6a9955;">// Step A: Begin capture — GPU will RECORD, not execute</span>
+    <span style="color:#4ec9b0;">cudaStreamBeginCapture</span>(cap_stream, cudaStreamCaptureModeGlobal);
+
+    <span style="color:#6a9955;">// Step B: Launch our 3 kernels in sequence</span>
+    <span style="color:#6a9955;">// ✅ KERNEL 1: Custom CUDA Preprocess (12μs)</span>
+    preprocess_fused<<<grid, <span style="color:#ce9178;">256</span>, <span style="color:#ce9178;">0</span>, cap_stream>>>(
+        d_input, d_preprocessed, <span style="color:#ce9178;">1920</span>, <span style="color:#ce9178;">1080</span>, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>
+    );
+
+    <span style="color:#6a9955;">// ⬇⬇⬇ THIS IS THE TRT ENGINE CALL! ⬇⬇⬇</span>
+    <span style="color:#6a9955;">// TRT reads d_preprocessed (CHW float32), writes d_detections (raw boxes)</span>
+    <strong style="color:var(--green);background:rgba(63,185,80,0.3);">trt_context->enqueueV2(bindings, cap_stream, nullptr);  // ← TRT ENGINE! 4ms</strong>
+
+    <span style="color:#6a9955;">// ✅ KERNEL 3: Custom CUDA NMS (0.1ms)</span>
+    nms_kernel<<<grid, <span style="color:#ce9178;">256</span>, <span style="color:#ce9178;">0</span>, cap_stream>>>(
+        d_detections, d_boxes, &num_boxes
+    );
+
+    <span style="color:#6a9955;">// Step C: End capture → get graph object</span>
+    <span style="color:#569cd6;">cudaGraph_t</span> graph;
+    <span style="color:#4ec9b0;">cudaStreamEndCapture</span>(cap_stream, &graph);
+
+    <span style="color:#6a9955;">// Step D: Instantiate for THIS GPU → executable</span>
+    <span style="color:#569cd6;">cudaGraphExec_t</span> instance;
+    <span style="color:#4ec9b0;">cudaGraphInstantiate</span>(&instance, graph, NULL, NULL, <span style="color:#ce9178;">0</span>);
+    <span style="color:#6a9955;">// Now ALL 3 are pre-packaged. Replay in 0.5μs!</span>
+    <span style="color:#569cd6;">return</span> instance;
+}</div>
+
+<div class="code-box"><span class="cell-num">main.cpp — Step 2: Hot loop (runs EVERY frame)</span>
 <span style="color:#569cd6;">cudaStream_t</span> stream;
 <span style="color:#4ec9b0;">cudaStreamCreate</span>(&stream);
-<span style="color:#569cd6;">cudaGraphExec_t</span> graph = build_graph(); <span style="color:#6a9955;">// Capture entire pipeline!</span>
+<span style="color:#569cd6;">cudaGraphExec_t</span> graph = build_graph();  <span style="color:#6a9955;">// ← TRT engine captured inside!</span>
 
-<span style="color:#6a9955;">// Hot loop: runs for EVERY frame — ZERO Python!</span>
 <span style="color:#569cd6;">while</span> (camera.isOpened()) {
-    camera.read(&h_frame);                        <span style="color:#6a9955;">// CPU: grab raw frame</span>
-    <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(d_input, h_frame, size, H2D, stream); <span style="color:#6a9955;">// GPU: upload</span>
-    <span style="color:#4ec9b0;">cudaGraphLaunch</span>(graph, stream);             <span style="color:#6a9955;">// GPU: PREPROCESS → TRT → NMS — ALL in 1 graph!</span>
-    <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(h_output, d_output, size, D2H, stream); <span style="color:#6a9955;">// GPU: download results</span>
-    <span style="color:#4ec9b0;">cudaStreamSynchronize</span>(stream);              <span style="color:#6a9955;">// CPU: wait for frame done</span>
-    display(h_output);                           <span style="color:#6a9955;">// CPU: show results</span>
-}
-<span style="color:#6a9955;">// Each frame: 3 CPU calls (upload, launch, download). ~4-7ms total. 133-250 FPS!</span></div>
+    camera.read(&h_frame);                        <span style="color:#6a9955;">// CPU: grab compressed frame</span>
+    <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(d_input, h_frame, size, H2D, stream);
 
-<div class="quiz" id="q4"><div class="question">What advantage does the CUDA Graph provide in this pipeline?</div>
+    <span style="color:#6a9955;">// ⬇ THIS 1 CALL runs: Preprocess → TRT → NMS — ALL on GPU</span>
+    <strong style="color:var(--green);background:rgba(63,185,80,0.2);">cudaGraphLaunch(graph, stream);  // 0.5μs CPU time!</strong>
+
+    <span style="color:#4ec9b0;">cudaMemcpyAsync</span>(h_output, d_boxes, out_size, D2H, stream);
+    <span style="color:#4ec9b0;">cudaStreamSynchronize</span>(stream);
+    display(h_output);
+}
+<span style="color:#6a9955;">// Each frame: 3 CPU calls. GPU does ALL the heavy lifting. ~4.6ms/frame.</span></div>
+
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+💡 <strong style="color:var(--amber);">The TRT engine call is inside build_graph(), highlighted in green.</strong> It sits BETWEEN our custom preprocess kernel and our custom NMS kernel.<br>
+The hot loop never mentions TRT because the entire pipeline (preprocess → TRT → NMS) was captured into the CUDA Graph at startup.<br>
+<strong style="color:var(--green);">This is what "integration" means:</strong> TRT is not a separate program — it's a function call sandwiched between two custom CUDA kernels, all sharing GPU memory.
+</div>
+
+<div class="quiz" id="q4"><div class="question">Where is the TRT engine actually called in this code?</div>
 <div class="options">
-<div class="option" data-correct="true" onclick="checkQuiz('q4',this)">A. CUDA Graph captures all 3 stages (preprocess kernel + TRT engine + NMS kernel) into ONE GPU command. CPU says "go" once (0.5μs) instead of launching 3+ separate operations. Combined with the custom pre/post kernels, the entire YOLO pipeline runs with minimal CPU involvement.</div>
-<div class="option" onclick="checkQuiz('q4',this)">B. It makes the TensorRT engine run faster</div>
-<div class="option" onclick="checkQuiz('q4',this)">C. It compresses the input image for faster transfer</div>
+<div class="option" data-correct="true" onclick="checkQuiz('q4',this)">A. Inside build_graph() at line: trt_context->enqueueV2(bindings, cap_stream, nullptr). This is captured INTO the CUDA Graph at startup. The hot loop never calls TRT directly — it calls cudaGraphLaunch() which replays the ENTIRE recorded pipeline (preprocess → TRT → NMS) in one shot.</div>
+<div class="option" onclick="checkQuiz('q4',this)">B. In the hot loop as a separate function call after cudaGraphLaunch</div>
+<div class="option" onclick="checkQuiz('q4',this)">C. TRT is not used — the pipeline uses PyTorch instead</div>
 </div><div class="feedback" id="q4-fb"></div></div>
 </div></div>`
 },{
