@@ -187,6 +187,59 @@ const S=[{
 <tr><td>Time</td><td style="color:var(--red);font-weight:700;">5-10ms</td><td style="color:var(--green);font-weight:700;">~12μs</td></tr>
 </table>
 
+	<h3>🎬 NVDEC — GPU Hardware Video Decode (Step 0 Before Preprocess)</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+	  Before the preprocess kernel runs, raw camera frames arrive as <strong style="color:var(--amber);">compressed video</strong> (H.264/H.265).<br>
+	  CPU decoding (FFmpeg/libav) is SLOW. NVDEC is a <strong style="color:var(--green);">dedicated hardware block on the GPU</strong> that decodes video directly into VRAM.
+	</div>
+
+	<div class="pipeline">
+	<div class="pipeline-stage highlight" style="min-width:60px;">📹 Camera<br><span style="font-size:0.4rem;">H.264</span></div><div class="pipeline-arrow">→</div>
+	<div class="pipeline-stage" style="border-color:var(--green);min-width:70px;">🎬 NVDEC<br><span style="font-size:0.4rem;">GPU HW</span></div><div class="pipeline-arrow">→</div>
+	<div class="pipeline-stage" style="border-color:var(--cyan);min-width:70px;">⚡ Preprocess<br><span style="font-size:0.4rem;">CUDA Kernel</span></div><div class="pipeline-arrow">→</div>
+	<div class="pipeline-stage" style="border-color:var(--violet);min-width:65px;">🧠 TRT<br><span style="font-size:0.4rem;">Engine</span></div>
+	</div>
+
+	<table class="param" style="margin:0.5rem auto;max-width:700px;">
+	<tr><th style="width:120px;">What</th><th style="color:var(--red);">❌ CPU Decode (FFmpeg)</th><th style="color:var(--green);">✅ GPU Decode (NVDEC)</th></tr>
+	<tr><td>Where?</td><td style="font-size:0.5rem;color:var(--red);">CPU — software decoder</td><td style="font-size:0.5rem;color:var(--green);">GPU — dedicated silicon (ASIC)</td></tr>
+	<tr><td>Output Location</td><td style="font-size:0.5rem;color:var(--red);">CPU RAM → must copy to GPU!</td><td style="font-size:0.5rem;color:var(--green);"><strong>GPU VRAM directly!</strong> Zero-copy to preprocess.</td></tr>
+	<tr><td>CPU Usage</td><td style="font-size:0.5rem;color:var(--red);">~30-50% of one core per stream</td><td style="font-size:0.5rem;color:var(--green);">~1-2% — hardware does the work</td></tr>
+	<tr><td>Decode Time (1080p)</td><td style="font-size:0.5rem;color:var(--red);">~5-15ms per frame</td><td style="font-size:0.5rem;color:var(--green);"><strong>~0.5-1ms per frame</strong></td></tr>
+	<tr><td>PCIe Transfer?</td><td style="font-size:0.5rem;color:var(--red);">YES — decoded frame must be uploaded</td><td style="font-size:0.5rem;color:var(--green);"><strong>NO — frame already in VRAM!</strong></td></tr>
+	<tr><td>T4 Capability</td><td colspan="2" style="font-size:0.5rem;">2 NVDEC engines — can decode <strong style="color:var(--cyan);">2 streams simultaneously</strong> at 4K, or many more at lower res</td></tr>
+	</table>
+
+	<div class="code-box"><span class="cell-num">NVDEC + CUDA Preprocess — Complete Video Pipeline (C++)</span>
+	<span style="color:#6a9955;">// Step 0: NVDEC decodes H.264 directly into GPU VRAM</span>
+	<span style="color:#569cd6;">cuvidCreateVideoParser</span>(&parser, &parser_params);     <span style="color:#6a9955;">// Create parser</span>
+	<span style="color:#569cd6;">cuvidParseVideoData</span>(parser, &pkt);                   <span style="color:#6a9955;">// Feed compressed packet</span>
+	<span style="color:#6a9955;">// → GPU hardware decodes H.264 → NV12 surface in VRAM</span>
+
+	<span style="color:#4ec9b0;">cuvidMapVideoFrame</span>(decoder, target_idx, &dp, &n, &src); <span style="color:#6a9955;">// Map decoded frame</span>
+
+	<span style="color:#6a9955;">// Step 1: Custom CUDA kernel — NV12 → RGB → Resize → Normalize → CHW (fused!)</span>
+	nv12_to_rgb_preprocess<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(
+	    (<span style="color:#569cd6;">uint8_t</span>*)src,          <span style="color:#6a9955;">// NV12 input (from NVDEC, already in VRAM!)</span>
+	    d_rgb_output,          <span style="color:#6a9955;">// RGB float32 CHW output (for TRT)</span>
+	    srcW, srcH, <span style="color:#ce9178;">640</span>, <span style="color:#ce9178;">640</span>      <span style="color:#6a9955;">// Source dimensions → target 640×640</span>
+	);
+	<span style="color:#6a9955;">// This ONE kernel does: YUV→RGB conversion + Bilinear resize + Normalize + HWC→CHW</span>
+	<span style="color:#6a9955;">// Input: NV12 in VRAM (from NVDEC). Output: float32 CHW in VRAM (for TRT). ZERO CPU!</span>
+
+	<span style="color:#6a9955;">// Step 2: TRT inference (input already in VRAM from preprocess)</span>
+	trt_context->enqueueV2(&bindings, stream, nullptr);
+
+	<span style="color:#6a9955;">// Step 3: Custom CUDA NMS (output also stays in VRAM)</span>
+	<span style="color:#4ec9b0;">cuvidUnmapVideoFrame</span>(decoder, target_idx);           <span style="color:#6a9955;">// Release decoded frame</span></div>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--green);">NVDEC is a T4 hardware feature — it costs ZERO GPU compute.</strong> The decode happens on dedicated silicon while the SMs do other work.<br>
+	  Combined with the Custom CUDA preprocess kernel, the entire pipeline from compressed video to TRT input is <strong style="color:var(--green);">~0.5ms with zero CPU involvement</strong>.<br>
+	  <strong style="color:var(--cyan);">Without NVDEC:</strong> CPU decode (10ms) + PCIe upload (0.4ms) + preprocess (12μs) = <strong style="color:var(--red);">~10.4ms</strong>.<br>
+	  <strong style="color:var(--green);">With NVDEC:</strong> GPU decode (0.5ms) + preprocess (12μs) = <strong style="color:var(--green);">~0.5ms — 20× faster!</strong>
+	</div>
+
 <div class="quiz" id="q1"><div class="question">Why is the fused CUDA kernel so much faster?</div>
 <div class="options">
 <div class="option" data-correct="true" onclick="checkQuiz('q1',this)">A. It eliminates 2 of 3 memory passes AND the CPU↔GPU transfer. Each pixel is read once, processed completely, and written once — 3 operations in 1 kernel. Plus GPU parallelism: 640×640 = 409,600 threads process all pixels simultaneously.</div>
