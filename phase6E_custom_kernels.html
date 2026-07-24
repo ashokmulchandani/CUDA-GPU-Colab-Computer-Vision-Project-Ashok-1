@@ -296,6 +296,64 @@ const S=[{
 
 <div class="callout"><span style="font-size:1rem;">💡</span><span style="font-size:0.65rem;">Batching works because GPU SMs are underutilized with single-image preprocessing (409K threads vs 40K max). Batching 32 images saturates all 40 SMs simultaneously — <strong>5× throughput with the same kernel code.</strong></span></div>
 
+	<h3>📐 Step-by-Step: Where Do These Numbers Come From?</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+	  Every number in the table above comes from real measurements and simple arithmetic. Here's the full breakdown.
+	</div>
+
+	<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">🔴 32 Separate Launches — Full Calculation</div>
+	<table class="param" style="margin:0.3rem auto;max-width:700px;">
+	<tr><th style="width:180px;">Component</th><th>Formula</th><th>Values</th><th>Result</th></tr>
+	<tr><td style="color:var(--amber);">CPU Launch Overhead</td><td style="font-size:0.5rem;">N_launches × 5μs per launch</td><td style="font-size:0.5rem;">32 × 5μs</td><td style="color:var(--red);font-weight:700;">160μs</td></tr>
+	<tr><td style="color:var(--amber);">GPU Compute (per image)</td><td style="font-size:0.5rem;">Measured: 1 image preprocess time</td><td style="font-size:0.5rem;">640×640 pixels, fused kernel</td><td style="color:var(--tdim);">~12μs</td></tr>
+	<tr><td style="color:var(--amber);">GPU Compute (all 32)</td><td style="font-size:0.5rem;">32 × 12μs per image</td><td style="font-size:0.5rem;">32 × 12μs</td><td style="color:var(--red);">384μs</td></tr>
+	<tr><td style="color:var(--amber);">PCIe Upload (per image)</td><td style="font-size:0.5rem;">4.8 MB ÷ 12 GB/s</td><td style="font-size:0.5rem;">4,915,200 ÷ 12,000,000,000</td><td style="color:var(--red);">~410μs each</td></tr>
+	<tr><td style="color:var(--amber);">PCIe Upload (all 32)</td><td style="font-size:0.5rem;">32 × 410μs</td><td style="font-size:0.5rem;">32 × 0.41ms</td><td style="color:var(--red);">13,120μs</td></tr>
+	<tr style="background:rgba(248,81,73,0.06);"><td style="color:var(--red);font-weight:700;">TOTAL (GPU only)</td><td>CPU Launch + GPU Compute</td><td style="font-size:0.5rem;">160 + 384</td><td style="color:var(--red);font-weight:700;font-size:0.6rem;">~544μs</td></tr>
+	<tr style="background:rgba(248,81,73,0.06);"><td style="color:var(--red);font-weight:700;">Throughput</td><td>1,000,000μs ÷ total_time</td><td style="font-size:0.5rem;">1,000,000 ÷ 544</td><td style="color:var(--red);font-weight:700;">~1,840 images/sec</td></tr>
+	</table>
+	<div style="font-size:0.45rem;color:var(--tmut);margin:0.3rem 0;">
+	  ⚠️ The 544μs isolates CPU+GPU overhead only. Full PCIe cost is ~13ms — excluded here to focus on what batching improves.
+	</div>
+	</div>
+
+	<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">🟢 1 Batched Launch — Full Calculation</div>
+	<table class="param" style="margin:0.3rem auto;max-width:700px;">
+	<tr><th style="width:180px;">Component</th><th>Formula</th><th>Values</th><th>Result</th></tr>
+	<tr><td style="color:var(--amber);">CPU Launch Overhead</td><td style="font-size:0.5rem;">1 launch × 5μs</td><td style="font-size:0.5rem;">1 × 5μs</td><td style="color:var(--green);font-weight:700;">5μs</td></tr>
+	<tr><td style="color:var(--amber);">GPU Compute (batched)</td><td style="font-size:0.5rem;">Measured: 32 images in parallel<br><span style="font-size:0.4rem;">40 SMs all active, max occupancy</span></td><td style="font-size:0.5rem;">2,560 CUDA cores simultaneously<br>process pixels from all 32 images</td><td style="color:var(--green);">~100μs</td></tr>
+	<tr><td style="color:var(--amber);">Launch Gap</td><td style="font-size:0.5rem;">NONE — 1 launch, no gaps</td><td style="font-size:0.5rem;">0</td><td style="color:var(--green);">0μs</td></tr>
+	<tr style="background:rgba(63,185,80,0.06);"><td style="color:var(--green);font-weight:700;">TOTAL (GPU only)</td><td>CPU + GPU</td><td style="font-size:0.5rem;">5 + 100</td><td style="color:var(--green);font-weight:700;font-size:0.6rem;">~105μs</td></tr>
+	<tr style="background:rgba(63,185,80,0.06);"><td style="color:var(--green);font-weight:700;">Throughput</td><td>1,000,000μs ÷ time</td><td style="font-size:0.5rem;">1,000,000 ÷ 105</td><td style="color:var(--green);font-weight:700;">~9,500 images/sec</td></tr>
+	</table>
+	<div style="font-size:0.45rem;color:var(--tmut);margin:0.3rem 0;">
+	  💡 <strong style="color:var(--green);">The 5.2× speedup (544→105μs) comes from TWO independent wins:</strong><br>
+	  &nbsp;&nbsp;(1) <strong>CPU savings:</strong> 1 launch vs 32 = <strong style="color:var(--cyan);">155μs saved</strong> (160→5μs).<br>
+	  &nbsp;&nbsp;(2) <strong>GPU saturation:</strong> All 40 SMs busy = <strong style="color:var(--cyan);">284μs saved</strong> (384→100μs).<br>
+	  &nbsp;&nbsp;<strong style="color:var(--green);">Total: 155 + 284 = 439μs saved → 544 ÷ 105 = 5.2×</strong>
+	</div>
+	</div>
+
+	<div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.6rem 0.8rem;margin:0.5rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--cyan);margin-bottom:0.4rem;">📐 Formula Reference — Batch Throughput Calculator</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+	<strong>Separate Launches:</strong><br>
+	&nbsp;&nbsp;<code style="color:var(--red);">Time_total = N × CPU_launch + N × GPU_compute + PCIe_upload + PCIe_download</code><br>
+	&nbsp;&nbsp;<code style="color:var(--red);">Throughput = 1,000,000 ÷ Time_total (images/sec)</code><br><br>
+	<strong>Batched Launch:</strong><br>
+	&nbsp;&nbsp;<code style="color:var(--green);">Time_total = 1 × CPU_launch + GPU_compute_batched + PCIe_upload + PCIe_download</code><br>
+	&nbsp;&nbsp;<code style="color:var(--green);">Throughput = 1,000,000 ÷ Time_total (images/sec)</code><br><br>
+	<strong>Speedup:</strong><br>
+	&nbsp;&nbsp;<code style="color:var(--amber);">Speedup = 544μs ÷ 105μs = 5.2×</code><br><br>
+	<strong>When is batching worth it?</strong><br>
+	&nbsp;&nbsp;✅ When N × CPU_launch > GPU_compute_batched — launch overhead dominates<br>
+	&nbsp;&nbsp;✅ When GPU SMs are underutilized per image — batching increases occupancy<br>
+	&nbsp;&nbsp;❌ When GPU is already saturated by 1 image (e.g., LLM inference)
+	</div>
+	</div>
+
 <div class="quiz" id="q3"><div class="question">Why is batched preprocessing faster than launching kernels separately?</div>
 <div class="options">
 <div class="option" data-correct="true" onclick="checkQuiz('q3',this)">A. Two reasons: (1) 1 kernel launch instead of 32 saves ~155μs CPU overhead. (2) 32 images saturate all 40 GPU SMs simultaneously — higher occupancy means better latency hiding. The GPU is designed for massive parallelism.</div>
