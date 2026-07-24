@@ -126,6 +126,13 @@ main { max-width: 960px; margin: 0 auto; padding: 24px; }
     <div class="slides">6 slides | Animations | Deep-dive tables | Roofline analysis | 2 exercises | Dark/Light theme</div>
   </a>
 
+  <a href="phase6E_custom_kernels.html" class="card">
+    <span class="tag tag-cuda">CUDA Phase 6E</span>
+    <h3>Custom CUDA Kernels — Production YOLO Pipeline</h3>
+    <p>7 slides with ANIMATIONS: Python 3-pass vs CUDA 1-pass preprocess visualizer, Batch 32-visualizer. 🎯 YOLO pipeline walking through: Preprocess kernel (12μs, 419×), NMS kernel (0.1ms, 30×), Batched preprocessing (32 images, 5×), TensorRT integration, pybind11 Python bindings, End-to-end pipeline (4.1ms = 244 FPS). Full production stack: Custom CUDA + TRT + CUDA Graphs + Streams = 286 FPS on T4.</p>
+    <div class="slides">7 slides | Animations | Code blocks | Quizzes | Dark/Light theme</div>
+  </a>
+
   <a href="phase6C_nsight.html" class="card">
     <span class="tag tag-cuda">CUDA Phase 6C</span>
     <h3>Nsight Profiling — Find and Fix Bottlenecks</h3>
