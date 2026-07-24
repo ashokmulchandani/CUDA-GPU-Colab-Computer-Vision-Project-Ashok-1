@@ -62,6 +62,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .nav-row{display:flex;gap:1rem;justify-content:center;margin-top:1.5rem}
 .nav-btn{font-family:'JetBrains Mono',monospace;font-size:0.8rem;padding:0.6rem 1.8rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--tdim);cursor:pointer;transition:var(--transition)}
 .nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}.nav-btn:disabled{opacity:0.3;cursor:not-allowed}.nav-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-bg)}
+.req-btn.active{background:var(--cyan-bg)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
 .callout{background:var(--cyan-bg);border:1px solid var(--cyan-border);border-radius:8px;padding:0.7rem 1rem;margin:0.8rem 0;display:flex;align-items:center;gap:0.6rem;font-size:0.72rem;color:var(--tdim)}
 table.param{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:0.55rem;margin:0.5rem 0}
 table.param th{padding:0.4rem;border:1px solid var(--border);color:var(--tdim);background:var(--raised)}table.param td{padding:0.4rem;border:1px solid var(--border);text-align:center}
@@ -107,13 +108,14 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <span style="color:var(--green);">18.60 ms — GPU NEVER idle!</span></div><p>While one stream computes, another uploads — compute and copy engines work simultaneously.</p></div>
 </div>
 
-<h3>🔑 3 Requirements for Multi-Stream</h3>
-<div class="data-types">
-<div class="data-type-card"><div class="dt-icon">📌</div><h4>Pinned Memory</h4><p><code>cudaMallocHost()</code> not <code>malloc()</code>. GPU DMA engine can only access pinned (non-pageable) memory for async transfers.</p></div>
-<div class="data-type-card"><div class="dt-icon">🔄</div><h4>Async Functions</h4><p><code>cudaMemcpyAsync()</code> not <code>cudaMemcpy()</code>. Async version returns immediately — copy happens in background.</p></div>
-<div class="data-type-card"><div class="dt-icon">🔗</div><h4>Stream Assignment</h4><p><code>kernel<<<blocks, threads, 0, stream>>></code>. The 4th launch parameter assigns the kernel to a specific stream.</p></div>
-<div class="data-type-card"><div class="dt-icon">📦</div><h4>Independent Batches</h4><p>Batch N must not depend on batch N-1's result. Each stream processes its own independent data.</p></div>
+<h3>🔑 4 Requirements for Multi-Stream — Click Each to Visualize</h3>
+<div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
+  <button class="btn req-btn active" onclick="showReq(0,this)" style="font-size:0.45rem;">📌 Pinned Mem</button>
+  <button class="btn req-btn" onclick="showReq(1,this)" style="font-size:0.45rem;">🔄 Async</button>
+  <button class="btn req-btn" onclick="showReq(2,this)" style="font-size:0.45rem;">🔗 Stream Param</button>
+  <button class="btn req-btn" onclick="showReq(3,this)" style="font-size:0.45rem;">📦 Independent</button>
 </div>
+<div id="reqViz" style="background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:1rem;margin:0.5rem 0;min-height:180px;"></div>
 
 <div class="quiz" id="q0"><div class="question">What happens if you use malloc() with cudaMemcpyAsync?</div>
 <div class="options">
@@ -310,6 +312,101 @@ function updateDots(){document.getElementById('stepDots').innerHTML=S.map(functi
 function updateChips(){document.getElementById('topicChips').innerHTML=S.map(function(s,i){var c=i===cur?'current':vis.has(i)?'visited':'';return '<span class="topic-chip '+c+'" onclick="goTo('+i+')">'+s.id+' '+s.title+'</span>'}).join('')}
 document.addEventListener('keydown',function(e){if(e.key==='ArrowRight'&&cur<S.length-1)goTo(cur+1);if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)})
 renderSlide(0);
+
+// ── Stream Requirements Visualizer ──
+var reqIdx=0;
+function showReq(i,btn){
+  reqIdx=i;document.querySelectorAll('.req-btn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');
+  var visuals=[
+    // 0: Pinned Memory
+    `<div style="display:flex;gap:1rem;align-items:center;justify-content:center;flex-wrap:wrap;">
+      <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.8rem;text-align:center;min-width:160px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--red);margin-bottom:0.4rem;">❌ Pageable Memory (malloc)</div>
+        <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.5rem;font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+          CPU RAM ──X──→ GPU<br>
+          <span style="color:var(--red);">OS can SWAP this page!</span><br>
+          DMA engine: "I can not<br>access this memory"<br>
+          <span style="color:var(--red);font-weight:700;">cudaMemcpyAsync falls<br>back to SYNC copy!</span>
+        </div>
+      </div>
+      <div style="font-size:1.5rem;color:var(--green);">→</div>
+      <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.8rem;text-align:center;min-width:160px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--green);margin-bottom:0.4rem;">✅ Pinned Memory (cudaMallocHost)</div>
+        <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.5rem;font-size:0.45rem;color:var(--tdim);line-height:1.6;">
+          CPU RAM ──→ GPU<br>
+          <span style="color:var(--green);">LOCKED in physical RAM!</span><br>
+          DMA engine: "I can read<br>this directly"<br>
+          <span style="color:var(--green);font-weight:700;">TRUE async copy — CPU<br>continues while GPU reads!</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin-top:0.5rem;">💡 The GPU has its own DMA (Direct Memory Access) engine. It can read/write RAM WITHOUT the CPU — but ONLY if the memory is pinned (cannot be swapped to disk).</div>`,
+
+    // 1: Async Functions
+    `<div style="text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">cudaMemcpy (SYNC) vs cudaMemcpyAsync (ASYNC) — Timeline</div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;align-items:center;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--red);">
+          SYNC: CPU ████████████████ (BLOCKED during copy) ████████████<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GPU &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;████ COPY ████<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CPU sits idle waiting for copy to finish!
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--green);margin-top:0.5rem;">
+          ASYNC: CPU ███ (launch) ████████████ (does other work!) ████████████<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GPU &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;████ COPY ████ (in background)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cudaMemcpyAsync returns IMMEDIATELY. CPU continues!
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">💡 cudaMemcpyAsync() launches the copy and returns immediately. The copy happens in the BACKGROUND while your CPU code continues. This is what makes overlap possible.</div>
+    </div>`,
+
+    // 2: Stream Assignment
+    `<div style="text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">The 4th Kernel Launch Parameter — How Streams Are Assigned</div>
+      <div class="code-box" style="font-size:0.55rem;max-width:500px;margin:0.5rem auto;">
+<span style="color:#6a9955;">// Regular kernel launch (uses default stream 0)</span>
+<span style="color:#c586c0;">kernel</span><<<blocks, threads>>>(args);       <span style="color:#6a9955;">// 2 params → runs on stream 0</span>
+
+<span style="color:#6a9955;">// Stream-aware kernel launch</span>
+<span style="color:#c586c0;">kernel</span><<<blocks, threads, <span style="color:#ce9178;">0</span>, <span style="color:var(--cyan);">stream</span>>>(args);  <span style="color:#6a9955;">// 4th param = WHICH stream</span>
+                           <span style="color:var(--cyan);">↑ THIS is the stream</span></div>
+      <div style="display:flex;gap:0.3rem;justify-content:center;margin:0.5rem 0;font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:var(--tdim);">
+        <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;"><<<b,t,<strong style="color:var(--cyan);">0</strong>,s>>></div>
+        <div style="display:flex;align-items:center;">=</div>
+        <div style="background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:0.3rem 0.5rem;"><<<Grid, Block, <strong style="color:var(--green);">SharedMemBytes</strong>, <strong style="color:var(--cyan);">Stream</strong>>></div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);">Param 1=Grid, Param 2=Block, Param 3=SharedMem (0=default), <strong style="color:var(--cyan);">Param 4=Stream</strong></div>
+    </div>`,
+
+    // 3: Independent Batches
+    `<div style="text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--tdim);margin-bottom:0.5rem;">Why Batches Must Be Independent</div>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+        <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.6rem;text-align:center;min-width:180px;">
+          <div style="font-size:0.5rem;color:var(--green);">✅ WORKS: Video Frames</div>
+          <div style="font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;line-height:1.6;">
+            Frame 1 → Stream 0<br>
+            Frame 2 → Stream 1<br>
+            Frame 3 → Stream 2<br><br>
+            <span style="color:var(--green);">Each frame is INDEPENDENT.<br>Frame 2 does not need Frame 1's result.</span>
+          </div>
+        </div>
+        <div style="background:var(--bg-card);border:2px solid var(--red);border-radius:8px;padding:0.6rem;text-align:center;min-width:180px;">
+          <div style="font-size:0.5rem;color:var(--red);">❌ FAILS: Iterative Algorithm</div>
+          <div style="font-size:0.45rem;color:var(--tdim);margin-top:0.3rem;line-height:1.6;">
+            Step 1 → Stream 0<br>
+            Step 2 needs Step 1 result<br>
+            Cannot put in Stream 1!<br><br>
+            <span style="color:var(--red);">Step 2 DEPENDS on Step 1.<br>Must wait — no parallelism possible.</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:0.5rem;color:var(--tmut);margin-top:0.5rem;">💡 Multi-stream works when work items are INDEPENDENT. Video frames, batch images, concurrent users — all perfect. Sequential algorithms — not suitable.</div>
+    </div>`
+  ];
+  document.getElementById('reqViz').innerHTML=visuals[i];
+}
+showReq(0,document.querySelector('.req-btn'));
 </script>
 </body>
 </html>
