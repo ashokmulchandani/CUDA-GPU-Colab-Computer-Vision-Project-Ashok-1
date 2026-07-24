@@ -157,6 +157,21 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <tr><td style="color:var(--tdim);">In YOLO terms</td><td>Batch = 1 image (640×640×3 = 1.2M floats = 4.8 MB). Much smaller, even faster overlap!</td></tr>
 </table>
 
+
+	<h3>📦 Benchmark vs YOLO — How Much Data Per Frame?</h3>
+	<table class="param" style="margin:0.5rem auto;max-width:650px;">
+	<tr><th style="width:140px;">What</th><th style="color:var(--cyan);">🧪 Benchmark (multistream.cu)</th><th style="color:var(--green);">🎯 YOLO Inference</th></tr>
+	<tr><td style="color:var(--amber);font-weight:700;">Data per batch/frame</td><td style="font-size:0.5rem;"><strong style="color:var(--cyan);">10,000,000 floats</strong></td><td style="font-size:0.5rem;"><strong style="color:var(--green);">~1,228,800 floats</strong><br><span style="font-size:0.45rem;">640 × 640 × 3 channels (RGB)</span></td></tr>
+	<tr><td style="color:var(--amber);font-weight:700;">Size</td><td style="font-size:0.55rem;color:var(--cyan);font-weight:700;">40 MB</td><td style="font-size:0.55rem;color:var(--green);font-weight:700;">~4.8 MB</td></tr>
+	<tr><td style="color:var(--amber);font-weight:700;">Transfer Time<br><span style="font-size:0.45rem;">(~12 GB/s PCIe)</span></td><td style="font-size:0.5rem;color:var(--cyan);"><strong>~3 ms</strong></td><td style="font-size:0.5rem;color:var(--green);"><strong>~0.4 ms</strong></td></tr>
+	<tr><td style="color:var(--amber);font-weight:700;">Why this size?</td><td style="font-size:0.5rem;">Arbitrary — chosen to make<br>transfer time <strong style="color:var(--cyan);">visible and measurable</strong></td><td style="font-size:0.5rem;">Fixed by camera resolution —<br>every frame is exactly 640×640×3</td></tr>
+	<tr><td style="color:var(--amber);font-weight:700;">Streaming benefit</td><td style="font-size:0.5rem;">4 × 40 MB batches overlapped<br>GPU idle time → ~5%</td><td style="font-size:0.5rem;color:var(--green);"><strong>Even better!</strong> 8× smaller frames<br>→ more queued → GPU stays fuller<br>→ near-perfect overlap</td></tr>
+	</table>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+	  💡 The YOLO frame is <strong style="color:var(--green);">8× smaller</strong> than the benchmark batch. Smaller frames = faster transfers = easier to keep the GPU fed.<br>
+	  The benchmark's 40 MB is deliberately large to <strong style="color:var(--amber);">make the problem visible</strong>. Real workloads benefit even more from streaming.
+	</div>
+
 <h3>🔑 4 Requirements for Multi-Stream — Click Each to Visualize</h3>
 <div style="display:flex;gap:0.3rem;justify-content:center;flex-wrap:wrap;margin:0.5rem 0;">
   <button class="btn req-btn active" onclick="showReq(0,this)" style="font-size:0.45rem;">📌 Pinned Mem</button>
