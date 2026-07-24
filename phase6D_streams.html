@@ -1162,6 +1162,107 @@ nms<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(d_feats, d_b
 	  <strong style="color:var(--cyan);">Count your <<<>>> calls!</strong> Each one is 5μs of CPU time. Graphs turn N×5μs into ~0.5μs.
 	</div>
 
+
+
+	<h3>🔬 Inside "Instantiate" — What Happens During Those ~100μs?</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+	  <code>cudaGraphInstantiate()</code> takes the <strong style="color:var(--violet);">raw DAG of kernels</strong> (what Capture recorded) and turns it into a <strong style="color:var(--green);">single pre-compiled GPU command packet</strong>.<br>
+	  Think of it like: Capture = recording a cooking video. Instantiate = writing down an optimized recipe card for YOUR kitchen.
+	</div>
+
+	<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:stretch;margin:0.8rem 0;">
+
+	  <!-- BEFORE -->
+	  <div style="flex:1;min-width:240px;background:var(--raised);border:2px solid var(--violet);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--violet);margin-bottom:0.4rem;">📸 BEFORE: Raw cudaGraph_t</div>
+	    <div style="font-family:'JetBrains Mono',monospace;font-size:0.38rem;color:var(--tdim);line-height:1.5;">
+	      <span style="color:var(--violet);">NODES (20 kernels):</span><br>
+	      ┌─────────────────────┐<br>
+	      │<span style="color:var(--red);">K01</span> preprocess<<<256,256>>>  │<br>
+	      │  params: d_in, d_out, 640,640 │<br>
+	      │  shmem: 0 bytes   │<br>
+	      │  deps: none       │<br>
+	      └────────┬──────────┘<br>
+	      │<br>
+	      ┌────────┴──────────┐<br>
+	      │<span style="color:var(--red);">K02</span> conv_layer0<<<512,256>>>│<br>
+	      │  params: d_out, d_f0, W1,b1  │<br>
+	      │  shmem: 0 bytes   │<br>
+	      │  deps: K01        │<br>
+	      └────────┬──────────┘<br>
+	      │<br>
+	      <span style="color:var(--tmut);">... 16 more nodes ...</span><br>
+	      │<br>
+	      ┌────────┴──────────┐<br>
+	      │<span style="color:var(--red);">K20</span> nms_filter<<<128,256>>> │<br>
+	      │  params: d_dets, d_out     │<br>
+	      │  shmem: 0 bytes   │<br>
+	      │  deps: K19        │<br>
+	      └─────────────────────┘<br><br>
+	      <span style="color:var(--violet);">EDGES: 19 dependencies</span><br>
+	      <span style="color:var(--violet);">SIZE: ~2-5 KB in host RAM</span><br>
+	      <span style="color:var(--red);">STATUS: NOT executable yet!</span>
+	    </div>
+	  </div>
+
+	  <!-- DURING -->
+	  <div style="flex:1;min-width:280px;background:var(--amber-bg);border:2px solid var(--amber);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--amber);margin-bottom:0.4rem;">⚙️ DURING: cudaGraphInstantiate() ~100μs</div>
+	    <div style="font-family:'JetBrains Mono',monospace;font-size:0.38rem;color:var(--tdim);line-height:1.6;">
+	      <strong style="color:var(--cyan);">Step 1: VALIDATE (~10μs)</strong><br>
+	      ├─ Check all 20 kernel params<br>
+	      ├─ Verify memory addresses exist<br>
+	      ├─ Confirm stream dependencies valid<br>
+	      └─ Detect: any dynamic alloc? → REJECT<br><br>
+	      <strong style="color:var(--amber);">Step 2: OPTIMIZE (~50μs)</strong><br>
+	      ├─ GPU-specific kernel tuning<br>
+	      │  <span style="font-size:0.35rem;">Best block size for THIS SM arch</span><br>
+	      ├─ <strong style="color:var(--green);">Fuse adjacent kernels!</strong><br>
+	      │  <span style="font-size:0.35rem;">K02+K03 can merge? → YES → 1 fused op</span><br>
+	      │  <span style="font-size:0.35rem;">K05+K06+K07 → bottleneck → 1 fused op</span><br>
+	      │  <span style="font-size:0.35rem;">20 kernels → ~15 after fusion!</span><br>
+	      ├─ Reorder for cache locality<br>
+	      └─ Pre-allocate scratch buffers<br><br>
+	      <strong style="color:var(--green);">Step 3: COMPILE (~40μs)</strong><br>
+	      ├─ Generate single GPU cmd packet<br>
+	      ├─ Pre-compute all driver structures<br>
+	      └─ <strong style="color:var(--green);">Output: cudaGraphExec_t</strong>
+	    </div>
+	  </div>
+
+	  <!-- AFTER -->
+	  <div style="flex:1;min-width:220px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.48rem;color:var(--green);margin-bottom:0.4rem;">✅ AFTER: cudaGraphExec_t</div>
+	    <div style="font-family:'JetBrains Mono',monospace;font-size:0.38rem;color:var(--tdim);line-height:1.5;">
+	      <span style="color:var(--green);">OPTIMIZED GRAPH:</span><br>
+	      ┌─────────────────────────────┐<br>
+	      │<strong style="color:var(--green);">GPU COMMAND PACKET</strong>        │<br>
+	      │                             │<br>
+	      │ 📦 <span style="color:var(--green);">FusedOp1</span>: K01             │<br>
+	      │ 📦 <span style="color:var(--green);">FusedOp2</span>: K02+K03 (merged)  │<br>
+	      │ 📦 <span style="color:var(--green);">FusedOp3</span>: K04              │<br>
+	      │ 📦 <span style="color:var(--green);">FusedOp4</span>: K05+K06+K07       │<br>
+	      │ 📦 ... 11 more fused ops ... │<br>
+	      │ 📦 <span style="color:var(--green);">FusedOp15</span>: K20 (NMS)       │<br>
+	      │                             │<br>
+	      │ 🎯 GPU-ready binary blob    │<br>
+	      │ 📏 ~1-2 KB in GPU memory    │<br>
+	      │ ⚡ Execute with 1 DMA write │<br>
+	      └─────────────────────────────┘<br><br>
+	      <span style="color:var(--green);">15 fused ops (was 20!)</span><br>
+	      <span style="color:var(--green);">0.5μs to launch via cudaGraphLaunch()</span><br>
+	      <span style="color:var(--green);">GPU can execute directly — no CPU per-kernel work!</span>
+	    </div>
+	  </div>
+
+	</div>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--amber);">The "magic" of Instantiate is GPU-specific optimization.</strong> The raw graph says "do 20 operations."<br>
+	  Instantiate says "on THIS GPU (T4), fuse ops 2+3, 5+6+7, pre-allocate memory, and compile to a single hardware command."<br>
+	  <strong style="color:var(--green);">The result is NOT just a list of kernels — it's a pre-compiled binary that the GPU hardware can consume directly.</strong><br>
+	  This is why <code>cudaGraphLaunch()</code> is 200× faster than individual launches — the CPU just fires one DMA write to kick off the entire pipeline.
+	</div>
 <h3>🎯 Real YOLO Pipeline — Frames Per Second Impact</h3>
 <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
   A typical YOLO inference pipeline has <strong style="color:var(--amber);">~20 kernel launches</strong> (preprocess, backbone conv layers, neck, detection head, NMS).<br>
