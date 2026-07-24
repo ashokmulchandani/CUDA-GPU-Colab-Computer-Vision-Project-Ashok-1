@@ -729,3 +729,43 @@ All linked in CUDA_PLAN.md (Phase sections + Interactive Learning Modules table)
 - **Add build system** — CMakeLists.txt for all CUDA source files, moving from notebook `%%writefile` to proper `.cu` files
 - **Drop the frozen 32-session table** — replace with a "Current Status" table reflecting actual completion order
 - **Enable GitHub Pages** on the CUDA repo for live HTML hosting (same as MLOPS repo setup)
+
+### Session: 2026-07-24 to 2026-07-25 — Phase 6D Deep Enhancement
+
+**Phase 6D (streams.html) heavily expanded from 6 slides:**
+- Slide 6D.1: Added Benchmark vs YOLO data-per-frame comparison table (10M floats/40MB vs 1.2M/4.8MB). Added MNIST CNN vs YOLO vs Benchmark streams comparison — when streams help vs when they don't. Added step-by-step transfer/compute calculation breakdown for MNIST (0.066%), YOLO (5.86%), Benchmark (900%), LLM Fine-Tuning (0.00027%). Decision rule: Transfer/Compute > 10% → use streams.
+- Slide 6D.2: Added "Why This Exact Example?" teaching design table (5 rows explaining pedagogical choices). Added "Deep Dive: GPU Resource Utilization" 5-column table with Tesla T4 per-SM and total capacity (Blocks, Warps, Threads, Registers, Shared Mem, Compute, Memory BW, PCIe BW, Roofline). Added "Pure Python vs Custom CUDA Kernels" 6-column comparison with T4 per-SM breakdown. Added "Custom CUDA Kernels vs Python/PyTorch" table showing 419× preprocess, 30× NMS, ~3× end-to-end. Added ms→FPS calculation breakdown and input FPS explanation. Added FPS/throughput rows.
+- Slide 6D.3: Complete rewrite — added animated timeline visualizer (Individual Launches vs CUDA Graph). Added Launch Overhead Calculation table (5-200 kernels). Added Real YOLO FPS impact table (30→5000 FPS). Added concrete YOLO kernel breakdown (20 kernels: 1 prep + 10 backbone + 5 neck + 3 head + 1 NMS). Added visual "Inside cudaGraphInstantiate" 3-panel diagram (Validate→Optimize→Compile). Added CUDA Graphs vs TensorRT auto-tuning comparison. Added CPU budget math formula.
+- Fixed JS syntax error (duplicate closing tag from old slide). Fixed occupancy denominator (81,920→40,960).
+- **New HTMLs created:** `phase6D_streams.html` (heavily enhanced, now ~100KB+)
+
+### Session: 2026-07-24 to 2026-07-25 — Phase 6E Custom CUDA Kernels
+
+**New `phase6E_custom_kernels.html` created — 8 interactive slides:**
+- Slide 6E.1: The 3 Python Bottlenecks — Preprocess (5-10ms), NMS (3-8ms), Autograd (~1-3ms). Before/After comparison table.
+- Slide 6E.2: Preprocess Kernel — fused resize+normalize+HWC→CHW in 1 GPU pass (12μs, 419×). Full CUDA kernel code with bilinear interpolation. Animated Python 3-pass vs CUDA 1-pass visualization. Added NVDEC GPU hardware decode section with T4 die diagram, acronym explanation, before/after data flow, C++ code.
+- Slide 6E.3: Custom NMS Kernel — GPU-side box filtering (0.1ms, 30×). Before/After pipeline diagram. Complete NMS kernel code with parallel IoU.
+- Slide 6E.4: Batched Preprocessing — 32 images in 1 launch (5× throughput). Animated 32 separate vs 1 batched launch visualization. Detailed step-by-step calculation breakdown (160+384=544μs vs 5+100=105μs).
+- Slide 6E.5: TensorRT Integration — Build (.engine) vs Integrate (pipeline) visual comparison. FAQ: CPU vs TRT, can we skip TRT, TRT+PyTorch, ONNX. YOLO vs PyTorch vs TRT model-vs-engine visual. Side-by-side Python/PyTorch vs C++/TRT code comparison. Split build_graph() and hot loop code showing exact TRT call location.
+- Slide 6E.6: Python Bindings (pybind11) — SVG call chain diagram showing YOU write BOTH Python and C++/CUDA. Compile step explained. Complete folder structure with src/, python/, models/, build/. 3-step workflow: Build→Install→Run.
+- Slide 6E.7: End-to-End Pipeline — NVDEC→Preprocess→TRT→NMS = 4.6ms = 217 FPS. With Streams: 250 FPS. Full comparison table with Video Decode column. Without vs With Integration side-by-side.
+- Slide 6E.8: Testing & QA — 3-Pass PR Review for CUDA kernels. 3 Test Types table (Happy Path/Edge Cases/Failure Modes). 4-Layer Testing with concrete pytest code. 10-Point Pre-Deployment Checklist. The 3 Phrases — CUDA Edition. Updated folder structure with tests/ directory.
+
+**New `yolo_pipeline_production.html` created:**
+- 4 interactive modes: Baseline (252ms/4FPS) → Streams (7ms/143FPS) → Graph (4.5ms/222FPS) → Production (4.1ms/244FPS)
+- Gantt-chart style SVG animations showing frame flow through pipeline
+- GPU idle %, PCIe utilization per mode. Optimization checklist per mode.
+
+**index.html updated:** Cards for Phase 6E, yolo_pipeline_production.html added. Phase 6D card updated with new content description.
+
+### Current HTML Inventory (29 files)
+Phase 3: phase3_mlp_mnist.html, phase3_5_cnn_mnist.html, phase3_5_animations.html, phase3_lr_convergence_calc.html, phase3_mlp_mnist.html
+Phase 4: phase4_yolo_cuda.html, yolo_pipeline_visualizer.html, yolo_pipeline_production.html
+Phase 6A: phase6A_tensorrt.html
+Phase 6B: phase6B_triton.html
+Phase 6C: phase6C_nsight.html
+Phase 6D: phase6D_streams.html (heavily enhanced)
+Phase 6E: phase6E_custom_kernels.html (8 slides, newly built)
+Phase 6 Overview: phase6_production_cuda.html
+Animations: bounding_box_visualizer.html, cnn_backbone_visualizer.html, filter_sliding_animation.html, inner_loops_animation.html, cnn_28x28_sliding.html, maxpool_animation.html, flatten_fc_softmax.html, multichannel_conv_animation.html, tensorrt_explainer.html
+Tools: nsight_interactive.html, occupancy_visualizer.html, class_imbalance_visualizer.html, neuron_weight_visualizer.html, one_neuron_explained.html, llama_neuron_comparison.html, smart_camera_explained.html
