@@ -179,6 +179,31 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 }
 <span style="color:#6a9955;">// Frame 1 computes in S0 while frame 2 uploads in S1!</span></div>
 
+<h3>📦 What Is "Transfer"? — Moving Data Between CPU and GPU</h3>
+<div style="display:flex;gap:0.5rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:0.8rem 0;">
+  <div style="background:var(--bg-card);border:2px solid var(--cyan);border-radius:8px;padding:0.6rem;text-align:center;min-width:120px;">
+    <div style="font-size:0.5rem;color:var(--cyan);">💻 CPU RAM</div>
+    <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">Your data lives here<br>(40 MB per batch)</div>
+  </div>
+  <div style="text-align:center;">
+    <div style="font-size:0.55rem;color:var(--amber);font-weight:700;">→ H→D Upload →</div>
+    <div style="font-size:0.4rem;color:var(--tmut);">cudaMemcpyAsync</div>
+    <div style="font-size:0.4rem;color:var(--tmut);">PCIe bus (~12 GB/s)</div>
+    <div style="font-size:0.55rem;color:var(--amber);font-weight:700;margin-top:0.5rem;">← D→H Download ←</div>
+    <div style="font-size:0.4rem;color:var(--tmut);">cudaMemcpyAsync</div>
+    <div style="font-size:0.4rem;color:var(--tmut);">PCIe bus (~12 GB/s)</div>
+  </div>
+  <div style="background:var(--bg-card);border:2px solid var(--green);border-radius:8px;padding:0.6rem;text-align:center;min-width:120px;">
+    <div style="font-size:0.5rem;color:var(--green);">🖥️ GPU VRAM</div>
+    <div style="font-size:0.45rem;color:var(--tmut);margin-top:0.2rem;">Kernel runs here<br>(processes 10M floats)</div>
+  </div>
+</div>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+  💡 CPU and GPU have SEPARATE memory. Data must COPIED across the PCIe bus before the GPU can process it.<br>
+  <strong style="color:var(--amber);">Without streams: copy → compute → copy → (wait) → repeat.</strong> GPU sits idle during copies.<br>
+  <strong style="color:var(--green);">With streams: copy batch 1 WHILE computing batch 0.</strong> GPU never waits.
+</div>
+
 <h3>📊 Results Table</h3>
 <table class="param">
 <tr><th>Method</th><th>Time</th><th>GPU Utilization</th><th>Speedup</th></tr>
