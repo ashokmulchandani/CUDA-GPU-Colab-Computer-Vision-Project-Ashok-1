@@ -674,6 +674,59 @@ Same car, same speed limit, same destination. One engine is fuel-efficient but s
 <tr style="background:rgba(63,185,80,0.06);"><td>Total</td><td style="font-size:0.5rem;color:var(--red);">10-18ms (CPU bottlenecks)</td><td style="font-size:0.5rem;color:var(--green);"><strong>4-7ms (all GPU)</strong></td></tr>
 </table>
 
+<h3>💻 Code Comparison — Where Is the Engine?</h3>
+<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;margin:0.5rem 0;">
+
+<div style="flex:1;min-width:320px;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);text-align:center;margin-bottom:0.3rem;">🐍 Python + PyTorch Engine</div>
+<div class="code-box"><span class="cell-num">app.py — PyTorch as the inference engine</span>
+<span style="color:#6a9955;"># ❌ PREPROCESS: runs on CPU (not integrated!)</span>
+img = cv2.imread(<span style="color:#ce9178;">"frame.jpg"</span>)              <span style="color:#6a9955;">// CPU: HWC uint8</span>
+img = cv2.resize(img, (<span style="color:#ce9178;">640</span>,<span style="color:#ce9178;">640</span>))            <span style="color:#6a9955;">// CPU: 5ms</span>
+img = img.astype(np.float32) / <span style="color:#ce9178;">255.0</span>          <span style="color:#6a9955;">// CPU: normalize</span>
+img = np.transpose(img, (<span style="color:#ce9178;">2</span>,<span style="color:#ce9178;">0</span>,<span style="color:#ce9178;">1</span>))               <span style="color:#6a9955;">// CPU: HWC -> CHW</span>
+tensor = torch.from_numpy(img).cuda()  <span style="color:#6a9955;">// PCIe: upload</span>
+
+<span style="color:#6a9955;">// 🧠 ENGINE: THIS is where PyTorch runs YOLO</span>
+<span style="color:#dcdcaa;">model</span> = torch.hub.load(<span style="color:#ce9178;">'ultralytics/yolov5'</span>,<span style="color:#ce9178;">'yolov5s'</span>)
+<span style="color:#569cd6;">with</span> torch.no_grad():               <span style="color:#6a9955;">// No gradients for inference</span>
+    <span style="color:#dcdcaa;">predictions</span> = <strong style="color:var(--red);background:rgba(248,81,73,0.2);padding:0 4px;">model(tensor)</strong>   <span style="color:#6a9955;">// ← ENGINE CALL (8-15ms!)</span>
+
+<span style="color:#6a9955;">// ❌ POSTPROCESS: runs on CPU (not integrated!)</span>
+boxes = predictions.xyxy[<span style="color:#ce9178;">0</span>].cpu().numpy()   <span style="color:#6a9955;">// GPU -> CPU copy</span>
+keep = torchvision.ops.nms(boxes[:,:<span style="color:#ce9178;">4</span>],...)   <span style="color:#6a9955;">// CPU: NMS 3ms</span>
+
+<span style="color:var(--red);"><strong>// Total: 16-33ms. CPU-heavy. 3 GPU->CPU transfers.</strong></span></div>
+</div>
+
+<div style="flex:1;min-width:320px;">
+<div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);text-align:center;margin-bottom:0.3rem;">⚡ C++ + TRT Engine (Integrated)</div>
+<div class="code-box"><span class="cell-num">main.cpp — TRT as the inference engine</span>
+<span style="color:#6a9955;">// ✅ PREPROCESS: runs on GPU (integrated!)</span>
+<span style="color:#569cd6;">uchar4</span>* d_input = capture_frame_to_vram();    <span style="color:#6a9955;">// Already in VRAM!</span>
+preprocess_kernel<<<grid,block,<span style="color:#ce9178;">0</span>,stream>>>(   <span style="color:#6a9955;">// GPU: 12μs</span>
+    d_input, d_preprocessed, W, H);        <span style="color:#6a9955;">// Fused: resize+norm+CHW</span>
+
+<span style="color:#6a9955;">// 🧠 ENGINE: THIS is where TRT runs YOLO</span>
+<span style="color:#569cd6;">auto</span>* trt_engine = load_engine(<span style="color:#ce9178;">"model.engine"</span>);  <span style="color:#6a9955;">// Load once at startup</span>
+trt_context = trt_engine->createExecutionContext();
+<span style="color:#dcdcaa;">trt_context</span>-><strong style="color:var(--green);background:rgba(63,185,80,0.2);padding:0 4px;">enqueueV2</strong>(bindings, stream, nullptr);
+<span style="color:#6a9955;">// ↑ ENGINE CALL (4ms!) — SAME YOLO model, DIFFERENT engine</span>
+
+<span style="color:#6a9955;">// ✅ POSTPROCESS: runs on GPU (integrated!)</span>
+nms_kernel<<<grid,block,<span style="color:#ce9178;">0</span>,stream>>>(      <span style="color:#6a9955;">// GPU: 0.1ms</span>
+    d_detections, d_boxes, &num_boxes);    <span style="color:#6a9955;">// Data never leaves VRAM!</span>
+
+<span style="color:var(--green);"><strong>// Total: ~4.6ms. ALL GPU. 0 CPU->GPU transfers.</strong></span></div>
+</div>
+
+</div>
+<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+💡 <strong style="color:var(--amber);">Same YOLO model, same weights, SAME MATH.</strong> The difference is the ENGINE: <code>model(tensor)</code> (PyTorch, 8-15ms) vs <code>context->enqueueV2()</code> (TRT, 4ms).<br>
+Both execute YOLO's 225 layers. TRT just does it 2-3× faster because it pre-optimized for THIS GPU.<br>
+<strong style="color:var(--green);">The INTEGRATION part:</strong> TRT engine sits BETWEEN custom preprocess and custom NMS — all three sharing GPU memory via pointers.
+</div>
+
 <div class="code-box"><span class="cell-num">End-to-end C++ inference loop (main.cpp)</span>
 <span style="color:#6a9955;">// Setup: one-time initialization</span>
 <span style="color:#569cd6;">cudaStream_t</span> stream;
