@@ -150,6 +150,7 @@ Upload 1 → Compute 1 → Download 1 → Upload 2 → Compute 2 → Download 2
 <tr><th colspan="2" style="color:var(--amber);">📦 4 Batches × 10M floats — What It Means</th></tr>
 <tr><td style="color:var(--tdim);">Batch size</td><td>10,000,000 float32 numbers = <strong style="color:var(--cyan);">40 MB</strong> per batch</td></tr>
 <tr><td style="color:var(--tdim);">Total data</td><td>4 batches × 40 MB = <strong style="color:var(--amber);">160 MB</strong> total</td></tr>
+<tr><td style="color:var(--tdim);">Where from?</td><td style="font-size:0.5rem;"><strong style="color:var(--amber);">Synthetic — fake data for benchmarking.</strong> Not real images.<br>Code fills each batch with <code>h_data[i][j] = (float)(i+1)</code> — Batch 0=all 1.0, Batch 1=all 2.0...<br>Like using dummy weights to test a conveyor belt speed.</td></tr>
 <tr><td style="color:var(--tdim);">Why split?</td><td>1 big 160MB transfer = GPU waits. 4 small 40MB transfers = can overlap with compute.</td></tr>
 <tr><td style="color:var(--tdim);">Kernel work</td><td>Each float: <code>val = sqrt(val*2+1)^2 + 1</code> — simple math, takes ~same time as transfer</td></tr>
 <tr><td style="color:var(--tdim);">In YOLO terms</td><td>Batch = 1 image (640×640×3 = 1.2M floats = 4.8 MB). Much smaller, even faster overlap!</td></tr>
