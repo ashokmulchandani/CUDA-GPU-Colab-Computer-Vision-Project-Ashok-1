@@ -379,6 +379,174 @@ The 7.07× speedup number is real, but the REAL lesson is: <strong style="color:
 	  <strong style="color:var(--cyan);">The 7.07× speedup comes from PCIe saturation, not from using more GPU compute.</strong>
 	</div>
 
+
+	<h3>🐍 Pure Python vs ⚡ Custom CUDA Kernels — With &amp; Without Streams</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.6rem;">
+	  Same task: process 4 batches of 10M floats each (40 MB/batch). What changes when you move from CPU to GPU, then add streams?<br>
+	  Below: <strong style="color:var(--cyan);">every resource dimension</strong> — execution model, hardware usage, and T4 specs per SM and total.
+	</div>
+
+	<table class="param" style="margin:0.5rem auto;max-width:850px;">
+	<tr>
+	  <th style="width:120px;">Metric</th>
+	  <th style="color:var(--magenta);">🐍 Pure Python<br><span style="font-size:0.4rem;">(NumPy on CPU)</span></th>
+	  <th style="color:var(--red);">⚡ CUDA<br><span style="font-size:0.4rem;">Single Stream</span></th>
+	  <th style="color:var(--green);">⚡⚡ CUDA<br><span style="font-size:0.4rem;">4 Streams</span></th>
+	  <th style="color:var(--cyan);">🏗️ T4 <strong>Per SM</strong></th>
+	  <th style="color:var(--amber);">🏗️ T4 <strong>Total</strong></th>
+	</tr>
+
+	<tr style="background:rgba(255,110,199,0.04);">
+	  <td style="color:var(--amber);font-weight:700;">⏱️ Time<br><span style="font-size:0.4rem;">(4×10M floats)</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~20-50 ms</strong><br><span style="font-size:0.4rem;">NumPy is C-backed, quite fast!<br>But CPU-bound by cores &amp; mem BW</span></td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>131.62 ms</strong><br><span style="font-size:0.4rem;">PCIe transfer dominates<br>GPU starved — idle ~60%</span></td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>18.60 ms</strong><br><span style="font-size:0.4rem;">PCIe saturated ~100%<br>GPU busy — idle ~5%</span></td>
+	  <td style="font-size:0.45rem;color:var(--tmut);">—</td>
+	  <td style="font-size:0.45rem;color:var(--tmut);">—</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🖥️ Execution<br><span style="font-size:0.4rem;">Hardware</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>CPU Only</strong><br>Intel Xeon / AMD EPYC<br>~8-16 physical cores</td>
+	  <td style="font-size:0.5rem;color:var(--red);">GPU (40 SMs)<br>+ CPU for launches<br>+ PCIe bus for transfers</td>
+	  <td style="font-size:0.5rem;color:var(--green);">GPU (40 SMs)<br>+ CPU for launches<br>+ PCIe bus (saturated)</td>
+	  <td style="font-size:0.45rem;color:var(--tmut);">—</td>
+	  <td style="font-size:0.45rem;color:var(--tmut);">—</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🔢 Threads<br><span style="font-size:0.4rem;">Active</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~8-16</strong><br>(OS threads on CPU cores)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>512</strong><br>2 blocks × 256 threads<br>Only 1 batch at a time</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>2,048</strong><br>4 streams × 2×256<br>4 batches in flight</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>1,024</strong><br>max per SM</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>40,960</strong><br>40 SMs × 1,024</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">📦 Blocks<br><span style="font-size:0.4rem;">Active</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);">N/A<br>(no GPU blocks)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>2 blocks</strong><br>Distributed across SMs</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>8 blocks</strong><br>4 batches × 2 blocks each</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>16</strong><br>max per SM</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>640</strong><br>40 SMs × 16</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🧵 Warps<br><span style="font-size:0.4rem;">Active</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);">N/A</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>16 warps</strong><br>512 threads ÷ 32<br>Per SM: ~0.4 warps</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>64 warps</strong><br>2,048 threads ÷ 32<br>Per SM: ~1.6 warps</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>32</strong><br>max per SM<br>(1,024 ÷ 32)</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>1,280</strong><br>40 SMs × 32</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">📋 Registers<br><span style="font-size:0.4rem;">Used</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);">N/A<br>(CPU uses x86 regs)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>~5,120</strong><br>~10 regs × 512 threads</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~20,480</strong><br>~10 regs × 2,048 threads</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>65,536</strong><br>64K registers</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>2,621,440</strong><br>40 SMs × 65,536</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">💾 Shared Mem<br><span style="font-size:0.4rem;">Used</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);">N/A<br>(CPU uses cache)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>0 bytes</strong><br>Kernel doesn't use it</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>0 bytes</strong><br>Same kernel</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>64 KB</strong><br>configurable<br>(+ 64 KB L1)</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>2,560 KB</strong><br>40 SMs × 64 KB</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🔲 CUDA Cores<br><span style="font-size:0.4rem;">FP32 units</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);">N/A</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>512 of 2,560</strong><br>(20% — but not really,<br>only 512 threads active)</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>2,048 of 2,560</strong><br>(80% — but occupancy<br>is still only 5%)</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>64</strong><br>per SM</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>2,560</strong><br>40 SMs × 64</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">📐 Occupancy<br><span style="font-size:0.4rem;">(Threads)</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);">N/A</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>1.25%</strong><br>512 ÷ 40,960<br>GPU massively idle</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>5%</strong><br>2,048 ÷ 40,960<br>4× better, still low</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);"><strong>100% max</strong><br>with 1,024 threads</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);"><strong>100% max</strong><br>with 40,960 threads</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🧮 Compute<br><span style="font-size:0.4rem;">Throughput</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~50-200 GFLOPS</strong><br>(CPU FP32 peak ~500 GFLOPS<br>but NumPy overhead + mem BW<br>reduces effective throughput)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>~0.38 GFLOPS</strong><br>PCIe bottleneck —<br>GPU starved for data</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~10.5 GFLOPS</strong><br>PCIe saturated —<br>data flowing at max rate</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);"><strong>202.5 GFLOPS</strong><br>8,100÷40 (FP32)</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>8,100 GFLOPS</strong><br>8.1 TFLOPS FP32</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">💨 Memory BW<br><span style="font-size:0.4rem;">(Effective)</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>~50-100 GB/s</strong><br>DDR4/DDR5 system RAM<br>(no PCIe needed!)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>~0.6 GB/s</strong><br>PCIe idle ~95% of time<br>GPU VRAM BW: 320 GB/s<br>(but data-starved)</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~17 GB/s</strong><br>PCIe ~100% saturated<br>GPU VRAM BW: 320 GB/s<br>(still mostly idle)</td>
+	  <td style="font-size:0.5rem;color:var(--cyan);">—</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>320 GB/s</strong><br>GDDR6</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🔗 PCIe BW<br><span style="font-size:0.4rem;">CPU↔GPU</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>0 GB/s</strong><br>Data already in RAM —<br>NO PCIe overhead!</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>~0.6 GB/s</strong><br>Transfers are sequential<br>CPU waits → GPU waits</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~17 GB/s</strong><br>Overlapped transfers<br>PCIe link fully utilized</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">—</td>
+	  <td style="font-size:0.5rem;color:var(--amber);"><strong>~12-16 GB/s</strong><br>PCIe Gen3 ×16</td>
+	</tr>
+
+	<tr style="background:rgba(255,179,71,0.08);">
+	  <td style="color:var(--amber);font-weight:700;">⚡ Bottleneck<br><span style="font-size:0.4rem;">(Limiting Factor)</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);font-weight:700;">CPU MEM BW<br><span style="font-size:0.4rem;">Limited by DDR bandwidth<br>+ CPU core count</span></td>
+	  <td style="font-size:0.5rem;color:var(--red);font-weight:700;">PCIe IDLE<br><span style="font-size:0.4rem;">GPU starved — PCIe sits idle<br>during compute and compute<br>sits idle during transfers</span></td>
+	  <td style="font-size:0.5rem;color:var(--green);font-weight:700;">PCIe SATURATED<br><span style="font-size:0.4rem;">BEST CASE: data flows at<br>max PCIe rate. GPU compute<br>is no longer the bottleneck</span></td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">—</td>
+	  <td style="font-size:0.5rem;color:var(--amber);">—</td>
+	</tr>
+
+	<tr>
+	  <td style="color:var(--amber);font-weight:700;">🚀 Speedup<br><span style="font-size:0.4rem;">vs Python</span></td>
+	  <td style="font-size:0.5rem;color:var(--magenta);"><strong>1×</strong> (baseline)</td>
+	  <td style="font-size:0.5rem;color:var(--red);"><strong>~0.15-0.4×</strong><br>SLOWER than NumPy!<br>PCIe overhead kills perf</td>
+	  <td style="font-size:0.5rem;color:var(--green);"><strong>~1.1-2.7×</strong><br>FASTER than NumPy<br>Streams finally beat CPU</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">—</td>
+	  <td style="font-size:0.5rem;color:var(--tmut);">—</td>
+	</tr>
+	</table>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--amber);">Key Insight:</strong> For simple operations on small data, <strong style="color:var(--magenta);">NumPy on CPU can actually BEAT a naive CUDA implementation</strong> because it avoids PCIe overhead!<br>
+	  The GPU only wins when: (a) compute is heavy enough to hide transfer time, OR (b) you use streams to overlap transfers.<br>
+	  <strong style="color:var(--cyan);">This is why CUDA kernels + streaming together is the winning combination — each alone is insufficient.</strong><br>
+	  For real deep learning workloads (matrix multiplies, convolutions), the GPU's 8.1 TFLOPS vs CPU's ~0.5 TFLOPS makes the PCIe tax well worth paying.
+	</div>
+
+	<div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
+	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--amber);margin-bottom:0.3rem;">🏗️ Tesla T4 SM (Streaming Multiprocessor) — What's Inside ONE SM</div>
+	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.8;">
+	<strong>Each T4 has 40 SMs. One SM contains:</strong><br>
+	&nbsp;&nbsp;🔲 <strong>64 CUDA Cores</strong> (FP32) — execute floating-point ops. 40×64 = 2,560 total.<br>
+	&nbsp;&nbsp;🧮 <strong>8 Tensor Cores</strong> (FP16/INT8) — matrix multiply-accumulate. 40×8 = 320 total. Up to 65 TFLOPS FP16.<br>
+	&nbsp;&nbsp;📋 <strong>65,536 Registers</strong> (256 KB) — fastest memory, private to each thread. 40×65K = 2.6M total.<br>
+	&nbsp;&nbsp;💾 <strong>64 KB Shared Memory / L1 Cache</strong> — configurable split (0/64, 16/48, 32/32, 48/16, 64/0 KB).<br>
+	&nbsp;&nbsp;🧵 <strong>1,024 Max Threads</strong> = 32 warps of 32 threads each. Hardware scheduler switches warps to hide latency.<br>
+	&nbsp;&nbsp;📦 <strong>16 Max Blocks</strong> per SM — each block gets its own shared memory allocation.<br>
+	&nbsp;&nbsp;📐 <strong>4 Texture Units</strong> — hardware-accelerated image sampling (bilinear, etc).<br>
+	&nbsp;&nbsp;📤 <strong>16 Load/Store Units</strong> — handle memory requests to VRAM (GDDR6 at 320 GB/s).<br>
+	&nbsp;&nbsp;📊 <strong>Warp Scheduler</strong> — 4 schedulers per SM, each can issue 1 instruction per clock to 1 warp.<br>
+	<strong>Formula for max occupancy:</strong> <code style="color:var(--cyan);">Occupancy = min(Threads/1024, Blocks/16, Registers_per_thread×Threads/65536, Shared_Mem_per_block/64KB)</code>
+	</div>
+	</div>
+
 	<div style="background:var(--cyan-bg);border:1px solid var(--cyan);border-radius:8px;padding:0.6rem 1rem;margin:0.6rem 0;">
 	<div style="font-family:'Orbitron',sans-serif;font-size:0.55rem;color:var(--cyan);margin-bottom:0.3rem;">🔍 How to Identify Memory-Bound vs Compute-Bound</div>
 	<div style="font-size:0.5rem;color:var(--tdim);line-height:1.7;">
