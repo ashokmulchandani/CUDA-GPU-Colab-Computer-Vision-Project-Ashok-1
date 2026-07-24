@@ -1068,6 +1068,100 @@ nms<<<grid, block, <span style="color:#ce9178;">0</span>, stream>>>(d_feats, d_b
   Above 10 kernels, CUDA Graphs are <strong style="color:var(--green);">almost always a win</strong> for repeated pipelines.
 </div>
 
+
+	<h3>🔬 What EXACTLY Is Being Captured? — YOLO Kernel-by-Kernel Breakdown</h3>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
+	  Every <code>&lt;&lt;&lt;grid, block, 0, stream&gt;&gt;&gt;</code> is ONE kernel launch. Here's exactly what CUDA Graph captures:<br>
+	  <strong style="color:var(--amber);">20 kernel launches → 1 graph → 0.5μs instead of 100μs.</strong> Each kernel is a GPU function, each launch costs CPU time.
+	</div>
+
+	<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;margin:0.5rem 0;">
+
+	  <!-- LEFT: Without Graph -->
+	  <div style="flex:1;min-width:280px;background:var(--raised);border:2px solid var(--red);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--red);margin-bottom:0.4rem;">❌ WITHOUT CUDA Graph — 20 Individual Launches</div>
+	    <div style="font-family:'JetBrains Mono',monospace;font-size:0.42rem;color:var(--tdim);line-height:1.5;">
+	      <strong style="color:var(--cyan);">= STAGE 1: Preprocess (1 kernel) =</strong><br>
+	      <span style="color:var(--red);">K01</span> resize_norm_HWC2CHW<<<256,256>>>  — 5μs CPU<br><br>
+	      <strong style="color:var(--cyan);">= STAGE 2: Backbone CSPDarknet (10 kernels) =</strong><br>
+	      <span style="color:var(--red);">K02</span> conv2d_layer0<<<512,256>>>     — 5μs<br>
+	      <span style="color:var(--red);">K03</span> conv2d_layer1<<<256,256>>>     — 5μs<br>
+	      <span style="color:var(--red);">K04</span> conv2d_layer2<<<128,256>>>     — 5μs<br>
+	      <span style="color:var(--red);">K05</span> conv2d_layer3<<<64,256>>>      — 5μs<br>
+	      <span style="color:var(--red);">K06</span> conv2d_layer4<<<32,256>>>      — 5μs<br>
+	      <span style="color:var(--red);">K07</span> bottleneck_block1<<<64,256>>>  — 5μs<br>
+	      <span style="color:var(--red);">K08</span> bottleneck_block2<<<64,256>>>  — 5μs<br>
+	      <span style="color:var(--red);">K09</span> bottleneck_block3<<<32,256>>>  — 5μs<br>
+	      <span style="color:var(--red);">K10</span> spp_block<<<32,256>>>          — 5μs<br>
+	      <span style="color:var(--red);">K11</span> conv2d_transition<<<64,256>>>  — 5μs<br><br>
+	      <strong style="color:var(--cyan);">= STAGE 3: Neck PANet (5 kernels) =</strong><br>
+	      <span style="color:var(--red);">K12</span> upsample_concat1<<<128,256>>>  — 5μs<br>
+	      <span style="color:var(--red);">K13</span> conv2d_neck1<<<128,256>>>      — 5μs<br>
+	      <span style="color:var(--red);">K14</span> upsample_concat2<<<256,256>>>  — 5μs<br>
+	      <span style="color:var(--red);">K15</span> conv2d_neck2<<<256,256>>>      — 5μs<br>
+	      <span style="color:var(--red);">K16</span> downsample_concat<<<128,256>>> — 5μs<br><br>
+	      <strong style="color:var(--cyan);">= STAGE 4: Detection Head (3 kernels) =</strong><br>
+	      <span style="color:var(--red);">K17</span> detect_head_small<<<64,256>>>   — 5μs<br>
+	      <span style="color:var(--red);">K18</span> detect_head_med<<<64,256>>>     — 5μs<br>
+	      <span style="color:var(--red);">K19</span> detect_head_large<<<64,256>>>   — 5μs<br><br>
+	      <strong style="color:var(--cyan);">= STAGE 5: Postprocess (1 kernel) =</strong><br>
+	      <span style="color:var(--red);">K20</span> nms_filter<<<128,256>>>         — 5μs<br><br>
+	      <div style="text-align:center;padding:0.3rem;background:rgba(248,81,73,0.1);border-radius:4px;">
+	        <strong style="color:var(--red);">TOTAL: 20 kernels × 5μs = 100μs CPU overhead</strong><br>
+	        <span style="font-size:0.4rem;">Per frame. At 1000 FPS = 100ms CPU wasted per second!</span>
+	      </div>
+	    </div>
+	  </div>
+
+	  <!-- ARROW -->
+	  <div style="display:flex;align-items:center;font-size:1.5rem;color:var(--green);padding:0 0.3rem;">→</div>
+
+	  <!-- RIGHT: With Graph -->
+	  <div style="flex:1;min-width:280px;background:var(--raised);border:2px solid var(--green);border-radius:8px;padding:0.6rem;">
+	    <div style="font-family:'Orbitron',sans-serif;font-size:0.5rem;color:var(--green);margin-bottom:0.4rem;">✅ WITH CUDA Graph — 1 Launch for ALL 20</div>
+	    <div style="font-family:'JetBrains Mono',monospace;font-size:0.42rem;color:var(--tdim);line-height:1.5;">
+	      <strong style="color:var(--violet);">📸 CAPTURE:</strong> Records all 20 <<<>>> calls<br>
+	      into a <strong style="color:var(--violet);">cudaGraph_t</strong> object (DAG of operations)<br>
+	      <span style="font-size:0.38rem;color:var(--tmut);">CPU sees: "Record K01→K02→...→K20, don't execute yet"</span><br><br>
+	      <strong style="color:var(--amber);">🏗️ INSTANTIATE:</strong> Pre-optimizes for THIS GPU<br>
+	      <span style="font-size:0.38rem;color:var(--tmut);">Validates params, fuses adjacent ops, pre-computes</span><br>
+	      <span style="font-size:0.38rem;color:var(--tmut);">driver bookkeeping → single GPU command packet</span><br><br>
+	      <strong style="color:var(--green);">▶️ REPLAY:</strong> ONE CPU call for EVERY frame<br>
+	      <span style="color:var(--green);">G[</span><span style="color:var(--tdim);">K01 K02 K03 K04 K05 K06 K07 K08 K09 K10</span><br>
+	      <span style="color:var(--tdim);">  K11 K12 K13 K14 K15 K16 K17 K18 K19 K20</span><span style="color:var(--green);">]</span><br>
+	      <span style="color:var(--green);">cudaGraphLaunch(instance, stream) → 0.5μs!</span><br><br>
+	      <strong style="color:var(--violet);">🔁 REPLAY AGAIN:</strong> Same graph, frame after frame<br>
+	      <span style="font-size:0.38rem;color:var(--tmut);">1M frames: 0.5s CPU with graph vs 100s without</span><br><br>
+	      <div style="text-align:center;padding:0.3rem;background:rgba(63,185,80,0.1);border-radius:4px;">
+	        <strong style="color:var(--green);">TOTAL: 1 launch × 0.5μs = 0.5μs CPU overhead</strong><br>
+	        <span style="font-size:0.4rem;">200× less CPU time. GPU executes same kernels!</span>
+	      </div>
+	    </div>
+	  </div>
+	</div>
+
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.4rem 0;">
+	  💡 <strong style="color:var(--amber);">"Capture" = recording 20 kernel launches into a DAG (Directed Acyclic Graph).</strong> The kernels are NOT executed — just recorded as a recipe.<br>
+	  <strong style="color:var(--amber);">"Instantiate" = pre-compile that recipe for THIS specific GPU.</strong> Validates, optimizes, fuses. One-time cost of ~100μs.<br>
+	  <strong style="color:var(--green);">"Replay" = execute the entire recipe with 1 CPU command.</strong> 0.5μs instead of 100μs. Every. Single. Frame.<br>
+	  <strong style="color:var(--cyan);">Yes, keeping count of kernels matters!</strong> 20 kernels save 99.5μs/frame. If you only had 3 kernels, graph overhead > savings. Count your kernels.
+	</div>
+
+	<h3>📊 Kernel Count — How Many <<<>>> in YOUR Pipeline?</h3>
+	<table class="param" style="margin:0.5rem auto;max-width:700px;">
+	<tr><th style="width:160px;">Pipeline</th><th style="color:var(--cyan);"># Kernels</th><th>Breakdown</th><th style="color:var(--amber);">CPU Save/Frame</th><th>Use Graph?</th></tr>
+	<tr><td style="color:var(--violet);">MNIST CNN (Phase 3.5)</td><td style="font-size:0.5rem;"><strong>~6</strong></td><td style="font-size:0.45rem;">2 conv + 2 pool + 2 FC</td><td style="font-size:0.5rem;color:var(--amber);">~30μs</td><td style="font-size:0.5rem;color:var(--amber);">⚠️ Marginal</td></tr>
+	<tr style="background:rgba(255,179,71,0.06);"><td style="color:var(--green);">YOLO Inference</td><td style="font-size:0.5rem;"><strong style="color:var(--green);">~20</strong></td><td style="font-size:0.45rem;">1 prep + 10 backbone + 5 neck + 3 head + 1 NMS</td><td style="font-size:0.5rem;color:var(--green);font-weight:700;">~100μs</td><td style="font-size:0.5rem;color:var(--green);font-weight:700;">✅ YES</td></tr>
+	<tr><td style="color:var(--cyan);">TensorRT Engine</td><td style="font-size:0.5rem;"><strong>~50-200</strong></td><td style="font-size:0.45rem;">TRT decomposes ops into many small kernels</td><td style="font-size:0.5rem;color:var(--amber);">250-1000μs</td><td style="font-size:0.5rem;color:var(--green);">✅ Essential</td></tr>
+	<tr><td style="color:var(--magenta);">Multi-Model Triton</td><td style="font-size:0.5rem;"><strong>~100-500</strong></td><td style="font-size:0.45rem;">Multiple models + pre/post processing</td><td style="font-size:0.5rem;color:var(--red);">500-2500μs!</td><td style="font-size:0.5rem;color:var(--green);">✅ CRITICAL</td></tr>
+	<tr><td style="color:var(--red);">Simple Vector Add</td><td style="font-size:0.5rem;"><strong>1</strong></td><td style="font-size:0.45rem;">Just one kernel</td><td style="font-size:0.5rem;color:var(--red);">4.5μs</td><td style="font-size:0.5rem;color:var(--red);">❌ Overhead > benefit</td></tr>
+	</table>
+	<div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0;">
+	  💡 <strong style="color:var(--amber);">Rule: Graph when (K × 5μs) > (capture_cost + instantiate_cost) ≈ 120μs → K > 24 kernels.</strong><br>
+	  But in production, the one-time cost is amortized over millions of frames — so even 10 kernels is worth it at scale.<br>
+	  <strong style="color:var(--cyan);">Count your <<<>>> calls!</strong> Each one is 5μs of CPU time. Graphs turn N×5μs into ~0.5μs.
+	</div>
+
 <h3>🎯 Real YOLO Pipeline — Frames Per Second Impact</h3>
 <div style="font-size:0.5rem;color:var(--tmut);text-align:center;margin:0.3rem 0 0.5rem;">
   A typical YOLO inference pipeline has <strong style="color:var(--amber);">~20 kernel launches</strong> (preprocess, backbone conv layers, neck, detection head, NMS).<br>
